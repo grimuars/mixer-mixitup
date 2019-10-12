@@ -1,5 +1,4 @@
-﻿using Mixer.Base.Util;
-using StreamingClient.Base.Util;
+﻿using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
@@ -43,6 +42,10 @@ namespace MixItUp.Base.Services
         XButton2 = 0x00000002,
     }
 
+    /// <summary>
+    /// Virtal Key Codes: https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+    /// Scan Code Keys: https://www.win.tue.nl/~aeb/linux/kbd/scancodes-1.html#ss1.4
+    /// </summary>
     public enum InputKeyEnum : ushort
     {
         [Name("0")]

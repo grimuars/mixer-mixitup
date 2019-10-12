@@ -45,11 +45,11 @@ namespace MixItUp.WPF
             this.Title += " - v" + Assembly.GetEntryAssembly().GetName().Version.ToString();
 
             this.ExistingStreamerComboBox.ItemsSource = streamerSettings;
-            this.ModeratorChannelComboBox.ItemsSource = moderatorSettings;
+            this.MixerModeratorChannelComboBox.ItemsSource = moderatorSettings;
 
             await this.CheckForUpdates();
 
-            foreach (IChannelSettings setting in (await ChannelSession.Services.Settings.GetAllSettings()).OrderBy(s => s.Channel.token))
+            foreach (IChannelSettings setting in (await ChannelSession.Services.Settings.GetAllSettings()).OrderBy(s => s.MixerChannel.token))
             {
                 if (setting.IsStreamer)
                 {
@@ -64,7 +64,7 @@ namespace MixItUp.WPF
             if (this.streamerSettings.Count > 0)
             {
                 this.ExistingStreamerComboBox.Visibility = Visibility.Visible;
-                this.streamerSettings.Add(new DesktopChannelSettings() { Channel = new ExpandedChannelModel() { id = 0, user = new UserWithGroupsModel() { username = "NEW STREAMER" }, token = "NEW STREAMER" } });
+                this.streamerSettings.Add(new DesktopChannelSettings() { MixerChannel = new ExpandedChannelModel() { id = 0, user = new UserWithGroupsModel() { username = "NEW STREAMER" }, token = "NEW STREAMER" } });
                 if (this.streamerSettings.Count() == 2)
                 {
                     this.ExistingStreamerComboBox.SelectedIndex = 0;
@@ -73,7 +73,7 @@ namespace MixItUp.WPF
 
             if (this.moderatorSettings.Count == 1)
             {
-                this.ModeratorChannelComboBox.SelectedIndex = 0;
+                this.MixerModeratorChannelComboBox.SelectedIndex = 0;
             }
 
             if (App.AppSettings.AutoLogInAccount > 0)
@@ -81,7 +81,7 @@ namespace MixItUp.WPF
                 var allSettings = this.streamerSettings.ToList();
                 allSettings.AddRange(this.moderatorSettings);
 
-                IChannelSettings autoLogInSettings = allSettings.FirstOrDefault(s => s.Channel.user.id == App.AppSettings.AutoLogInAccount);
+                IChannelSettings autoLogInSettings = allSettings.FirstOrDefault(s => s.MixerChannel.user.id == App.AppSettings.AutoLogInAccount);
                 if (autoLogInSettings != null && autoLogInSettings.LicenseAccepted)
                 {
                     await Task.Delay(5000);
@@ -122,7 +122,7 @@ namespace MixItUp.WPF
                     if (this.ExistingStreamerComboBox.SelectedIndex >= 0)
                     {
                         IChannelSettings setting = (IChannelSettings)this.ExistingStreamerComboBox.SelectedItem;
-                        if (setting.Channel.id == 0)
+                        if (setting.MixerChannel.id == 0)
                         {
                             if (await this.ShowLicenseAgreement())
                             {
@@ -176,30 +176,30 @@ namespace MixItUp.WPF
         {
             await this.RunAsyncOperation(async () =>
             {
-                if (string.IsNullOrEmpty(this.ModeratorChannelComboBox.Text))
+                if (string.IsNullOrEmpty(this.MixerModeratorChannelComboBox.Text) && string.IsNullOrEmpty(this.TwitchModeratorChannelComboBox.Text))
                 {
                     await MessageBoxHelper.ShowMessageDialog("A channel name must be entered");
                     return;
                 }
 
                 bool authenticationSuccessful = false;
-                if (this.ModeratorChannelComboBox.SelectedIndex >= 0)
+                if (this.MixerModeratorChannelComboBox.SelectedIndex >= 0)
                 {
-                    IChannelSettings setting = (IChannelSettings)this.ModeratorChannelComboBox.SelectedItem;
+                    IChannelSettings setting = (IChannelSettings)this.MixerModeratorChannelComboBox.SelectedItem;
                     authenticationSuccessful = await this.ExistingSettingLogin(setting);
                 }
                 else
                 {
                     if (await this.ShowLicenseAgreement())
                     {
-                        authenticationSuccessful = await this.EstablishConnection(ChannelSession.ModeratorScopes, this.ModeratorChannelComboBox.Text);
+                        authenticationSuccessful = await ChannelSession.ConnectModerator(this.MixerModeratorChannelComboBox.Text, this.TwitchModeratorChannelComboBox.Text);
                     }
                 }
 
                 if (authenticationSuccessful)
                 {
-                    IEnumerable<UserWithGroupsModel> users = await ChannelSession.MixerStreamerConnection.GetUsersWithRoles(ChannelSession.MixerChannel, MixerRoleEnum.Mod);
-                    if (users.Any(uwg => uwg.id.Equals(ChannelSession.MixerStreamerUser.id)) || ChannelSession.IsDebug())
+                    IEnumerable<UserWithGroupsModel> users = await ChannelSession.MixerUserConnection.GetUsersWithRoles(ChannelSession.MixerChannel, MixerRoleEnum.Mod);
+                    if (users.Any(uwg => uwg.id.Equals(ChannelSession.MixerUser.id)) || ChannelSession.IsDebug())
                     {
                         ShowMainWindow(new MainWindow());
                         this.Hide();
@@ -244,7 +244,7 @@ namespace MixItUp.WPF
         {
             if (setting.LicenseAccepted || await this.ShowLicenseAgreement())
             {
-                bool result = await ChannelSession.ConnectUser(setting);
+                bool result = await ChannelSession.Connect(setting);
                 if (result)
                 {
                     if (!await ChannelSession.ConnectBot(setting))
@@ -263,7 +263,7 @@ namespace MixItUp.WPF
 
         private async Task<bool> NewStreamerLogin()
         {
-            if (await this.EstablishConnection(ChannelSession.StreamerScopes, channelName: null))
+            if (await ChannelSession.ConnectStreamer())
             {
                 ShowMainWindow(new NewUserWizardWindow());
                 this.Hide();
@@ -275,11 +275,6 @@ namespace MixItUp.WPF
                 await MessageBoxHelper.ShowMessageDialog("Unable to authenticate with Mixer, please try again");
             }
             return false;
-        }
-
-        private async Task<bool> EstablishConnection(IEnumerable<OAuthClientScopeEnum> scopes, string channelName = null)
-        {
-            return await ChannelSession.ConnectUser(scopes, channelName);
         }
 
         private async void GlobalEvents_OnShowMessageBox(object sender, string message)

@@ -28,6 +28,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
+using TwitchNewAPI = Twitch.Base.Models.NewAPI;
 
 namespace MixItUp.Desktop
 {
@@ -53,10 +54,22 @@ namespace MixItUp.Desktop
         [JsonProperty]
         public bool IsStreamer { get; set; }
 
+        [Obsolete]
         [JsonProperty]
         public OAuthTokenModel OAuthToken { get; set; }
+        [Obsolete]
         [JsonProperty]
         public OAuthTokenModel BotOAuthToken { get; set; }
+
+        [JsonProperty]
+        public OAuthTokenModel MixerUserOAuthToken { get; set; }
+        [JsonProperty]
+        public OAuthTokenModel MixerBotOAuthToken { get; set; }
+
+        [JsonProperty]
+        public OAuthTokenModel TwitchUserOAuthToken { get; set; }
+        [JsonProperty]
+        public OAuthTokenModel TwitchBotOAuthToken { get; set; }
 
         [JsonProperty]
         public OAuthTokenModel StreamlabsOAuthToken { get; set; }
@@ -86,8 +99,14 @@ namespace MixItUp.Desktop
         [JsonProperty]
         public Dictionary<string, HotKeyConfiguration> HotKeys { get; set; }
 
+        [Obsolete]
         [JsonProperty]
         public ExpandedChannelModel Channel { get; set; }
+        [JsonProperty]
+        public ExpandedChannelModel MixerChannel { get; set; }
+
+        [JsonProperty]
+        public TwitchNewAPI.Users.UserModel TwitchChannel { get; set; }
 
         [JsonProperty]
         public bool FeatureMe { get; set; }
@@ -525,7 +544,7 @@ namespace MixItUp.Desktop
         public DesktopChannelSettings(ExpandedChannelModel channel, bool isStreamer = true)
             : this()
         {
-            this.Channel = channel;
+            this.MixerChannel = channel;
             this.IsStreamer = isStreamer;
 
             this.GameQueueUserJoinedCommand = CustomCommand.BasicChatCommand("Game Queue Used Joined", "You are #$queueposition in the queue to play.", isWhisper: true);
@@ -572,6 +591,26 @@ namespace MixItUp.Desktop
 
         public async Task Initialize()
         {
+#pragma warning disable CS0612 // Type or member is obsolete
+            if (this.OAuthToken != null)
+            {
+                this.MixerUserOAuthToken = this.OAuthToken;
+                this.OAuthToken = null;
+            }
+
+            if (this.BotOAuthToken != null)
+            {
+                this.MixerBotOAuthToken = this.BotOAuthToken;
+                this.BotOAuthToken = null;
+            }
+
+            if (this.Channel != null)
+            {
+                this.MixerChannel = this.Channel;
+                this.Channel = null;
+            }
+#pragma warning restore CS0612 // Type or member is obsolete
+
             this.Currencies = new LockedDictionary<Guid, UserCurrencyViewModel>(this.currenciesInternal);
             this.Inventories = new LockedDictionary<Guid, UserInventoryViewModel>(this.inventoriesInternal);
             this.PreMadeChatCommandSettings = new LockedList<PreMadeChatCommandSettings>(this.preMadeChatCommandSettingsInternal);
@@ -636,13 +675,13 @@ namespace MixItUp.Desktop
         {
             this.Version = DesktopChannelSettings.LatestVersion;
 
-            if (ChannelSession.MixerStreamerConnection != null)
+            if (ChannelSession.MixerUserConnection != null)
             {
-                this.OAuthToken = ChannelSession.MixerStreamerConnection.Connection.GetOAuthTokenCopy();
+                this.MixerUserOAuthToken = ChannelSession.MixerUserConnection.Connection.GetOAuthTokenCopy();
             }
             if (ChannelSession.MixerBotConnection != null)
             {
-                this.BotOAuthToken = ChannelSession.MixerBotConnection.Connection.GetOAuthTokenCopy();
+                this.MixerBotOAuthToken = ChannelSession.MixerBotConnection.Connection.GetOAuthTokenCopy();
             }
 
             if (ChannelSession.Services.Streamlabs != null)

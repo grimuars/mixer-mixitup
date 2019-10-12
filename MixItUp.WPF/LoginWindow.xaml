@@ -55,7 +55,7 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <ComboBox Grid.Row="0" x:Name="ExistingStreamerComboBox" Width="140" DisplayMemberPath="Channel.token" MaterialDesign:HintAssist.Hint="Streamer Account" Style="{StaticResource MaterialDesignFloatingHintComboBox}" Visibility="Collapsed" />
+                    <ComboBox Grid.Row="0" x:Name="ExistingStreamerComboBox" Width="140" DisplayMemberPath="MixerChannel.token" MaterialDesign:HintAssist.Hint="Streamer Account" Style="{StaticResource MaterialDesignFloatingHintComboBox}" Visibility="Collapsed" />
 
                     <Button Grid.Row="2" Grid.RowSpan="3" x:Name="StreamerLoginButton" Click="StreamerLoginButton_Click" Width="80" Height="30" Content="{Binding Converter={StaticResource LocalizationConverter}, ConverterParameter='Login'}" />
                 </Grid>
@@ -67,13 +67,17 @@
                 <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="20" />
+                        <RowDefinition Height="0" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="0" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <ComboBox Grid.Row="0" x:Name="ModeratorChannelComboBox" Width="140" DisplayMemberPath="Channel.token" MaterialDesign:HintAssist.Hint="Channel Name" Style="{StaticResource MaterialDesignFloatingHintComboBox}" IsEditable="True" KeyDown="ModeratorChannelComboBox_KeyDown" />
+                    <ComboBox Grid.Row="0" x:Name="MixerModeratorChannelComboBox" Width="140" DisplayMemberPath="MixerChannel.token" MaterialDesign:HintAssist.Hint="Mixer Channel" Style="{StaticResource MaterialDesignFloatingHintComboBox}" IsEditable="True" KeyDown="ModeratorChannelComboBox_KeyDown" />
 
-                    <Button Grid.Row="2" x:Name="ModeratorLoginButton" Click="ModeratorLoginButton_Click" Width="80" Height="30" Content="{Binding Converter={StaticResource LocalizationConverter}, ConverterParameter='Login'}" />
+                    <ComboBox Grid.Row="2" x:Name="TwitchModeratorChannelComboBox" Width="140" DisplayMemberPath="TwitchChannel.login" MaterialDesign:HintAssist.Hint="Twitch Channel" Style="{StaticResource MaterialDesignFloatingHintComboBox}" IsEditable="True" KeyDown="ModeratorChannelComboBox_KeyDown" />
+
+                    <Button Grid.Row="4" x:Name="ModeratorLoginButton" Click="ModeratorLoginButton_Click" Width="80" Height="30" Content="{Binding Converter={StaticResource LocalizationConverter}, ConverterParameter='Login'}" />
 
                 </Grid>
             </GroupBox>

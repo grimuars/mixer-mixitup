@@ -67,7 +67,7 @@ namespace MixItUp.WPF.Controls.Settings
         {
             await this.Window.RunAsyncOperation(async () =>
             {
-                string filePath = ChannelSession.Services.FileService.ShowSaveFileDialog(ChannelSession.Settings.Channel.token + ".mixitup");
+                string filePath = ChannelSession.Services.FileService.ShowSaveFileDialog(ChannelSession.Settings.MixerChannel.token + ".mixitup");
                 if (!string.IsNullOrEmpty(filePath))
                 {
                     await ChannelSession.Services.Settings.SavePackagedBackup(ChannelSession.Settings, filePath);
@@ -207,11 +207,11 @@ namespace MixItUp.WPF.Controls.Settings
                 {
                     if (await MessageBoxHelper.ShowConfirmationDialog("This will unban all currently banned users from your channel. This will take some time to complete, are you sure you wish to do this?"))
                     {
-                        await ChannelSession.MixerStreamerConnection.GetUsersWithRoles(ChannelSession.MixerChannel, MixerRoleEnum.Banned, async (collection) =>
+                        await ChannelSession.MixerUserConnection.GetUsersWithRoles(ChannelSession.MixerChannel, MixerRoleEnum.Banned, async (collection) =>
                         {
                             foreach (UserWithGroupsModel user in collection)
                             {
-                                await ChannelSession.MixerStreamerConnection.RemoveUserRoles(ChannelSession.MixerChannel, user, new List<MixerRoleEnum>() { MixerRoleEnum.Banned });
+                                await ChannelSession.MixerUserConnection.RemoveUserRoles(ChannelSession.MixerChannel, user, new List<MixerRoleEnum>() { MixerRoleEnum.Banned });
                             }
                         });
                     }

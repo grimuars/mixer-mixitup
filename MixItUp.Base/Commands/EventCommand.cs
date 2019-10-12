@@ -124,7 +124,7 @@ namespace MixItUp.Base.Commands
                     }
                     else
                     {
-                        await command.Perform(await ChannelSession.GetCurrentUser(), arguments: arguments, extraSpecialIdentifiers: extraSpecialIdentifiers);
+                        await command.Perform(ChannelSession.GetCurrentUser(), arguments: arguments, extraSpecialIdentifiers: extraSpecialIdentifiers);
                     }
                 }
             }
@@ -136,7 +136,7 @@ namespace MixItUp.Base.Commands
 
             UserViewModel user = new UserViewModel(0, donation.UserName);
 
-            UserModel userModel = await ChannelSession.MixerStreamerConnection.GetUser(user.UserName);
+            UserModel userModel = await ChannelSession.MixerUserConnection.GetUser(user.UserName);
             if (userModel != null)
             {
                 user = new UserViewModel(userModel);

@@ -162,7 +162,7 @@ namespace MixItUp.Base.Services
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             Task.Run(async () =>
             {
-                await ChannelSession.MixerStreamerConnection.GetChatUsers(ChannelSession.MixerChannel, async (collection) =>
+                await ChannelSession.MixerUserConnection.GetChatUsers(ChannelSession.MixerChannel, async (collection) =>
                 {
                     List<UserViewModel> users = new List<UserViewModel>();
                     foreach (ChatUserModel chatUser in collection)
@@ -459,7 +459,7 @@ namespace MixItUp.Base.Services
             {
                 if (ChannelSession.Settings.WhisperAllAlerts)
                 {
-                    await ChannelSession.Services.Chat.Whisper(ChannelSession.MixerStreamerUser.username, message.PlainTextMessage, false);
+                    await ChannelSession.Services.Chat.Whisper(ChannelSession.MixerUser.username, message.PlainTextMessage, false);
                 }
 
                 GlobalEvents.AlertMessageReceived((AlertChatMessageViewModel)message);
@@ -625,7 +625,7 @@ namespace MixItUp.Base.Services
                 UserViewModel modUser = e.Item2;
                 if (e.Item2 == null)
                 {
-                    modUser = new UserViewModel(ChannelSession.MixerStreamerUser);
+                    modUser = new UserViewModel(ChannelSession.MixerUser);
                 }
                 await EventCommand.FindAndRunEventCommand(EnumHelper.GetEnumName(OtherEventTypeEnum.ChatUserPurge), modUser, arguments: new List<string>() { targetUser.UserName });
             }

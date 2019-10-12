@@ -95,11 +95,11 @@ namespace MixItUp.Base.Services.Mixer
         {
             return await this.AttemptConnect(async () =>
             {
-                if (ChannelSession.MixerStreamerConnection != null)
+                if (ChannelSession.MixerUserConnection != null)
                 {
                     this.cancellationTokenSource = new CancellationTokenSource();
 
-                    this.streamerClient = await this.ConnectAndAuthenticateChatClient(ChannelSession.MixerStreamerConnection);
+                    this.streamerClient = await this.ConnectAndAuthenticateChatClient(ChannelSession.MixerUserConnection);
                     if (this.streamerClient != null)
                     {
                         this.streamerClient.OnClearMessagesOccurred += ChatClient_OnClearMessagesOccurred;
@@ -123,7 +123,7 @@ namespace MixItUp.Base.Services.Mixer
 
                         AsyncRunner.RunAsyncInBackground(async () =>
                         {
-                            await ChannelSession.MixerStreamerConnection.GetChatUsers(ChannelSession.MixerChannel, (users) =>
+                            await ChannelSession.MixerUserConnection.GetChatUsers(ChannelSession.MixerChannel, (users) =>
                             {
                                 foreach (ChatUserModel user in users)
                                 {
@@ -361,7 +361,7 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await ChannelSession.MixerStreamerConnection.AddUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Banned });
+                await ChannelSession.MixerUserConnection.AddUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Banned });
                 await user.RefreshDetails(true);
             });
         }
@@ -370,7 +370,7 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await ChannelSession.MixerStreamerConnection.RemoveUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Banned });
+                await ChannelSession.MixerUserConnection.RemoveUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Banned });
                 await user.RefreshDetails(true);
             });
         }
@@ -379,7 +379,7 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await ChannelSession.MixerStreamerConnection.AddUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Mod });
+                await ChannelSession.MixerUserConnection.AddUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Mod });
                 await user.RefreshDetails(true);
             });
         }
@@ -388,7 +388,7 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await ChannelSession.MixerStreamerConnection.RemoveUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Mod });
+                await ChannelSession.MixerUserConnection.RemoveUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Mod });
                 await user.RefreshDetails(true);
             });
         }
@@ -498,7 +498,7 @@ namespace MixItUp.Base.Services.Mixer
         private async Task ChatterRefreshBackground(CancellationToken cancellationToken)
         {
             List<ChatUserModel> chatUsers = new List<ChatUserModel>();
-            await ChannelSession.MixerStreamerConnection.GetChatUsers(ChannelSession.MixerChannel, (users) =>
+            await ChannelSession.MixerUserConnection.GetChatUsers(ChannelSession.MixerChannel, (users) =>
             {
                 chatUsers.AddRange(users);
                 return Task.FromResult(0);

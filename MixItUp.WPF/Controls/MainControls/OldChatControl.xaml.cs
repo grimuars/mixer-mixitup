@@ -329,12 +329,12 @@ namespace MixItUp.WPF.Controls.MainControls
                         
                         break;
                     case UserDialogResult.Follow:
-                        ExpandedChannelModel channelToFollow = await ChannelSession.MixerStreamerConnection.GetChannel(user.ChannelID);
-                        await ChannelSession.MixerStreamerConnection.Follow(channelToFollow, ChannelSession.MixerStreamerUser);
+                        ExpandedChannelModel channelToFollow = await ChannelSession.MixerUserConnection.GetChannel(user.ChannelID);
+                        await ChannelSession.MixerUserConnection.Follow(channelToFollow, ChannelSession.MixerUser);
                         break;
                     case UserDialogResult.Unfollow:
-                        ExpandedChannelModel channelToUnfollow = await ChannelSession.MixerStreamerConnection.GetChannel(user.ChannelID);
-                        await ChannelSession.MixerStreamerConnection.Unfollow(channelToUnfollow, ChannelSession.MixerStreamerUser);
+                        ExpandedChannelModel channelToUnfollow = await ChannelSession.MixerUserConnection.GetChannel(user.ChannelID);
+                        await ChannelSession.MixerUserConnection.Unfollow(channelToUnfollow, ChannelSession.MixerUser);
                         break;
                     case UserDialogResult.PromoteToMod:
                         if (await MessageBoxHelper.ShowConfirmationDialog(string.Format("This will promote the user {0} to a moderator of this channel. Are you sure?", user.UserName)))
@@ -977,7 +977,7 @@ namespace MixItUp.WPF.Controls.MainControls
 
             if (ChannelSession.Settings.WhisperAllAlerts)
             {
-                await ChannelSession.Services.Chat.Whisper(ChannelSession.MixerStreamerUser.username, message);
+                await ChannelSession.Services.Chat.Whisper(ChannelSession.MixerUser.username, message);
             }
         }
 

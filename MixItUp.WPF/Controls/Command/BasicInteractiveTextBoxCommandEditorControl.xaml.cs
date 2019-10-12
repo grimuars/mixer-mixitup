@@ -132,7 +132,7 @@ namespace MixItUp.WPF.Controls.Command
                 }
 
                 this.command.TextBox.cost = sparkCost;
-                await ChannelSession.MixerStreamerConnection.UpdateMixPlayGameVersion(this.version);
+                await ChannelSession.MixerUserConnection.UpdateMixPlayGameVersion(this.version);
 
                 this.command.UseChatModeration = this.UseChatModerationCheckBox.IsChecked.GetValueOrDefault();
                 this.command.IsBasic = true;

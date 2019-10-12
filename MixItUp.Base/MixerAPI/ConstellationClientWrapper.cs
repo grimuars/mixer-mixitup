@@ -63,10 +63,10 @@ namespace MixItUp.Base.MixerAPI
 
         public async Task<bool> Connect()
         {
-            PatronageStatusModel patronageStatus = await ChannelSession.MixerStreamerConnection.GetPatronageStatus(ChannelSession.MixerChannel);
+            PatronageStatusModel patronageStatus = await ChannelSession.MixerUserConnection.GetPatronageStatus(ChannelSession.MixerChannel);
             if (patronageStatus != null)
             {
-                PatronagePeriodModel patronagePeriod = await ChannelSession.MixerStreamerConnection.GetPatronagePeriod(patronageStatus);
+                PatronagePeriodModel patronagePeriod = await ChannelSession.MixerUserConnection.GetPatronagePeriod(patronageStatus);
                 if (patronagePeriod != null)
                 {
                     this.allPatronageMilestones = new List<PatronageMilestoneModel>(patronagePeriod.milestoneGroups.SelectMany(mg => mg.milestones));
@@ -107,7 +107,7 @@ namespace MixItUp.Base.MixerAPI
 
         protected override async Task<bool> ConnectInternal()
         {
-            this.Client = await this.RunAsync(ConstellationClient.Create(ChannelSession.MixerStreamerConnection.Connection));
+            this.Client = await this.RunAsync(ConstellationClient.Create(ChannelSession.MixerUserConnection.Connection));
             return await this.RunAsync(async () =>
             {
                 if (this.Client != null)
@@ -178,7 +178,7 @@ namespace MixItUp.Base.MixerAPI
                     user = ChannelSession.Services.User.GetUserByID(userID.ToObject<uint>().ToString());
                     if (user == null)
                     {
-                        UserModel userModel = await ChannelSession.MixerStreamerConnection.GetUser(userID.ToObject<uint>());
+                        UserModel userModel = await ChannelSession.MixerUserConnection.GetUser(userID.ToObject<uint>());
                         if (userModel != null)
                         {
                             user = new UserViewModel(userModel);
@@ -196,7 +196,7 @@ namespace MixItUp.Base.MixerAPI
                     if (e.payload["online"] != null)
                     {
                         bool online = e.payload["online"].ToObject<bool>();
-                        user = await ChannelSession.GetCurrentUser();
+                        user = ChannelSession.GetCurrentUser();
                         if (online)
                         {
                             if (EventCommand.CanUserRunEvent(user, EnumHelper.GetEnumName(OtherEventTypeEnum.MixerChannelStreamStart)))
@@ -308,8 +308,8 @@ namespace MixItUp.Base.MixerAPI
                 {
                     if (e.payload.TryGetValue("gifterId", out JToken gifterID) && e.payload.TryGetValue("giftReceiverId", out JToken receiverID))
                     {
-                        UserModel gifterUserModel = await ChannelSession.MixerStreamerConnection.GetUser(gifterID.ToObject<uint>());
-                        UserModel receiverUserModel = await ChannelSession.MixerStreamerConnection.GetUser(receiverID.ToObject<uint>());
+                        UserModel gifterUserModel = await ChannelSession.MixerUserConnection.GetUser(gifterID.ToObject<uint>());
+                        UserModel receiverUserModel = await ChannelSession.MixerUserConnection.GetUser(receiverID.ToObject<uint>());
                         if (gifterUserModel != null && receiverUserModel != null)
                         {
                             UserViewModel gifterUser = new UserViewModel(gifterUserModel);
@@ -377,7 +377,7 @@ namespace MixItUp.Base.MixerAPI
                                     { SpecialIdentifierStringBuilder.MilestoneSpecialIdentifierHeader + "amount", milestoneReached.target.ToString() },
                                     { SpecialIdentifierStringBuilder.MilestoneSpecialIdentifierHeader + "reward", milestoneReached.PercentageAmountText() },
                                 };
-                                await EventCommand.FindAndRunEventCommand(EnumHelper.GetEnumName(OtherEventTypeEnum.MixerMilestoneReached), await ChannelSession.GetCurrentUser(), extraSpecialIdentifiers: specialIdentifiers);
+                                await EventCommand.FindAndRunEventCommand(EnumHelper.GetEnumName(OtherEventTypeEnum.MixerMilestoneReached), ChannelSession.GetCurrentUser(), extraSpecialIdentifiers: specialIdentifiers);
                             }
                         }
                     }

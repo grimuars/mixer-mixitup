@@ -21,7 +21,7 @@ namespace MixItUp.WPF.Controls.Services
         {
             this.SetHeaderText("Mixer Bot Account");
 
-            if (ChannelSession.Settings.BotOAuthToken != null && ChannelSession.MixerBotUser != null)
+            if (ChannelSession.Settings.MixerBotOAuthToken != null && ChannelSession.MixerBotUser != null)
             {
                 this.ExistingBotGrid.Visibility = Visibility.Visible;
                 this.NewBotLoginGrid.Visibility = Visibility.Collapsed;
@@ -49,7 +49,7 @@ namespace MixItUp.WPF.Controls.Services
         {
             bool result = await this.groupBoxControl.window.RunAsyncOperation(async () =>
             {
-                TestStreamSettingsModel testStreamSettings = await ChannelSession.MixerStreamerConnection.GetTestStreamSettings(ChannelSession.MixerChannel);
+                TestStreamSettingsModel testStreamSettings = await ChannelSession.MixerUserConnection.GetTestStreamSettings(ChannelSession.MixerChannel);
                 if (testStreamSettings != null && testStreamSettings.isActive.GetValueOrDefault())
                 {
                     if (!await DialogHelper.ShowConfirmation("Because test stream settings are enabled, your bot account will not be able to connect correctly. You will need to disable Test Streams in order to use your bot account for things such a chat messages & whispers. Are you sure you still wish to connect it?"))
@@ -64,13 +64,13 @@ namespace MixItUp.WPF.Controls.Services
             {
                 await DialogHelper.ShowMessage("Unable to authenticate Bot with Mixer. Please ensure you approved access for the application in a timely manner.");
             }
-            else if (ChannelSession.MixerBotUser.id.Equals(ChannelSession.MixerStreamerUser.id))
+            else if (ChannelSession.MixerBotUser.id.Equals(ChannelSession.MixerUser.id))
             {
                 await this.groupBoxControl.window.RunAsyncOperation(async () =>
                 {
                     await ChannelSession.DisconnectBot();
                 });
-                ChannelSession.Settings.BotOAuthToken = null;
+                ChannelSession.Settings.MixerBotOAuthToken = null;
                 await DialogHelper.ShowMessage("You must sign in to a different account than your Streamer account.");
             }
             else
@@ -96,7 +96,7 @@ namespace MixItUp.WPF.Controls.Services
             {
                 await ChannelSession.DisconnectBot();
             });
-            ChannelSession.Settings.BotOAuthToken = null;
+            ChannelSession.Settings.MixerBotOAuthToken = null;
 
             this.ExistingBotGrid.Visibility = Visibility.Collapsed;
             this.NewBotLoginGrid.Visibility = Visibility.Visible;

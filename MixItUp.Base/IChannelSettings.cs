@@ -19,6 +19,7 @@ using StreamingClient.Base.Model.OAuth;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using TwitchNewAPI = Twitch.Base.Models.NewAPI;
 
 namespace MixItUp.Base
 {
@@ -35,8 +36,11 @@ namespace MixItUp.Base
 
         bool IsStreamer { get; set; }
 
-        OAuthTokenModel OAuthToken { get; set; }
-        OAuthTokenModel BotOAuthToken { get; set; }
+        OAuthTokenModel MixerUserOAuthToken { get; set; }
+        OAuthTokenModel MixerBotOAuthToken { get; set; }
+
+        OAuthTokenModel TwitchUserOAuthToken { get; set; }
+        OAuthTokenModel TwitchBotOAuthToken { get; set; }
 
         OAuthTokenModel StreamlabsOAuthToken { get; set; }
         OAuthTokenModel TwitterOAuthToken { get; set; }
@@ -53,7 +57,8 @@ namespace MixItUp.Base
         Dictionary<string, CommandGroupSettings> CommandGroups { get; set; }
         Dictionary<string, HotKeyConfiguration> HotKeys { get; set; }
 
-        ExpandedChannelModel Channel { get; set; }
+        ExpandedChannelModel MixerChannel { get; set; }
+        TwitchNewAPI.Users.UserModel TwitchChannel { get; set; }
 
         bool FeatureMe { get; set; }
         StreamingSoftwareTypeEnum DefaultStreamingSoftware { get; set; }

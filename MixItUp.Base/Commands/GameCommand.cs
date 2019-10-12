@@ -2481,7 +2481,7 @@ namespace MixItUp.Base.Commands
             }
             else
             {
-                await this.PerformCommand(this.UserFailOutcome.Command, await ChannelSession.GetCurrentUser(), new List<string>(), this.betAmount, this.totalPayout);
+                await this.PerformCommand(this.UserFailOutcome.Command, ChannelSession.GetCurrentUser(), new List<string>(), this.betAmount, this.totalPayout);
             }
         }
 
@@ -2626,7 +2626,7 @@ namespace MixItUp.Base.Commands
             }
             else
             {
-                await this.PerformCommand(this.UserFailOutcome.Command, await ChannelSession.GetCurrentUser(), new List<string>(), this.betAmount, this.totalPayout);
+                await this.PerformCommand(this.UserFailOutcome.Command, ChannelSession.GetCurrentUser(), new List<string>(), this.betAmount, this.totalPayout);
             }
         }
 
@@ -3325,7 +3325,7 @@ namespace MixItUp.Base.Commands
             this.FailedGuesses.Clear();
             this.TotalAmount = this.InitialAmount;
 
-            this.ResetData(await ChannelSession.GetCurrentUser());
+            this.ResetData(ChannelSession.GetCurrentUser());
         }
     }
 }

@@ -231,7 +231,7 @@ namespace MixItUp.WPF.Controls.Actions
                 ActionBase action = this.GetAction();
                 if (action != null)
                 {
-                    UserViewModel currentUser = await ChannelSession.GetCurrentUser();
+                    UserViewModel currentUser = ChannelSession.GetCurrentUser();
                     await action.Perform(currentUser, new List<string>() { "@" + currentUser.UserName }, new Dictionary<string, string>());
                 }
                 else

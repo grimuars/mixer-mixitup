@@ -14,7 +14,7 @@ using Mixer.Base.Model.Teams;
 using Mixer.Base.Model.TestStreams;
 using Mixer.Base.Model.User;
 using MixItUp.Base.ViewModel.User;
-using Newtonsoft.Json.Linq;
+using StreamingClient.Base.Model.OAuth;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
@@ -49,14 +49,104 @@ namespace MixItUp.Base.Services.Mixer
 
     public class MixerConnectionService : MixerRequestWrapperBase, IMixerConnectionService
     {
+        public const string ClientID = "5e3140d0719f5842a09dd2700befbfc100b5a246e35f2690";
+
+        public static readonly List<OAuthClientScopeEnum> StreamerScopes = new List<OAuthClientScopeEnum>()
+        {
+            OAuthClientScopeEnum.chat__bypass_links,
+            OAuthClientScopeEnum.chat__bypass_slowchat,
+            OAuthClientScopeEnum.chat__change_ban,
+            OAuthClientScopeEnum.chat__change_role,
+            OAuthClientScopeEnum.chat__chat,
+            OAuthClientScopeEnum.chat__connect,
+            OAuthClientScopeEnum.chat__clear_messages,
+            OAuthClientScopeEnum.chat__edit_options,
+            OAuthClientScopeEnum.chat__giveaway_start,
+            OAuthClientScopeEnum.chat__poll_start,
+            OAuthClientScopeEnum.chat__poll_vote,
+            OAuthClientScopeEnum.chat__purge,
+            OAuthClientScopeEnum.chat__remove_message,
+            OAuthClientScopeEnum.chat__timeout,
+            OAuthClientScopeEnum.chat__view_deleted,
+            OAuthClientScopeEnum.chat__whisper,
+
+            OAuthClientScopeEnum.channel__clip__create__self,
+            OAuthClientScopeEnum.channel__details__self,
+            OAuthClientScopeEnum.channel__follow__self,
+            OAuthClientScopeEnum.channel__update__self,
+            OAuthClientScopeEnum.channel__analytics__self,
+
+            OAuthClientScopeEnum.interactive__manage__self,
+            OAuthClientScopeEnum.interactive__robot__self,
+
+            OAuthClientScopeEnum.user__details__self,
+        };
+
+        public static readonly List<OAuthClientScopeEnum> ModeratorScopes = new List<OAuthClientScopeEnum>()
+        {
+            OAuthClientScopeEnum.chat__bypass_links,
+            OAuthClientScopeEnum.chat__bypass_slowchat,
+            OAuthClientScopeEnum.chat__change_ban,
+            OAuthClientScopeEnum.chat__change_role,
+            OAuthClientScopeEnum.chat__chat,
+            OAuthClientScopeEnum.chat__connect,
+            OAuthClientScopeEnum.chat__clear_messages,
+            OAuthClientScopeEnum.chat__edit_options,
+            OAuthClientScopeEnum.chat__giveaway_start,
+            OAuthClientScopeEnum.chat__poll_start,
+            OAuthClientScopeEnum.chat__poll_vote,
+            OAuthClientScopeEnum.chat__purge,
+            OAuthClientScopeEnum.chat__remove_message,
+            OAuthClientScopeEnum.chat__timeout,
+            OAuthClientScopeEnum.chat__view_deleted,
+            OAuthClientScopeEnum.chat__whisper,
+
+            OAuthClientScopeEnum.channel__follow__self,
+
+            OAuthClientScopeEnum.user__details__self,
+
+            OAuthClientScopeEnum.user__act_as,
+        };
+
+        public static readonly List<OAuthClientScopeEnum> BotScopes = new List<OAuthClientScopeEnum>()
+        {
+            OAuthClientScopeEnum.chat__bypass_links,
+            OAuthClientScopeEnum.chat__bypass_slowchat,
+            OAuthClientScopeEnum.chat__chat,
+            OAuthClientScopeEnum.chat__connect,
+            OAuthClientScopeEnum.chat__edit_options,
+            OAuthClientScopeEnum.chat__giveaway_start,
+            OAuthClientScopeEnum.chat__poll_start,
+            OAuthClientScopeEnum.chat__poll_vote,
+            OAuthClientScopeEnum.chat__whisper,
+
+            OAuthClientScopeEnum.user__details__self,
+
+            OAuthClientScopeEnum.user__act_as,
+        };
+
         public MixerConnection Connection { get; private set; }
 
-        public MixerConnectionService(MixerConnection connection)
-        {
-            this.Connection = connection;
-        }
+        public MixerConnectionService() { }
 
-        public void Initialize() { }
+        public async Task<bool> ConnectAsStreamer() { return await this.Connect(MixerConnectionService.StreamerScopes); }
+
+        public async Task<bool> ConnectAsModerator() { return await this.Connect(MixerConnectionService.ModeratorScopes); }
+
+        public async Task<bool> ConnectAsBot() { return await this.Connect(MixerConnectionService.BotScopes); }
+
+        public async Task<bool> Connect(OAuthTokenModel token)
+        {
+            try
+            {
+                this.Connection = await MixerConnection.ConnectViaOAuthToken(token);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(ex);
+            }
+            return (this.Connection != null);
+        }
 
         public async Task<UserModel> GetUser(string username) { return await this.RunAsync(this.Connection.Users.GetUser(username), logNotFoundException: false); }
 
@@ -188,6 +278,19 @@ namespace MixItUp.Base.Services.Mixer
         }
 
         public async Task<SkillCatalogModel> GetSkillCatalog(ChannelModel channel) { return await this.RunAsync(this.Connection.Skills.GetSkillCatalog(channel)); }
+
+        private async Task<bool> Connect(IEnumerable<OAuthClientScopeEnum> scopes)
+        {
+            try
+            {
+                this.Connection = await MixerConnection.ConnectViaLocalhostOAuthBrowser(MixerConnectionService.ClientID, scopes, forceApprovalPrompt: true, successResponse: OAuthServiceBase.LoginRedirectPageHTML);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(ex);
+            }
+            return (this.Connection != null);
+        }
 
         private void RestAPIService_OnRequestSent(object sender, Tuple<string, HttpContent> e)
         {

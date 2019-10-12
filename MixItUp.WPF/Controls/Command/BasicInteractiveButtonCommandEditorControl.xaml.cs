@@ -190,7 +190,7 @@ namespace MixItUp.WPF.Controls.Command
                 }
 
                 this.command.Button.cost = sparkCost;
-                await ChannelSession.MixerStreamerConnection.UpdateMixPlayGameVersion(this.version);
+                await ChannelSession.MixerUserConnection.UpdateMixPlayGameVersion(this.version);
 
                 this.command.IsBasic = true;
                 this.command.Actions.Clear();

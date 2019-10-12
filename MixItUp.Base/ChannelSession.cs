@@ -1,15 +1,14 @@
-﻿using Mixer.Base;
-using Mixer.Base.Model.Channel;
+﻿using Mixer.Base.Model.Channel;
 using Mixer.Base.Model.MixPlay;
 using Mixer.Base.Model.User;
 using MixItUp.Base.Actions;
 using MixItUp.Base.Commands;
 using MixItUp.Base.MixerAPI;
 using MixItUp.Base.Model.API;
-using MixItUp.Base.Model.Chat;
 using MixItUp.Base.Model.Chat.Mixer;
 using MixItUp.Base.Services;
 using MixItUp.Base.Services.Mixer;
+using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Statistics;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
@@ -19,6 +18,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using TwitchV5API = Twitch.Base.Models.V5;
+using TwitchNewAPI = Twitch.Base.Models.NewAPI;
 
 [assembly: InternalsVisibleTo("MixItUp.Desktop")]
 
@@ -31,88 +32,19 @@ namespace MixItUp.Base
         public const string DefaultOBSStudioConnection = "ws://127.0.0.1:4444";
         public const string DefaultOvrStreamConnection = "ws://127.0.0.1:8023";
 
-        public static readonly List<OAuthClientScopeEnum> StreamerScopes = new List<OAuthClientScopeEnum>()
-        {
-            OAuthClientScopeEnum.chat__bypass_links,
-            OAuthClientScopeEnum.chat__bypass_slowchat,
-            OAuthClientScopeEnum.chat__change_ban,
-            OAuthClientScopeEnum.chat__change_role,
-            OAuthClientScopeEnum.chat__chat,
-            OAuthClientScopeEnum.chat__connect,
-            OAuthClientScopeEnum.chat__clear_messages,
-            OAuthClientScopeEnum.chat__edit_options,
-            OAuthClientScopeEnum.chat__giveaway_start,
-            OAuthClientScopeEnum.chat__poll_start,
-            OAuthClientScopeEnum.chat__poll_vote,
-            OAuthClientScopeEnum.chat__purge,
-            OAuthClientScopeEnum.chat__remove_message,
-            OAuthClientScopeEnum.chat__timeout,
-            OAuthClientScopeEnum.chat__view_deleted,
-            OAuthClientScopeEnum.chat__whisper,
-
-            OAuthClientScopeEnum.channel__clip__create__self,
-            OAuthClientScopeEnum.channel__details__self,
-            OAuthClientScopeEnum.channel__follow__self,
-            OAuthClientScopeEnum.channel__update__self,
-            OAuthClientScopeEnum.channel__analytics__self,
-
-            OAuthClientScopeEnum.interactive__manage__self,
-            OAuthClientScopeEnum.interactive__robot__self,
-
-            OAuthClientScopeEnum.user__details__self,
-        };
-
-        public static readonly List<OAuthClientScopeEnum> ModeratorScopes = new List<OAuthClientScopeEnum>()
-        {
-            OAuthClientScopeEnum.chat__bypass_links,
-            OAuthClientScopeEnum.chat__bypass_slowchat,
-            OAuthClientScopeEnum.chat__change_ban,
-            OAuthClientScopeEnum.chat__change_role,
-            OAuthClientScopeEnum.chat__chat,
-            OAuthClientScopeEnum.chat__connect,
-            OAuthClientScopeEnum.chat__clear_messages,
-            OAuthClientScopeEnum.chat__edit_options,
-            OAuthClientScopeEnum.chat__giveaway_start,
-            OAuthClientScopeEnum.chat__poll_start,
-            OAuthClientScopeEnum.chat__poll_vote,
-            OAuthClientScopeEnum.chat__purge,
-            OAuthClientScopeEnum.chat__remove_message,
-            OAuthClientScopeEnum.chat__timeout,
-            OAuthClientScopeEnum.chat__view_deleted,
-            OAuthClientScopeEnum.chat__whisper,
-
-            OAuthClientScopeEnum.channel__follow__self,
-
-            OAuthClientScopeEnum.user__details__self,
-
-            OAuthClientScopeEnum.user__act_as,
-        };
-
-        public static readonly List<OAuthClientScopeEnum> BotScopes = new List<OAuthClientScopeEnum>()
-        {
-            OAuthClientScopeEnum.chat__bypass_links,
-            OAuthClientScopeEnum.chat__bypass_slowchat,
-            OAuthClientScopeEnum.chat__chat,
-            OAuthClientScopeEnum.chat__connect,
-            OAuthClientScopeEnum.chat__edit_options,
-            OAuthClientScopeEnum.chat__giveaway_start,
-            OAuthClientScopeEnum.chat__poll_start,
-            OAuthClientScopeEnum.chat__poll_vote,
-            OAuthClientScopeEnum.chat__whisper,
-
-            OAuthClientScopeEnum.user__details__self,
-
-            OAuthClientScopeEnum.user__act_as,
-        };
-
         public static SecretManagerService SecretManager { get; internal set; }
 
-        public static MixerConnectionService MixerStreamerConnection { get; private set; }
+        public static MixerConnectionService MixerUserConnection { get; private set; }
         public static MixerConnectionService MixerBotConnection { get; private set; }
-
-        public static PrivatePopulatedUserModel MixerStreamerUser { get; private set; }
+        public static PrivatePopulatedUserModel MixerUser { get; private set; }
         public static PrivatePopulatedUserModel MixerBotUser { get; private set; }
         public static ExpandedChannelModel MixerChannel { get; private set; }
+
+        public static TwitchConnectionService TwitchUserConnection { get; private set; }
+        public static TwitchConnectionService TwitchBotConnection { get; private set; }
+        public static TwitchNewAPI.Users.UserModel TwitchUser { get; set; }
+        public static TwitchNewAPI.Users.UserModel TwitchBotUser { get; set; }
+        public static TwitchNewAPI.Users.UserModel TwitchChannel { get; private set; }
 
         public static IChannelSettings Settings { get; private set; }
 
@@ -192,9 +124,9 @@ namespace MixItUp.Base
         {
             get
             {
-                if (ChannelSession.MixerStreamerUser != null && ChannelSession.MixerChannel != null)
+                if (ChannelSession.MixerUser != null && ChannelSession.MixerChannel != null)
                 {
-                    return ChannelSession.MixerStreamerUser.id == ChannelSession.MixerChannel.user.id;
+                    return ChannelSession.MixerUser.id == ChannelSession.MixerChannel.user.id;
                 }
                 return false;
             }
@@ -229,93 +161,79 @@ namespace MixItUp.Base
             ChannelSession.Statistics = new StatisticsTracker();
         }
 
-        public static async Task<bool> ConnectUser(IEnumerable<OAuthClientScopeEnum> scopes, string channelName = null)
+        public static async Task<bool> ConnectStreamer()
         {
-            try
+            ChannelSession.MixerUserConnection = new MixerConnectionService();
+            ChannelSession.TwitchUserConnection = new TwitchConnectionService();
+            if (await ChannelSession.MixerUserConnection.ConnectAsStreamer() && await ChannelSession.TwitchUserConnection.ConnectAsStreamer())
             {
-                MixerConnection connection = await MixerConnection.ConnectViaLocalhostOAuthBrowser(ChannelSession.ClientID, scopes, false, successResponse: OAuthServiceBase.LoginRedirectPageHTML);
-                if (connection != null)
-                {
-                    ChannelSession.MixerStreamerConnection = new MixerConnectionService(connection);
-                    return await ChannelSession.InitializeInternal((channelName == null), channelName);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log(ex);
+                return await ChannelSession.InitializeInternal(isStreamer: true);
             }
             return false;
         }
 
-        public static async Task<bool> ConnectUser(IChannelSettings settings)
+        public static async Task<bool> Connect(IChannelSettings settings)
         {
-            bool result = false;
-
             ChannelSession.Settings = settings;
-
-            try
+            ChannelSession.MixerUserConnection = new MixerConnectionService();
+            ChannelSession.TwitchUserConnection = new TwitchConnectionService();
+            if (await ChannelSession.MixerUserConnection.Connect(ChannelSession.Settings.MixerUserOAuthToken) && await ChannelSession.TwitchUserConnection.Connect(ChannelSession.Settings.TwitchUserOAuthToken))
             {
-                MixerConnection connection = await MixerConnection.ConnectViaOAuthToken(ChannelSession.Settings.OAuthToken);
-                if (connection != null)
+                return await ChannelSession.InitializeInternal(ChannelSession.Settings.IsStreamer);
+            }
+            else
+            {
+                if (ChannelSession.Settings.IsStreamer)
                 {
-                    ChannelSession.MixerStreamerConnection = new MixerConnectionService(connection);
-                    result = await ChannelSession.InitializeInternal(ChannelSession.Settings.IsStreamer, ChannelSession.Settings.IsStreamer ? null : ChannelSession.Settings.Channel.token);
+                    return await ChannelSession.ConnectStreamer();
+                }
+                else
+                {
+                    return await ChannelSession.ConnectModerator(ChannelSession.Settings.MixerChannel?.token, ChannelSession.Settings.TwitchChannel?.login);
                 }
             }
-            catch (HttpRestRequestException ex)
-            {
-                Logger.Log(ex);
-                result = await ChannelSession.ConnectUser(ChannelSession.StreamerScopes, ChannelSession.Settings.IsStreamer ? null : ChannelSession.Settings.Channel.token);
-            }
-            catch (Exception ex)
-            {
-                Logger.Log(ex);
-            }
+        }
 
-            return result;
+        public static async Task<bool> ConnectModerator(string mixerChannelName = null, string twitchChannelName = null)
+        {
+            ChannelSession.MixerUserConnection = new MixerConnectionService();
+            ChannelSession.TwitchUserConnection = new TwitchConnectionService();
+            if (await ChannelSession.MixerUserConnection.ConnectAsModerator() && await ChannelSession.TwitchUserConnection.ConnectAsModerator())
+            {
+                return await ChannelSession.InitializeInternal(isStreamer: false, mixerChannelName: mixerChannelName, twitchChannelName: twitchChannelName);
+            }
+            return false;
         }
 
         public static async Task<bool> ConnectBot()
         {
-            try
+            ChannelSession.MixerUserConnection = new MixerConnectionService();
+            ChannelSession.TwitchUserConnection = new TwitchConnectionService();
+            if (await ChannelSession.MixerUserConnection.ConnectAsBot() && await ChannelSession.TwitchUserConnection.ConnectAsBot())
             {
-                MixerConnection connection = await MixerConnection.ConnectViaLocalhostOAuthBrowser(ChannelSession.ClientID, ChannelSession.BotScopes, false, successResponse: OAuthServiceBase.LoginRedirectPageHTML);
-                if (connection != null)
-                {
-                    ChannelSession.MixerBotConnection = new MixerConnectionService(connection);
-                    return await ChannelSession.InitializeBotInternal();
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log(ex);
+                return await ChannelSession.InitializeBotInternal();
             }
             return false;
         }
 
         public static async Task<bool> ConnectBot(IChannelSettings settings)
         {
-            bool result = true;
-
-            if (settings.BotOAuthToken != null)
+            if (settings.MixerBotOAuthToken != null)
             {
-                try
+                ChannelSession.MixerUserConnection = new MixerConnectionService();
+                ChannelSession.TwitchUserConnection = new TwitchConnectionService();
+                if (await ChannelSession.MixerUserConnection.Connect(settings.MixerBotOAuthToken) && await ChannelSession.TwitchUserConnection.Connect(settings.TwitchBotOAuthToken))
                 {
-                    MixerConnection connection = await MixerConnection.ConnectViaOAuthToken(settings.BotOAuthToken);
-                    if (connection != null)
-                    {
-                        ChannelSession.MixerBotConnection = new MixerConnectionService(connection);
-                        result = await ChannelSession.InitializeBotInternal();
-                    }
+                    return await ChannelSession.InitializeBotInternal();
                 }
-                catch (HttpRestRequestException)
+                else
                 {
-                    settings.BotOAuthToken = null;
-                    return false;
+                    settings.MixerBotOAuthToken = null;
+                    settings.TwitchBotOAuthToken = null;
+                    return await ChannelSession.ConnectBot();
                 }
             }
-
-            return result;
+            return false;
         }
 
         public static async Task DisconnectBot()
@@ -341,34 +259,40 @@ namespace MixItUp.Base
 
         public static async Task RefreshUser()
         {
-            if (ChannelSession.MixerStreamerUser != null)
+            PrivatePopulatedUserModel mixerUser = await ChannelSession.MixerUserConnection.GetCurrentUser();
+            if (mixerUser != null)
             {
-                PrivatePopulatedUserModel user = await ChannelSession.MixerStreamerConnection.GetCurrentUser();
-                if (user != null)
-                {
-                    ChannelSession.MixerStreamerUser = user;
-                }
+                ChannelSession.MixerUser = mixerUser;
+            }
+
+            TwitchNewAPI.Users.UserModel twitchUser = await ChannelSession.TwitchUserConnection.GetNewAPICurrentUser();
+            if (twitchUser != null)
+            {
+                ChannelSession.TwitchUser = twitchUser;
             }
         }
 
         public static async Task RefreshChannel()
         {
-            if (ChannelSession.MixerChannel != null)
+            ExpandedChannelModel mixerChannel = await ChannelSession.MixerUserConnection.GetChannel(ChannelSession.MixerChannel.id);
+            if (mixerChannel != null)
             {
-                ExpandedChannelModel channel = await ChannelSession.MixerStreamerConnection.GetChannel(ChannelSession.MixerChannel.id);
-                if (channel != null)
-                {
-                    ChannelSession.MixerChannel = channel;
-                }
+                ChannelSession.MixerChannel = mixerChannel;
+            }
+
+            TwitchNewAPI.Users.UserModel twitchUser = await ChannelSession.TwitchUserConnection.GetNewAPICurrentUser();
+            if (twitchUser != null)
+            {
+                ChannelSession.TwitchUser = twitchUser;
             }
         }
 
-        public static async Task<UserViewModel> GetCurrentUser()
+        public static UserViewModel GetCurrentUser()
         {
-            UserViewModel user = ChannelSession.Services.User.GetUserByID(ChannelSession.MixerStreamerUser.id);
+            UserViewModel user = ChannelSession.Services.User.GetUserByID(ChannelSession.MixerUser.id);
             if (user == null)
             {
-                user = new UserViewModel(ChannelSession.MixerStreamerUser);
+                user = new UserViewModel(ChannelSession.MixerUser);
             }
             return user;
         }
@@ -385,31 +309,36 @@ namespace MixItUp.Base
             GlobalEvents.ServiceReconnect(serviceName);
         }
 
-        private static async Task<bool> InitializeInternal(bool isStreamer, string channelName = null)
+        private static async Task<bool> InitializeInternal(bool isStreamer, string mixerChannelName = null, string twitchChannelName = null)
         {
             await ChannelSession.Services.InitializeTelemetryService();
 
-            PrivatePopulatedUserModel user = await ChannelSession.MixerStreamerConnection.GetCurrentUser();
-            if (user != null)
+            await ChannelSession.RefreshUser();
+            if (ChannelSession.MixerUser != null)
             {
-                ExpandedChannelModel channel = null;
-                if (channelName == null || isStreamer)
+                if (mixerChannelName == null || isStreamer)
                 {
-                    channel = await ChannelSession.MixerStreamerConnection.GetChannel(user.channel.id);
+                    ChannelSession.MixerChannel = await ChannelSession.MixerUserConnection.GetChannel(ChannelSession.MixerUser.channel.id);
                 }
                 else
                 {
-                    channel = await ChannelSession.MixerStreamerConnection.GetChannel(channelName);
+                    ChannelSession.MixerChannel = await ChannelSession.MixerUserConnection.GetChannel(mixerChannelName);
+                }
+
+                if (twitchChannelName == null || isStreamer)
+                {
+                    ChannelSession.TwitchChannel = await ChannelSession.TwitchUserConnection.GetNewAPICurrentUser();
+                }
+                else
+                {
+                    ChannelSession.TwitchChannel = await ChannelSession.TwitchUserConnection.GetNewAPIUserByLogin(twitchChannelName);
                 }
                 
-                if (channel != null)
+                if (ChannelSession.MixerChannel != null)
                 {
-                    ChannelSession.MixerStreamerUser = user;
-                    ChannelSession.MixerChannel = channel;
-
                     if (ChannelSession.Settings == null)
                     {
-                        ChannelSession.Settings = await ChannelSession.Services.Settings.Create(channel, isStreamer);
+                        ChannelSession.Settings = await ChannelSession.Services.Settings.Create(ChannelSession.MixerChannel, isStreamer);
                     }
                     await ChannelSession.Services.Settings.Initialize(ChannelSession.Settings);
 
@@ -420,20 +349,19 @@ namespace MixItUp.Base
 
                     ChannelSession.Settings.LicenseAccepted = true;
 
-                    if (isStreamer && ChannelSession.Settings.Channel != null && ChannelSession.MixerStreamerUser.id != ChannelSession.Settings.Channel.userId)
+                    if (isStreamer && ChannelSession.Settings.MixerChannel != null && ChannelSession.MixerUser.id != ChannelSession.Settings.MixerChannel.userId)
                     {
                         GlobalEvents.ShowMessageBox("The account you are logged in as on Mixer does not match the account for this settings. Please log in as the correct account on Mixer.");
-                        ChannelSession.Settings.OAuthToken.accessToken = string.Empty;
-                        ChannelSession.Settings.OAuthToken.refreshToken = string.Empty;
-                        ChannelSession.Settings.OAuthToken.expiresIn = 0;
+                        ChannelSession.Settings.MixerUserOAuthToken.accessToken = string.Empty;
+                        ChannelSession.Settings.MixerUserOAuthToken.refreshToken = string.Empty;
+                        ChannelSession.Settings.MixerUserOAuthToken.expiresIn = 0;
                         return false;
                     }
 
-                    ChannelSession.Settings.Channel = channel;
+                    ChannelSession.Settings.TwitchChannel = ChannelSession.TwitchChannel;
 
                     ChannelSession.Services.Telemetry.SetUserId(ChannelSession.Settings.TelemetryUserId);
 
-                    ChannelSession.MixerStreamerConnection.Initialize();
                     await MixerChatEmoteModel.InitializeEmoteCache();
 
                     if (ChannelSession.IsStreamer)
@@ -558,7 +486,7 @@ namespace MixItUp.Base
 
                     if (ChannelSession.Settings.DefaultMixPlayGame > 0)
                     {
-                        IEnumerable<MixPlayGameListingModel> games = await ChannelSession.MixerStreamerConnection.GetOwnedMixPlayGames(ChannelSession.MixerChannel);
+                        IEnumerable<MixPlayGameListingModel> games = await ChannelSession.MixerUserConnection.GetOwnedMixPlayGames(ChannelSession.MixerChannel);
                         MixPlayGameListingModel game = games.FirstOrDefault(g => g.id.Equals(ChannelSession.Settings.DefaultMixPlayGame));
                         if (game != null)
                         {
@@ -600,11 +528,11 @@ namespace MixItUp.Base
 
                     await ChannelSession.Services.Settings.PerformBackupIfApplicable(ChannelSession.Settings);
 
-                    ChannelSession.Services.Telemetry.TrackLogin(ChannelSession.MixerStreamerUser.id.ToString(), ChannelSession.IsStreamer, ChannelSession.MixerChannel.partnered);
+                    ChannelSession.Services.Telemetry.TrackLogin(ChannelSession.MixerUser.id.ToString(), ChannelSession.IsStreamer, ChannelSession.MixerChannel.partnered);
                     if (ChannelSession.Settings.IsStreamer)
                     {
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                        Task.Run(async () => { await ChannelSession.Services.MixItUpService.SendUserFeatureEvent(new UserFeatureEvent(ChannelSession.MixerStreamerUser.id)); });
+                        Task.Run(async () => { await ChannelSession.Services.MixItUpService.SendUserFeatureEvent(new UserFeatureEvent(ChannelSession.MixerUser.id)); });
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                     }
 
@@ -622,8 +550,6 @@ namespace MixItUp.Base
             if (user != null)
             {
                 ChannelSession.MixerBotUser = user;
-
-                ChannelSession.MixerBotConnection.Initialize();
 
                 await ChannelSession.Services.Chat.MixerChatService.ConnectBot();
 

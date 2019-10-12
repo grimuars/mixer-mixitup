@@ -159,7 +159,7 @@ namespace MixItUp.Desktop.Services
 
                 if (newResetDate < DateTimeOffset.Now)
                 {
-                    string filePath = Path.Combine(settings.SettingsBackupLocation, settings.Channel.id + "-Backup-" + DateTimeOffset.Now.ToString("MM-dd-yyyy") + ".mixitup");
+                    string filePath = Path.Combine(settings.SettingsBackupLocation, settings.MixerChannel.id + "-Backup-" + DateTimeOffset.Now.ToString("MM-dd-yyyy") + ".mixitup");
 
                     await this.SavePackagedBackup(settings, filePath);
 
@@ -170,7 +170,7 @@ namespace MixItUp.Desktop.Services
 
         public string GetFilePath(IChannelSettings settings)
         {
-            return Path.Combine(SettingsDirectoryName, string.Format("{0}.{1}.xml", settings.Channel.id.ToString(), (settings.IsStreamer) ? "Streamer" : "Moderator"));
+            return Path.Combine(SettingsDirectoryName, string.Format("{0}.{1}.xml", settings.MixerChannel.id.ToString(), (settings.IsStreamer) ? "Streamer" : "Moderator"));
         }
 
         public async Task ClearAllUserData(IChannelSettings settings)
@@ -191,7 +191,7 @@ namespace MixItUp.Desktop.Services
 
         public string GetDatabaseFilePath(IChannelSettings settings)
         {
-            return Path.Combine(SettingsDirectoryName, string.Format("{0}.{1}.sqlite", settings.Channel.id.ToString(), (settings.IsStreamer) ? "Streamer" : "Moderator"));
+            return Path.Combine(SettingsDirectoryName, string.Format("{0}.{1}.sqlite", settings.MixerChannel.id.ToString(), (settings.IsStreamer) ? "Streamer" : "Moderator"));
         }
 
         public async Task<int> GetSettingsVersion(string filePath)
