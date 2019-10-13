@@ -96,7 +96,7 @@ namespace MixItUp.Base.Commands
 
         public static bool CanUserRunEvent(UserViewModel user, string eventType)
         {
-            if ((!EventCommand.userEventTracking.ContainsKey(eventType) || !EventCommand.userEventTracking[eventType].Contains(user.ID)))
+            if ((!EventCommand.userEventTracking.ContainsKey(eventType) || !EventCommand.userEventTracking[eventType].Contains(user.MixerID)))
             {
                 if (!EventCommand.userEventTracking.ContainsKey(eventType))
                 {
@@ -105,7 +105,7 @@ namespace MixItUp.Base.Commands
 
                 if (user != null)
                 {
-                    EventCommand.userEventTracking[eventType].Add(user.ID);
+                    EventCommand.userEventTracking[eventType].Add(user.MixerID);
                 }
                 return true;
             }

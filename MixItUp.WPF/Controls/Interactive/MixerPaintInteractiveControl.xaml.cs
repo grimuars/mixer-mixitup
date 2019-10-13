@@ -80,7 +80,7 @@ namespace MixItUp.WPF.Controls.Interactive
 
         protected override async Task OnInteractiveControlUsed(UserViewModel user, MixPlayGiveInputModel input, InteractiveConnectedControlCommand command)
         {
-            if (user != null && !user.IsAnonymous && input.input.meta.ContainsKey("image"))
+            if (user != null && !user.IsMixerAnonymous && input.input.meta.ContainsKey("image"))
             {
                 if (this.userDrawings.ContainsKey(user))
                 {

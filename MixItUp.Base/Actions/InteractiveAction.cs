@@ -421,7 +421,7 @@ namespace MixItUp.Base.Actions
                             }
                             else if (this.InteractiveType == InteractiveActionTypeEnum.SetCustomMetadata)
                             {
-                                control.meta["userID"] = user.ID;
+                                control.meta["userID"] = user.MixerID;
                                 foreach (var kvp in this.CustomMetadata)
                                 {
                                     string value = await this.ReplaceStringWithSpecialModifiers(kvp.Value, user, arguments);

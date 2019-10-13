@@ -938,7 +938,7 @@ namespace MixItUp.Base.MixerAPI
                     }
                     user.UpdateLastActivity();
 
-                    if (ChannelSession.Settings.PreventUnknownMixPlayUsers && user.IsAnonymous)
+                    if (ChannelSession.Settings.PreventUnknownMixPlayUsers && user.IsMixerAnonymous)
                     {
                         return;
                     }
@@ -1010,7 +1010,7 @@ namespace MixItUp.Base.MixerAPI
 
                     this.OnInteractiveControlUsed(this, new InteractiveInputEvent(user, e, connectedControl));
 
-                    if (ChannelSession.Settings.ChatShowMixPlayAlerts && user != null && !user.IsAnonymous)
+                    if (ChannelSession.Settings.ChatShowMixPlayAlerts && user != null && !user.IsMixerAnonymous)
                     {
                         await ChannelSession.Services.Chat.AddMessage(new AlertChatMessageViewModel(StreamingPlatformTypeEnum.Mixer, user,
                             string.Format("{0} Used The \"{1}\" Interactive Control", user.UserName, connectedControl.Command.Name), ChannelSession.Settings.ChatMixPlayAlertsColorScheme));

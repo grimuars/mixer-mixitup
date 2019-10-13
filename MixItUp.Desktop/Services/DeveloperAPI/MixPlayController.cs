@@ -32,7 +32,7 @@ namespace MixItUp.Desktop.Services.DeveloperAPI
             var mixplayUsers = ChannelSession.Services.User.GetAllWorkableUsers();
             return mixplayUsers.Where(x => x.IsInteractiveParticipant).Select(x => new MixPlayUser()
             {
-                ID = x.ID,
+                ID = x.MixerID,
                 UserName = x.UserName,
                 ParticipantIDs = x.InteractiveIDs.Keys.ToList(),
             });
@@ -55,7 +55,7 @@ namespace MixItUp.Desktop.Services.DeveloperAPI
 
             return new MixPlayUser()
             {
-                ID = user.ID,
+                ID = user.MixerID,
                 UserName = user.UserName,
                 ParticipantIDs = user.InteractiveIDs.Keys.ToList(),
             };
@@ -79,7 +79,7 @@ namespace MixItUp.Desktop.Services.DeveloperAPI
 
             return new MixPlayUser()
             {
-                ID = user.ID,
+                ID = user.MixerID,
                 UserName = user.UserName,
                 ParticipantIDs = user.InteractiveIDs.Keys.ToList(),
             };
@@ -103,7 +103,7 @@ namespace MixItUp.Desktop.Services.DeveloperAPI
 
             return new MixPlayUser()
             {
-                ID = user.ID,
+                ID = user.MixerID,
                 UserName = user.UserName,
                 ParticipantIDs = user.InteractiveIDs.Keys.ToList(),
             };

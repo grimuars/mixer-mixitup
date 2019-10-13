@@ -52,7 +52,7 @@ namespace MixItUp.Base.ViewModel.Chat
 
         public bool IsUserTagged { get { return Regex.IsMatch(this.PlainTextMessage, string.Format(TaggingRegexFormat, ChannelSession.MixerUser.username)); } }
 
-        public bool IsStreamerOrBot { get { return this.User != null && this.User.ID.Equals(ChannelSession.MixerUser.id) || (ChannelSession.MixerBotUser != null && this.User.ID.Equals(ChannelSession.MixerBotUser.id)); } }
+        public bool IsStreamerOrBot { get { return this.User != null && this.User.MixerID.Equals(ChannelSession.MixerUser.id) || (ChannelSession.MixerBotUser != null && this.User.MixerID.Equals(ChannelSession.MixerBotUser.id)); } }
 
         public bool ShowTimestamp { get { return ChannelSession.Settings.ShowChatMessageTimestamps; } }
 

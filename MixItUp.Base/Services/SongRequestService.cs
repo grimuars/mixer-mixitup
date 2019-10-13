@@ -449,7 +449,7 @@ namespace MixItUp.Base.Services
             SongRequestModel song = null;
             await SongRequestService.songRequestLock.WaitAndRelease(() =>
             {
-                song = this.requestSongs.LastOrDefault(s => s.User.ID == user.ID);
+                song = this.requestSongs.LastOrDefault(s => s.User.MixerID == user.MixerID);
                 return Task.FromResult(0);
             });
 

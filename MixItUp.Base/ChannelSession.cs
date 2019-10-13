@@ -246,7 +246,7 @@ namespace MixItUp.Base
         {
             await ChannelSession.Services.Close();
 
-            await ChannelSession.Services.Chat.MixerChatService.DisconnectStreamer();
+            await ChannelSession.Services.Chat.MixerChatService.DisconnectUser();
             await ChannelSession.DisconnectBot();
 
             await ChannelSession.Constellation.Disconnect();
@@ -388,13 +388,14 @@ namespace MixItUp.Base
                     }
 
                     MixerChatService mixerChatService = new MixerChatService();
+                    TwitchChatService twitchChatService = new TwitchChatService();
 
-                    if (!await mixerChatService.ConnectStreamer() || !await ChannelSession.Constellation.Connect())
+                    if (!await mixerChatService.ConnectUser() || !await ChannelSession.Constellation.Connect() || !await twitchChatService.ConnectUser())
                     {
                         return false;
                     }
 
-                    await ChannelSession.Services.Chat.Initialize(mixerChatService);
+                    await ChannelSession.Services.Chat.Initialize(mixerChatService, twitchChatService);
 
                     if (!string.IsNullOrEmpty(ChannelSession.Settings.OBSStudioServerIP))
                     {

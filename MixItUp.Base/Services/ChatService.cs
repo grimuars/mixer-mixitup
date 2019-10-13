@@ -1,12 +1,13 @@
 ﻿using Mixer.Base.Model.Chat;
-using Mixer.Base.Model.User;
 using MixItUp.Base.Commands;
 using MixItUp.Base.Model;
 using MixItUp.Base.Model.Chat.Mixer;
 using MixItUp.Base.Services.Mixer;
+using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Chat;
 using MixItUp.Base.ViewModel.Chat.Mixer;
+using MixItUp.Base.ViewModel.Chat.Twitch;
 using MixItUp.Base.ViewModel.User;
 using StreamingClient.Base.Util;
 using System;
@@ -15,7 +16,6 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -25,7 +25,7 @@ namespace MixItUp.Base.Services
     {
         IMixerChatService MixerChatService { get; }
 
-        Task Initialize(IMixerChatService mixerChatService);
+        Task Initialize(IMixerChatService mixerChatService, ITwitchChatService twitchChatService);
 
         bool DisableChat { get; set; }
 
@@ -71,6 +71,7 @@ namespace MixItUp.Base.Services
         private const string ChatEventLogFileNameFormat = "ChatEventLog-{0}.txt";
 
         public IMixerChatService MixerChatService { get; private set; }
+        public ITwitchChatService TwitchChatService { get; private set; }
 
         public bool DisableChat { get; set; }
 
@@ -112,23 +113,33 @@ namespace MixItUp.Base.Services
 
         public ChatService() { }
 
-        public async Task Initialize(IMixerChatService mixerChatService)
+        public async Task Initialize(IMixerChatService mixerChatService, ITwitchChatService twitchChatService)
         {
-            this.MixerChatService = mixerChatService;
+            if (mixerChatService != null)
+            {
+                this.MixerChatService = mixerChatService;
+                this.MixerChatService.OnMessageOccurred += ChatService_OnMessageOccurred;
+                this.MixerChatService.OnDeleteMessageOccurred += MixerChatService_OnDeleteMessageOccurred;
+                this.MixerChatService.OnClearMessagesOccurred += MixerChatService_OnClearMessagesOccurred;
+                this.MixerChatService.OnUsersJoinOccurred += ChatService_OnUsersJoinOccurred;
+                this.MixerChatService.OnUserUpdateOccurred += MixerChatService_OnUserUpdateOccurred;
+                this.MixerChatService.OnUsersLeaveOccurred += ChatService_OnUsersLeaveOccurred;
+                this.MixerChatService.OnUserPurgeOccurred += MixerChatService_OnUserPurgeOccurred;
+                this.MixerChatService.OnUserBanOccurred += MixerChatService_OnUserBanOccurred;
+            }
+
+            if (twitchChatService != null)
+            {
+                this.TwitchChatService = twitchChatService;
+                this.TwitchChatService.OnMessageOccurred += ChatService_OnMessageOccurred;
+                this.TwitchChatService.OnUsersJoinOccurred += ChatService_OnUsersJoinOccurred;
+                this.TwitchChatService.OnUsersLeaveOccurred += ChatService_OnUsersLeaveOccurred;
+            }
 
             this.RebuildCommandTriggers();
 
             await ChannelSession.Services.FileService.CreateDirectory(ChatEventLogDirectoryName);
             this.currentChatEventLogFilePath = Path.Combine(ChatEventLogDirectoryName, string.Format(ChatEventLogFileNameFormat, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture)));
-
-            this.MixerChatService.OnMessageOccurred += MixerChatService_OnMessageOccurred;
-            this.MixerChatService.OnDeleteMessageOccurred += MixerChatService_OnDeleteMessageOccurred;
-            this.MixerChatService.OnClearMessagesOccurred += MixerChatService_OnClearMessagesOccurred;
-            this.MixerChatService.OnUsersJoinOccurred += MixerChatService_OnUsersJoinOccurred;
-            this.MixerChatService.OnUserUpdateOccurred += MixerChatService_OnUserUpdateOccurred;
-            this.MixerChatService.OnUsersLeaveOccurred += MixerChatService_OnUsersLeaveOccurred;
-            this.MixerChatService.OnUserPurgeOccurred += MixerChatService_OnUserPurgeOccurred;
-            this.MixerChatService.OnUserBanOccurred += MixerChatService_OnUserBanOccurred;
 
             if (ChannelSession.Settings.ShowMixrElixrEmotes)
             {
@@ -142,48 +153,46 @@ namespace MixItUp.Base.Services
                 }
             }
 
-            await DispatcherHelper.InvokeDispatcher(async () =>
+            if (this.MixerChatService != null)
             {
-                foreach (ChatMessageEventModel messageEvent in await this.MixerChatService.GetChatHistory(50))
+                AsyncRunner.RunAsyncInBackground(async () =>
                 {
-                    MixerChatMessageViewModel message = new MixerChatMessageViewModel(messageEvent);
-                    this.messagesLookup[message.ID] = message;
-                    if (ChannelSession.Settings.LatestChatAtTop)
-                    {
-                        this.Messages.Insert(0, message);
-                    }
-                    else
-                    {
-                        this.Messages.Add(message);
-                    }
-                }
-            });
+                    await this.MixerChatService.Initialize();
 
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-            Task.Run(async () =>
-            {
-                await ChannelSession.MixerUserConnection.GetChatUsers(ChannelSession.MixerChannel, async (collection) =>
-                {
-                    List<UserViewModel> users = new List<UserViewModel>();
-                    foreach (ChatUserModel chatUser in collection)
+                    await DispatcherHelper.InvokeDispatcher(async () =>
                     {
-                        users.Add(new UserViewModel(chatUser));
-                    }
-                    await this.UsersJoined(users);
-                }, int.MaxValue);
-            });
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                        foreach (ChatMessageEventModel messageEvent in await this.MixerChatService.GetChatHistory(50))
+                        {
+                            MixerChatMessageViewModel message = new MixerChatMessageViewModel(messageEvent);
+                            this.messagesLookup[message.ID] = message;
+                            if (ChannelSession.Settings.LatestChatAtTop)
+                            {
+                                this.Messages.Insert(0, message);
+                            }
+                            else
+                            {
+                                this.Messages.Add(message);
+                            }
+                        }
+                    });
+                });
+            }
+
+            if (this.TwitchChatService != null)
+            {
+                AsyncRunner.RunAsyncInBackground(async () =>
+                {
+                    await this.TwitchChatService.Initialize();
+                });
+            }
 
             AsyncRunner.RunBackgroundTask(this.cancellationTokenSource.Token, 60000, this.ProcessHoursCurrency);
         }
 
         public async Task SendMessage(string message, bool sendAsStreamer = false)
         {
-            StreamingPlatformTypeEnum platform = StreamingPlatformTypeEnum.Mixer;
-            if (platform == StreamingPlatformTypeEnum.Mixer)
-            {
-                await this.MixerChatService.SendMessage(message, sendAsStreamer);
-            }
+            await this.MixerChatService.SendMessage(message, sendAsStreamer);
+            await this.TwitchChatService.SendMessage(message, sendAsStreamer);
         }
 
         public async Task Whisper(UserViewModel user, string message, bool sendAsStreamer = false, bool waitForResponse = false) { await this.Whisper(user.UserName, message, sendAsStreamer); }
@@ -315,7 +324,7 @@ namespace MixItUp.Base.Services
         {
             Logger.Log(LogLevel.Debug, string.Format("Message Received - {0}", message.ToString()));
 
-            UserViewModel activeUser = ChannelSession.Services.User.GetUserByID(message.User.ID.ToString());
+            UserViewModel activeUser = ChannelSession.Services.User.GetUserByID(message.User.MixerID.ToString());
             if (activeUser != null)
             {
                 message.User = activeUser;
@@ -343,7 +352,7 @@ namespace MixItUp.Base.Services
                 return Task.FromResult(0);
             });
 
-            if (message is MixerChatMessageViewModel)
+            if (message is MixerChatMessageViewModel || message is TwitchChatMessageViewModel)
             {
                 if (this.DisableChat && !message.ID.Equals(Guid.Empty))
                 {
@@ -364,11 +373,11 @@ namespace MixItUp.Base.Services
                     {
                         await this.whisperNumberLock.WaitAndRelease(() =>
                         {
-                            if (!whisperMap.ContainsKey(message.User.ID.ToString()))
+                            if (!whisperMap.ContainsKey(message.User.MixerID.ToString()))
                             {
-                                whisperMap[message.User.ID.ToString()] = whisperMap.Count + 1;
+                                whisperMap[message.User.MixerID.ToString()] = whisperMap.Count + 1;
                             }
-                            message.User.WhispererNumber = whisperMap[message.User.ID.ToString()];
+                            message.User.WhispererNumber = whisperMap[message.User.MixerID.ToString()];
                             return Task.FromResult(0);
                         });
 
@@ -377,9 +386,9 @@ namespace MixItUp.Base.Services
                 }
                 else
                 {
-                    if (!this.userEntranceCommands.Contains(message.User.ID.ToString()))
+                    if (!this.userEntranceCommands.Contains(message.User.MixerID.ToString()))
                     {
-                        this.userEntranceCommands.Add(message.User.ID.ToString());
+                        this.userEntranceCommands.Add(message.User.MixerID.ToString());
                         if (message.User.Data.EntranceCommand != null)
                         {
                             await message.User.Data.EntranceCommand.Perform(message.User);
@@ -424,7 +433,7 @@ namespace MixItUp.Base.Services
                         return;
                     }
 
-                    if (ChannelSession.Settings.IgnoreBotAccountCommands && ChannelSession.MixerBotUser != null && message.User != null && message.User.ID.Equals(ChannelSession.MixerBotUser.id))
+                    if (ChannelSession.Settings.IgnoreBotAccountCommands && ChannelSession.MixerBotUser != null && message.User != null && message.User.MixerID.Equals(ChannelSession.MixerBotUser.id))
                     {
                         return;
                     }
@@ -488,7 +497,7 @@ namespace MixItUp.Base.Services
 
             foreach (UserViewModel user in users)
             {
-                this.AllUsers[user.ID.ToString()] = user;
+                this.AllUsers[user.MixerID.ToString()] = user;
                 this.displayUsers[user.SortableID] = user;
 
                 if (ChannelSession.Settings.ChatShowUserJoinLeave && users.Count() < 5)
@@ -516,7 +525,7 @@ namespace MixItUp.Base.Services
 
             foreach (UserViewModel user in users)
             {
-                if (this.AllUsers.Remove(user.ID.ToString()))
+                if (this.AllUsers.Remove(user.MixerID.ToString()))
                 {
                     this.displayUsers.Remove(user.SortableID);
 
@@ -549,9 +558,7 @@ namespace MixItUp.Base.Services
             }
         }
 
-        #region Mixer Events
-
-        private async void MixerChatService_OnMessageOccurred(object sender, ChatMessageViewModel message)
+        private async void ChatService_OnMessageOccurred(object sender, ChatMessageViewModel message)
         {
             await this.AddMessage(message);
             if (ChannelSession.Settings.SaveChatEventLogs)
@@ -564,6 +571,18 @@ namespace MixItUp.Base.Services
                 catch (Exception) { }
             }
         }
+
+        private async void ChatService_OnUsersJoinOccurred(object sender, IEnumerable<UserViewModel> users)
+        {
+            await this.UsersJoined(users);
+        }
+
+        private async void ChatService_OnUsersLeaveOccurred(object sender, IEnumerable<UserViewModel> users)
+        {
+            await this.UsersLeft(users);
+        }
+
+        #region Mixer Events
 
         private async void MixerChatService_OnDeleteMessageOccurred(object sender, Guid id)
         {
@@ -594,19 +613,9 @@ namespace MixItUp.Base.Services
             });
         }
 
-        private async void MixerChatService_OnUsersJoinOccurred(object sender, IEnumerable<UserViewModel> users)
-        {
-            await this.UsersJoined(users);
-        }
-
         private async void MixerChatService_OnUserUpdateOccurred(object sender, UserViewModel user)
         {
             await this.UsersUpdated(new List<UserViewModel>() { user });
-        }
-
-        private async void MixerChatService_OnUsersLeaveOccurred(object sender, IEnumerable<UserViewModel> users)
-        {
-            await this.UsersLeft(users);
         }
 
         private async void MixerChatService_OnUserPurgeOccurred(object sender, Tuple<UserViewModel, UserViewModel> e)
@@ -657,5 +666,9 @@ namespace MixItUp.Base.Services
         }
 
         #endregion Mixer Events
+
+        #region Twitch Events
+
+        #endregion Twitch Events
     }
 }

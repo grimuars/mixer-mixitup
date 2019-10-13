@@ -13,7 +13,7 @@ namespace MixItUp.WPF.Controls.Chat
     {
         public static async Task ShowUserDialog(UserViewModel user)
         {
-            if (user != null && !user.IsAnonymous)
+            if (user != null && !user.IsMixerAnonymous)
             {
                 object result = await DialogHelper.ShowCustom(new UserDialogControl(user));
                 if (result != null)
@@ -40,11 +40,11 @@ namespace MixItUp.WPF.Controls.Chat
                             await ChannelSession.Services.Chat.UnbanUser(user);
                             break;
                         case UserDialogResult.Follow:
-                            ExpandedChannelModel channelToFollow = await ChannelSession.MixerUserConnection.GetChannel(user.ChannelID);
+                            ExpandedChannelModel channelToFollow = await ChannelSession.MixerUserConnection.GetChannel(user.MixerChannelID);
                             await ChannelSession.MixerUserConnection.Follow(channelToFollow, ChannelSession.MixerUser);
                             break;
                         case UserDialogResult.Unfollow:
-                            ExpandedChannelModel channelToUnfollow = await ChannelSession.MixerUserConnection.GetChannel(user.ChannelID);
+                            ExpandedChannelModel channelToUnfollow = await ChannelSession.MixerUserConnection.GetChannel(user.MixerChannelID);
                             await ChannelSession.MixerUserConnection.Unfollow(channelToUnfollow, ChannelSession.MixerUser);
                             break;
                         case UserDialogResult.PromoteToMod:
@@ -63,7 +63,7 @@ namespace MixItUp.WPF.Controls.Chat
                             ProcessHelper.LaunchLink($"https://mixer.com/{user.UserName}");
                             break;
                         case UserDialogResult.EditUser:
-                            UserDataEditorWindow window = new UserDataEditorWindow(ChannelSession.Settings.UserData[user.ID]);
+                            UserDataEditorWindow window = new UserDataEditorWindow(ChannelSession.Settings.UserData[user.MixerID]);
                             await Task.Delay(100);
                             window.Show();
                             await Task.Delay(100);

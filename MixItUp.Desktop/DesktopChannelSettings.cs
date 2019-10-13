@@ -684,6 +684,15 @@ namespace MixItUp.Desktop
                 this.MixerBotOAuthToken = ChannelSession.MixerBotConnection.Connection.GetOAuthTokenCopy();
             }
 
+            if (ChannelSession.TwitchUserConnection != null)
+            {
+                this.TwitchUserOAuthToken = ChannelSession.TwitchUserConnection.Connection.GetOAuthTokenCopy();
+            }
+            if (ChannelSession.TwitchBotConnection != null)
+            {
+                this.TwitchBotOAuthToken = ChannelSession.TwitchBotConnection.Connection.GetOAuthTokenCopy();
+            }
+
             if (ChannelSession.Services.Streamlabs != null)
             {
                 this.StreamlabsOAuthToken = ChannelSession.Services.Streamlabs.GetOAuthTokenCopy();

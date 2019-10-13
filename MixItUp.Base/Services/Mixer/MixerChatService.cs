@@ -35,11 +35,13 @@ namespace MixItUp.Base.Services.Mixer
 
         bool IsBotConnected { get; }
 
-        Task<bool> ConnectStreamer();
-        Task DisconnectStreamer();
+        Task<bool> ConnectUser();
+        Task DisconnectUser();
 
         Task<bool> ConnectBot();
         Task DisconnectBot();
+
+        Task Initialize();
 
         Task SendMessage(string message, bool sendAsStreamer = false);
         Task Whisper(string username, string message, bool sendAsStreamer = false);
@@ -75,7 +77,7 @@ namespace MixItUp.Base.Services.Mixer
 
         public event EventHandler<ChatPollEventModel> OnPollEndOccurred = delegate { };
 
-        private ChatClient streamerClient;
+        private ChatClient userClient;
         private ChatClient botClient;
 
         private const int userJoinLeaveEventsTotalToProcess = 25;
@@ -91,7 +93,7 @@ namespace MixItUp.Base.Services.Mixer
 
         public bool IsBotConnected { get { return this.botClient != null && this.botClient.Connected; } }
 
-        public async Task<bool> ConnectStreamer()
+        public async Task<bool> ConnectUser()
         {
             return await this.AttemptConnect(async () =>
             {
@@ -99,85 +101,69 @@ namespace MixItUp.Base.Services.Mixer
                 {
                     this.cancellationTokenSource = new CancellationTokenSource();
 
-                    this.streamerClient = await this.ConnectAndAuthenticateChatClient(ChannelSession.MixerUserConnection);
-                    if (this.streamerClient != null)
+                    this.userClient = await this.ConnectAndAuthenticateChatClient(ChannelSession.MixerUserConnection);
+                    if (this.userClient != null)
                     {
-                        this.streamerClient.OnClearMessagesOccurred += ChatClient_OnClearMessagesOccurred;
-                        this.streamerClient.OnDeleteMessageOccurred += ChatClient_OnDeleteMessageOccurred;
-                        this.streamerClient.OnMessageOccurred += ChatClient_OnMessageOccurred;
-                        this.streamerClient.OnPollEndOccurred += ChatClient_OnPollEndOccurred;
-                        this.streamerClient.OnPollStartOccurred += ChatClient_OnPollStartOccurred;
-                        this.streamerClient.OnPurgeMessageOccurred += ChatClient_OnPurgeMessageOccurred;
-                        this.streamerClient.OnUserJoinOccurred += ChatClient_OnUserJoinOccurred;
-                        this.streamerClient.OnUserLeaveOccurred += ChatClient_OnUserLeaveOccurred;
-                        this.streamerClient.OnUserUpdateOccurred += ChatClient_OnUserUpdateOccurred;
-                        this.streamerClient.OnSkillAttributionOccurred += Client_OnSkillAttributionOccurred;
-                        this.streamerClient.OnDisconnectOccurred += StreamerClient_OnDisconnectOccurred;
+                        this.userClient.OnClearMessagesOccurred += ChatClient_OnClearMessagesOccurred;
+                        this.userClient.OnDeleteMessageOccurred += ChatClient_OnDeleteMessageOccurred;
+                        this.userClient.OnMessageOccurred += ChatClient_OnMessageOccurred;
+                        this.userClient.OnPollEndOccurred += ChatClient_OnPollEndOccurred;
+                        this.userClient.OnPollStartOccurred += ChatClient_OnPollStartOccurred;
+                        this.userClient.OnPurgeMessageOccurred += ChatClient_OnPurgeMessageOccurred;
+                        this.userClient.OnUserJoinOccurred += ChatClient_OnUserJoinOccurred;
+                        this.userClient.OnUserLeaveOccurred += ChatClient_OnUserLeaveOccurred;
+                        this.userClient.OnUserUpdateOccurred += ChatClient_OnUserUpdateOccurred;
+                        this.userClient.OnSkillAttributionOccurred += Client_OnSkillAttributionOccurred;
+                        this.userClient.OnDisconnectOccurred += StreamerClient_OnDisconnectOccurred;
                         if (ChannelSession.Settings.DiagnosticLogging)
                         {
-                            this.streamerClient.OnPacketSentOccurred += WebSocketClient_OnPacketSentOccurred;
-                            this.streamerClient.OnMethodOccurred += WebSocketClient_OnMethodOccurred;
-                            this.streamerClient.OnReplyOccurred += WebSocketClient_OnReplyOccurred;
-                            this.streamerClient.OnEventOccurred += WebSocketClient_OnEventOccurred;
+                            this.userClient.OnPacketSentOccurred += WebSocketClient_OnPacketSentOccurred;
+                            this.userClient.OnMethodOccurred += WebSocketClient_OnMethodOccurred;
+                            this.userClient.OnReplyOccurred += WebSocketClient_OnReplyOccurred;
+                            this.userClient.OnEventOccurred += WebSocketClient_OnEventOccurred;
                         }
 
-                        AsyncRunner.RunAsyncInBackground(async () =>
-                        {
-                            await ChannelSession.MixerUserConnection.GetChatUsers(ChannelSession.MixerChannel, (users) =>
-                            {
-                                foreach (ChatUserModel user in users)
-                                {
-                                    this.ChatClient_OnUserJoinOccurred(this, new ChatUserEventModel()
-                                    {
-                                        id = user.userId.GetValueOrDefault(),
-                                        username = user.userName,
-                                        roles = user.userRoles,
-                                    });
-                                }
-                                return Task.FromResult(0);
-                            }, uint.MaxValue);
+                        AsyncRunner.RunBackgroundTask(this.cancellationTokenSource.Token, 300000, this.ChatterRefreshBackground);
 
-                            AsyncRunner.RunBackgroundTask(this.cancellationTokenSource.Token, 300000, this.ChatterRefreshBackground);
-                        });
                         AsyncRunner.RunBackgroundTask(this.cancellationTokenSource.Token, 2500, this.ChatterJoinLeaveBackground);
 
                         return true;
                     }
                 }
-                await this.DisconnectStreamer();
+                await this.DisconnectUser();
                 return false;
             });
         }
 
-        public async Task DisconnectStreamer()
+        public async Task DisconnectUser()
         {
             await this.RunAsync(async () =>
             {
-                if (this.streamerClient != null)
+                if (this.userClient != null)
                 {
-                    this.streamerClient.OnClearMessagesOccurred -= ChatClient_OnClearMessagesOccurred;
-                    this.streamerClient.OnDeleteMessageOccurred -= ChatClient_OnDeleteMessageOccurred;
-                    this.streamerClient.OnMessageOccurred -= ChatClient_OnMessageOccurred;
-                    this.streamerClient.OnPollEndOccurred -= ChatClient_OnPollEndOccurred;
-                    this.streamerClient.OnPollStartOccurred -= ChatClient_OnPollStartOccurred;
-                    this.streamerClient.OnPurgeMessageOccurred -= ChatClient_OnPurgeMessageOccurred;
-                    this.streamerClient.OnUserJoinOccurred -= ChatClient_OnUserJoinOccurred;
-                    this.streamerClient.OnUserLeaveOccurred -= ChatClient_OnUserLeaveOccurred;
-                    this.streamerClient.OnUserUpdateOccurred -= ChatClient_OnUserUpdateOccurred;
-                    this.streamerClient.OnSkillAttributionOccurred -= Client_OnSkillAttributionOccurred;
-                    this.streamerClient.OnDisconnectOccurred -= StreamerClient_OnDisconnectOccurred;
+                    this.userClient.OnClearMessagesOccurred -= ChatClient_OnClearMessagesOccurred;
+                    this.userClient.OnDeleteMessageOccurred -= ChatClient_OnDeleteMessageOccurred;
+                    this.userClient.OnMessageOccurred -= ChatClient_OnMessageOccurred;
+                    this.userClient.OnPollEndOccurred -= ChatClient_OnPollEndOccurred;
+                    this.userClient.OnPollStartOccurred -= ChatClient_OnPollStartOccurred;
+                    this.userClient.OnPurgeMessageOccurred -= ChatClient_OnPurgeMessageOccurred;
+                    this.userClient.OnUserJoinOccurred -= ChatClient_OnUserJoinOccurred;
+                    this.userClient.OnUserLeaveOccurred -= ChatClient_OnUserLeaveOccurred;
+                    this.userClient.OnUserUpdateOccurred -= ChatClient_OnUserUpdateOccurred;
+                    this.userClient.OnSkillAttributionOccurred -= Client_OnSkillAttributionOccurred;
+                    this.userClient.OnDisconnectOccurred -= StreamerClient_OnDisconnectOccurred;
                     if (ChannelSession.Settings.DiagnosticLogging)
                     {
-                        this.streamerClient.OnPacketSentOccurred -= WebSocketClient_OnPacketSentOccurred;
-                        this.streamerClient.OnMethodOccurred -= WebSocketClient_OnMethodOccurred;
-                        this.streamerClient.OnReplyOccurred -= WebSocketClient_OnReplyOccurred;
-                        this.streamerClient.OnEventOccurred -= WebSocketClient_OnEventOccurred;
+                        this.userClient.OnPacketSentOccurred -= WebSocketClient_OnPacketSentOccurred;
+                        this.userClient.OnMethodOccurred -= WebSocketClient_OnMethodOccurred;
+                        this.userClient.OnReplyOccurred -= WebSocketClient_OnReplyOccurred;
+                        this.userClient.OnEventOccurred -= WebSocketClient_OnEventOccurred;
                     }
 
-                    await this.RunAsync(this.streamerClient.Disconnect());
+                    await this.RunAsync(this.userClient.Disconnect());
                 }
 
-                this.streamerClient = null;
+                this.userClient = null;
                 if (this.cancellationTokenSource != null)
                 {
                     this.cancellationTokenSource.Cancel();
@@ -239,11 +225,28 @@ namespace MixItUp.Base.Services.Mixer
             });
         }
 
-        public async Task SendMessage(string message, bool sendAsStreamer = false)
+        public async Task Initialize()
+        {
+            await ChannelSession.MixerUserConnection.GetChatUsers(ChannelSession.MixerChannel, (users) =>
+            {
+                foreach (ChatUserModel user in users)
+                {
+                    this.ChatClient_OnUserJoinOccurred(this, new ChatUserEventModel()
+                    {
+                        id = user.userId.GetValueOrDefault(),
+                        username = user.userName,
+                        roles = user.userRoles,
+                    });
+                }
+                return Task.FromResult(0);
+            }, uint.MaxValue);
+        }
+
+        public async Task SendMessage(string message, bool sendAsUser = false)
         {
             await this.RunAsync(async () =>
             {
-                ChatClient client = this.GetChatClient(sendAsStreamer);
+                ChatClient client = this.GetChatClient(sendAsUser);
                 if (client != null)
                 {
                     message = this.SplitLargeMessage(message, out string subMessage);
@@ -255,17 +258,17 @@ namespace MixItUp.Base.Services.Mixer
 
                     if (!string.IsNullOrEmpty(subMessage))
                     {
-                        await this.SendMessage(subMessage, sendAsStreamer: sendAsStreamer);
+                        await this.SendMessage(subMessage, sendAsUser: sendAsUser);
                     }
                 }
             });
         }
 
-        public async Task Whisper(string username, string message, bool sendAsStreamer = false)
+        public async Task Whisper(string username, string message, bool sendAsUser = false)
         {
             await this.RunAsync(async () =>
             {
-                ChatClient client = this.GetChatClient(sendAsStreamer);
+                ChatClient client = this.GetChatClient(sendAsUser);
                 if (client != null)
                 {
                     if (!string.IsNullOrEmpty(username))
@@ -279,18 +282,18 @@ namespace MixItUp.Base.Services.Mixer
 
                         if (!string.IsNullOrEmpty(subMessage))
                         {
-                            await this.Whisper(username, subMessage, sendAsStreamer: sendAsStreamer);
+                            await this.Whisper(username, subMessage, sendAsUser: sendAsUser);
                         }
                     }
                 }
             });
         }
 
-        public async Task<ChatMessageEventModel> WhisperWithResponse(string username, string message, bool sendAsStreamer = false)
+        public async Task<ChatMessageEventModel> WhisperWithResponse(string username, string message, bool sendAsUser = false)
         {
             return await this.RunAsync(async () =>
             {
-                ChatClient client = this.GetChatClient(sendAsStreamer);
+                ChatClient client = this.GetChatClient(sendAsUser);
                 if (client != null)
                 {
                     message = this.SplitLargeMessage(message, out string subMessage);
@@ -302,7 +305,7 @@ namespace MixItUp.Base.Services.Mixer
 
                     if (!string.IsNullOrEmpty(subMessage))
                     {
-                        await this.WhisperWithResponse(username, subMessage, sendAsStreamer: sendAsStreamer);
+                        await this.WhisperWithResponse(username, subMessage, sendAsUser: sendAsUser);
                     }
 
                     return firstChatMessage;
@@ -315,9 +318,9 @@ namespace MixItUp.Base.Services.Mixer
         {
             return await this.RunAsync(async () =>
             {
-                if (this.streamerClient != null)
+                if (this.userClient != null)
                 {
-                    return await this.streamerClient.GetChatHistory(maxMessages);
+                    return await this.userClient.GetChatHistory(maxMessages);
                 }
                 return new List<ChatMessageEventModel>();
             });
@@ -329,7 +332,7 @@ namespace MixItUp.Base.Services.Mixer
             {
                 Logger.Log(LogLevel.Debug, string.Format("Deleting Message - {0}", message.PlainTextMessage));
 
-                await this.streamerClient.DeleteMessage(Guid.Parse(message.ID));
+                await this.userClient.DeleteMessage(Guid.Parse(message.ID));
             });
         }
 
@@ -337,7 +340,7 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await this.streamerClient.ClearMessages();
+                await this.userClient.ClearMessages();
             });
         }
 
@@ -345,7 +348,7 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await this.streamerClient.PurgeUser(username);
+                await this.userClient.PurgeUser(username);
             });
         }
 
@@ -353,7 +356,7 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await this.streamerClient.TimeoutUser(username, durationInSeconds);
+                await this.userClient.TimeoutUser(username, durationInSeconds);
             });
         }
 
@@ -397,11 +400,11 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await this.streamerClient.StartVote(question, answers, lengthInSeconds);
+                await this.userClient.StartVote(question, answers, lengthInSeconds);
             });
         }
 
-        private ChatClient GetChatClient(bool sendAsStreamer = false) { return (this.botClient != null && !sendAsStreamer) ? this.botClient : this.streamerClient; }
+        private ChatClient GetChatClient(bool sendAsStreamer = false) { return (this.botClient != null && !sendAsStreamer) ? this.botClient : this.userClient; }
 
         private async Task<ChatClient> ConnectAndAuthenticateChatClient(MixerConnectionService connection)
         {
@@ -508,7 +511,7 @@ namespace MixItUp.Base.Services.Mixer
             List<uint> chatUserIDs = new List<uint>(chatUsers.Select(u => u.userId.GetValueOrDefault()));
 
             IEnumerable<UserViewModel> existingUsers = ChannelSession.Services.User.GetAllUsers();
-            List<uint> existingUsersIDs = new List<uint>(existingUsers.Select(u => u.ID));
+            List<uint> existingUsersIDs = new List<uint>(existingUsers.Select(u => u.MixerID));
 
             Dictionary<uint, ChatUserModel> usersToAdd = new Dictionary<uint, ChatUserModel>();
             foreach (ChatUserModel user in chatUsers)
@@ -688,12 +691,12 @@ namespace MixItUp.Base.Services.Mixer
         {
             ChannelSession.DisconnectionOccurred("Streamer Chat");
 
-            await this.DisconnectStreamer();
+            await this.DisconnectUser();
             do
             {
                 await Task.Delay(2500);
             }
-            while (!await this.ConnectStreamer());
+            while (!await this.ConnectUser());
 
             ChannelSession.ReconnectionOccurred("Streamer Chat");
         }

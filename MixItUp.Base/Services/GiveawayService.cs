@@ -119,7 +119,7 @@ namespace MixItUp.Base.Services
 
             if (this.Winner != null)
             {
-                pastWinners.Add(this.Winner.ID);
+                pastWinners.Add(this.Winner.MixerID);
             }
 
             this.TimeLeft = 0;
@@ -179,7 +179,7 @@ namespace MixItUp.Base.Services
                             currentEntry += kvp.Entries;
                             if (entryNumber < currentEntry)
                             {
-                                this.enteredUsers.Remove(kvp.User.ID);
+                                this.enteredUsers.Remove(kvp.User.MixerID);
                                 this.Winner = kvp.User;
                                 break;
                             }
@@ -238,7 +238,7 @@ namespace MixItUp.Base.Services
                 {
                     int entries = 1;
 
-                    if (pastWinners.Contains(message.User.ID))
+                    if (pastWinners.Contains(message.User.MixerID))
                     {
                         await ChannelSession.Services.Chat.Whisper(message.User.UserName, "You have already won a giveaway and can not enter this one");
                         return;
@@ -250,9 +250,9 @@ namespace MixItUp.Base.Services
                     }
 
                     int currentEntries = 0;
-                    if (this.enteredUsers.ContainsKey(message.User.ID))
+                    if (this.enteredUsers.ContainsKey(message.User.MixerID))
                     {
-                        currentEntries = this.enteredUsers[message.User.ID].Entries;
+                        currentEntries = this.enteredUsers[message.User.MixerID].Entries;
                     }
 
                     if ((entries + currentEntries) > ChannelSession.Settings.GiveawayMaximumEntries)
@@ -283,11 +283,11 @@ namespace MixItUp.Base.Services
                             }
                         }
 
-                        if (!this.enteredUsers.ContainsKey(message.User.ID))
+                        if (!this.enteredUsers.ContainsKey(message.User.MixerID))
                         {
-                            this.enteredUsers[message.User.ID] = new GiveawayUser() { User = message.User, Entries = 0 };
+                            this.enteredUsers[message.User.MixerID] = new GiveawayUser() { User = message.User, Entries = 0 };
                         }
-                        GiveawayUser giveawayUser = this.enteredUsers[message.User.ID];
+                        GiveawayUser giveawayUser = this.enteredUsers[message.User.MixerID];
 
                         if (giveawayUser != null)
                         {

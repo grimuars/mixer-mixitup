@@ -45,9 +45,9 @@ namespace MixItUp.WPF.Controls.MainControls
             {
                 await this.collectionChangeSemaphore.WaitAndRelease(() =>
                 {
-                    if (user != null && !this.existingUsers.ContainsKey(user.ID))
+                    if (user != null && !this.existingUsers.ContainsKey(user.MixerID))
                     {
-                        this.cachedUserRoles[user.ID] = user.PrimaryRole;
+                        this.cachedUserRoles[user.MixerID] = user.PrimaryRole;
 
                         int insertIndex = 0;
                         for (insertIndex = 0; insertIndex < this.collection.Count; insertIndex++)
@@ -58,19 +58,19 @@ namespace MixItUp.WPF.Controls.MainControls
                                 UserViewModel currentUser = null; //userControl.User;
                                 if (currentUser != null)
                                 {
-                                    if (!this.cachedUserRoles.ContainsKey(currentUser.ID))
+                                    if (!this.cachedUserRoles.ContainsKey(currentUser.MixerID))
                                     {
-                                        this.cachedUserRoles[currentUser.ID] = currentUser.PrimaryRole;
+                                        this.cachedUserRoles[currentUser.MixerID] = currentUser.PrimaryRole;
                                     }
 
-                                    if (this.cachedUserRoles[currentUser.ID] == this.cachedUserRoles[user.ID])
+                                    if (this.cachedUserRoles[currentUser.MixerID] == this.cachedUserRoles[user.MixerID])
                                     {
                                         if (!string.IsNullOrEmpty(user.UserName) && currentUser.UserName.CompareTo(user.UserName) > 0)
                                         {
                                             break;
                                         }
                                     }
-                                    else if (this.cachedUserRoles[currentUser.ID] < this.cachedUserRoles[user.ID])
+                                    else if (this.cachedUserRoles[currentUser.MixerID] < this.cachedUserRoles[user.MixerID])
                                     {
                                         break;
                                     }
@@ -79,7 +79,7 @@ namespace MixItUp.WPF.Controls.MainControls
                         }
 
                         ChatUserControl control = null;// new ChatUserControl(user);
-                        this.existingUsers[user.ID] = control;
+                        this.existingUsers[user.MixerID] = control;
 
                         if (insertIndex < this.collection.Count)
                         {
@@ -99,7 +99,7 @@ namespace MixItUp.WPF.Controls.MainControls
         {
             return await this.collectionChangeSemaphore.WaitAndRelease(() =>
             {
-                return Task.FromResult(this.existingUsers.ContainsKey(user.ID));
+                return Task.FromResult(this.existingUsers.ContainsKey(user.MixerID));
             });
         }
 
@@ -111,10 +111,10 @@ namespace MixItUp.WPF.Controls.MainControls
             {
                 foreach (UserViewModel user in users)
                 {
-                    if (this.existingUsers.ContainsKey(user.ID))
+                    if (this.existingUsers.ContainsKey(user.MixerID))
                     {
-                        this.collection.Remove(this.existingUsers[user.ID]);
-                        this.existingUsers.Remove(user.ID);
+                        this.collection.Remove(this.existingUsers[user.MixerID]);
+                        this.existingUsers.Remove(user.MixerID);
                     }
                 }
                 return Task.FromResult(0);
@@ -304,7 +304,7 @@ namespace MixItUp.WPF.Controls.MainControls
 
         private async Task ShowUserDialog(UserViewModel user)
         {
-            if (user != null && !user.IsAnonymous)
+            if (user != null && !user.IsMixerAnonymous)
             {
                 UserDialogResult result = await MessageBoxHelper.ShowUserDialog(user);
 
@@ -329,11 +329,11 @@ namespace MixItUp.WPF.Controls.MainControls
                         
                         break;
                     case UserDialogResult.Follow:
-                        ExpandedChannelModel channelToFollow = await ChannelSession.MixerUserConnection.GetChannel(user.ChannelID);
+                        ExpandedChannelModel channelToFollow = await ChannelSession.MixerUserConnection.GetChannel(user.MixerChannelID);
                         await ChannelSession.MixerUserConnection.Follow(channelToFollow, ChannelSession.MixerUser);
                         break;
                     case UserDialogResult.Unfollow:
-                        ExpandedChannelModel channelToUnfollow = await ChannelSession.MixerUserConnection.GetChannel(user.ChannelID);
+                        ExpandedChannelModel channelToUnfollow = await ChannelSession.MixerUserConnection.GetChannel(user.MixerChannelID);
                         await ChannelSession.MixerUserConnection.Unfollow(channelToUnfollow, ChannelSession.MixerUser);
                         break;
                     case UserDialogResult.PromoteToMod:
@@ -352,7 +352,7 @@ namespace MixItUp.WPF.Controls.MainControls
                         ProcessHelper.LaunchLink($"https://mixer.com/{user.UserName}");
                         break;
                     case UserDialogResult.EditUser:
-                        UserDataEditorWindow window = new UserDataEditorWindow(ChannelSession.Settings.UserData[user.ID]);
+                        UserDataEditorWindow window = new UserDataEditorWindow(ChannelSession.Settings.UserData[user.MixerID]);
                         await Task.Delay(100);
                         window.Show();
                         await Task.Delay(100);
@@ -838,7 +838,7 @@ namespace MixItUp.WPF.Controls.MainControls
                 {
                     List<ChatMessageControl> messagesToDelete = new List<ChatMessageControl>();
 
-                    IEnumerable<ChatMessageControl> userMessages = this.MessageControls.Where(msg => msg.Message.User != null && msg.Message.User.ID.Equals(purgeEvent.Item1.ID));
+                    IEnumerable<ChatMessageControl> userMessages = this.MessageControls.Where(msg => msg.Message.User != null && msg.Message.User.MixerID.Equals(purgeEvent.Item1.MixerID));
                     if (userMessages != null)
                     {
                         foreach (ChatMessageControl message in userMessages)

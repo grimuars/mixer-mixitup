@@ -148,7 +148,7 @@ namespace MixItUp.WPF.Controls.Interactive
 
         protected override async Task OnInteractiveControlUsed(UserViewModel user, MixPlayGiveInputModel input, InteractiveConnectedControlCommand command)
         {
-            if (user != null && !user.IsAnonymous && (input.input.controlID.Equals("gameEnd") || input.input.controlID.Equals("flyHit"))
+            if (user != null && !user.IsMixerAnonymous && (input.input.controlID.Equals("gameEnd") || input.input.controlID.Equals("flyHit"))
                 && input.input.meta.TryGetValue("total", out JToken totalToken))
             {
                 int total = totalToken.ToObject<int>();
