@@ -18,6 +18,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using Twitch.Base.Models.NewAPI.Games;
 
 namespace MixItUp.Base.Commands
 {
@@ -743,7 +744,14 @@ namespace MixItUp.Base.Commands
                 {
                     if (arguments.Count() > 0)
                     {
-                        await ChannelSession.MixerUserConnection.UpdateChannel(ChannelSession.MixerChannel.id, name: string.Join(" ", arguments));
+                        if (ChannelSession.MixerUserConnection != null)
+                        {
+                            await ChannelSession.MixerUserConnection.UpdateChannel(ChannelSession.MixerChannel.id, name: string.Join(" ", arguments));
+                        }
+                        if (ChannelSession.TwitchUserConnection != null)
+                        {
+                            await ChannelSession.TwitchUserConnection.UpdateChannel(ChannelSession.TwitchV5Channel, status: string.Join(" ", arguments), game: null);
+                        }
                         await ChannelSession.RefreshChannel();
                     }
                     else
@@ -766,29 +774,68 @@ namespace MixItUp.Base.Commands
                 {
                     if (arguments.Count() > 0)
                     {
-                        GameTypeModel newGame = null;
-                        if (arguments.Count() == 1 && uint.TryParse(arguments.ElementAt(0), out uint gameID))
-                        {
-                            newGame = await ChannelSession.MixerUserConnection.GetGameType(gameID);
-                        }
-                        else
-                        {
-                            string newGameName = string.Join(" ", arguments);
-                            IEnumerable<GameTypeModel> games = await ChannelSession.MixerUserConnection.GetGameTypes(newGameName, 25);
+                        string newGameName = string.Join(" ", arguments);
 
-                            newGame = games.FirstOrDefault(g => g.name.Equals(newGameName, StringComparison.CurrentCultureIgnoreCase));
+                        await ChannelSession.RefreshChannel();
+
+                        if (ChannelSession.MixerUserConnection != null)
+                        {
+                            GameTypeModel newGame = null;
+                            if (arguments.Count() == 1 && uint.TryParse(arguments.ElementAt(0), out uint gameID))
+                            {
+                                newGame = await ChannelSession.MixerUserConnection.GetGameType(gameID);
+                            }
+                            else
+                            {
+                                IEnumerable<GameTypeModel> games = await ChannelSession.MixerUserConnection.GetGameTypes(newGameName, 25);
+                                newGame = games.FirstOrDefault(g => g.name.Equals(newGameName, StringComparison.CurrentCultureIgnoreCase));
+                                if (newGame == null)
+                                {
+                                    newGame = games.FirstOrDefault();
+                                }
+                            }
+
+                            if (newGame != null)
+                            {
+                                await ChannelSession.MixerUserConnection.UpdateChannel(ChannelSession.MixerChannel.id, gameTypeID: newGame.id);
+                                await ChannelSession.RefreshChannel();
+
+                                await ChannelSession.Services.Chat.Whisper(user.UserName, "Mixer Game Updated: " + newGame.name);
+                            }
+                            else
+                            {
+                                await ChannelSession.Services.Chat.Whisper(user.UserName, "We could not find a Mixer game with that name/ID");
+                            }
                         }
 
-                        if (newGame != null)
+                        if (ChannelSession.TwitchUserConnection != null)
                         {
-                            await ChannelSession.MixerUserConnection.UpdateChannel(ChannelSession.MixerChannel.id, gameTypeID: newGame.id);
-                            await ChannelSession.RefreshChannel();
+                            GameModel newGame = null;
+                            if (arguments.Count() == 1 && uint.TryParse(arguments.ElementAt(0), out uint gameID))
+                            {
+                                newGame = await ChannelSession.TwitchUserConnection.GetNewAPIGameByID(gameID.ToString());
+                            }
+                            else
+                            {
+                                IEnumerable<GameModel> games = await ChannelSession.TwitchUserConnection.GetNewAPIGamesByName(newGameName);
+                                newGame = games.FirstOrDefault(g => g.name.Equals(newGameName, StringComparison.CurrentCultureIgnoreCase));
+                                if (newGame == null)
+                                {
+                                    newGame = games.FirstOrDefault();
+                                }
+                            }
 
-                            await ChannelSession.Services.Chat.Whisper(user.UserName, "Game Updated: " + newGame.name);
-                        }
-                        else
-                        {
-                            await ChannelSession.Services.Chat.Whisper(user.UserName, "We could not find a game with that name/ID");
+                            if (newGame != null)
+                            {
+                                await ChannelSession.TwitchUserConnection.UpdateChannel(ChannelSession.TwitchV5Channel, game: newGame);
+                                await ChannelSession.RefreshChannel();
+
+                                await ChannelSession.Services.Chat.Whisper(user.UserName, "Twitch Game Updated: " + newGame.name);
+                            }
+                            else
+                            {
+                                await ChannelSession.Services.Chat.Whisper(user.UserName, "We could not find a Twitch game with that name/ID");
+                            }
                         }
                     }
                     else
