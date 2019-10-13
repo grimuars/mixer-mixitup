@@ -52,6 +52,7 @@ namespace MixItUp.Base
 
         public static MixPlayClientWrapper Interactive { get; private set; }
         public static ConstellationClientWrapper Constellation { get; private set; }
+        public static TwitchPubSubService PubSub { get; private set; }
 
         public static StatisticsTracker Statistics { get; private set; }
 
@@ -159,6 +160,7 @@ namespace MixItUp.Base
 
             ChannelSession.Constellation = new ConstellationClientWrapper();
             ChannelSession.Interactive = new MixPlayClientWrapper();
+            ChannelSession.PubSub = new TwitchPubSubService();
 
             ChannelSession.Statistics = new StatisticsTracker();
         }
@@ -249,9 +251,11 @@ namespace MixItUp.Base
             await ChannelSession.Services.Close();
 
             await ChannelSession.Services.Chat.MixerChatService.DisconnectUser();
+            await ChannelSession.Services.Chat.TwitchChatService.DisconnectUser();
             await ChannelSession.DisconnectBot();
 
             await ChannelSession.Constellation.Disconnect();
+            await ChannelSession.PubSub.Disconnect();
         }
 
         public static async Task SaveSettings()
@@ -403,7 +407,7 @@ namespace MixItUp.Base
                     MixerChatService mixerChatService = new MixerChatService();
                     TwitchChatService twitchChatService = new TwitchChatService();
 
-                    if (!await mixerChatService.ConnectUser() || !await ChannelSession.Constellation.Connect() || !await twitchChatService.ConnectUser())
+                    if (!await mixerChatService.ConnectUser() || !await ChannelSession.Constellation.Connect() || !await twitchChatService.ConnectUser() || !await ChannelSession.PubSub.Connect())
                     {
                         return false;
                     }

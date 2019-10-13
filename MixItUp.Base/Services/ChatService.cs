@@ -24,6 +24,7 @@ namespace MixItUp.Base.Services
     public interface IChatService
     {
         IMixerChatService MixerChatService { get; }
+        ITwitchChatService TwitchChatService { get; }
 
         Task Initialize(IMixerChatService mixerChatService, ITwitchChatService twitchChatService);
 

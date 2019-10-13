@@ -1,6 +1,7 @@
 ﻿using MixItUp.Base.Model;
 using MixItUp.Base.ViewModel.User;
 using Twitch.Base.Models.Clients.Chat;
+using Twitch.Base.Models.Clients.PubSub.Messages;
 
 namespace MixItUp.Base.ViewModel.Chat.Twitch
 {
@@ -10,6 +11,13 @@ namespace MixItUp.Base.ViewModel.Chat.Twitch
             : base(message.ID, StreamingPlatformTypeEnum.Twitch, new UserViewModel(message))
         {
             this.AddStringMessagePart(message.Message);
+        }
+
+        public TwitchChatMessageViewModel(PubSubWhisperEventModel whisper)
+            : base(whisper.message_id, StreamingPlatformTypeEnum.Twitch, new UserViewModel(whisper.tags))
+        {
+            this.TargetUsername = whisper.recipient.username;
+            this.AddStringMessagePart(whisper.body);
         }
     }
 }

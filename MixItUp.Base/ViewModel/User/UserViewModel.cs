@@ -15,6 +15,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using Twitch.Base.Models.Clients.Chat;
+using Twitch.Base.Models.Clients.PubSub.Messages;
 using TwitchNewAPI = Twitch.Base.Models.NewAPI;
 
 namespace MixItUp.Base.ViewModel.User
@@ -190,39 +191,29 @@ namespace MixItUp.Base.ViewModel.User
 
         public UserViewModel(TwitchNewAPI.Users.UserModel twitchUser)
         {
-            this.Platform = StreamingPlatformTypeEnum.Twitch;
             this.TwitchID = twitchUser.id;
             this.TwitchLogin = twitchUser.login;
             this.UserName = (!string.IsNullOrEmpty(twitchUser.display_name)) ? twitchUser.display_name : this.TwitchLogin;
             this.TwitchAvatarLink = twitchUser.profile_image_url;
 
-            this.mixerRoles.Clear();
-            this.mixerRoles.Add(MixerRoleEnum.User);
-
-            List<string> displayRoles = new List<string>(this.mixerRoles.Select(r => EnumHelper.GetEnumName(r)));
-            displayRoles.AddRange(this.CustomRoles);
-
-            this.RolesDisplayString = string.Join(", ", displayRoles.OrderByDescending(r => r));
-
-            this.Data.UpdateData(this);
+            this.SetTwitchUserDetails();
         }
 
         public UserViewModel(ChatMessagePacketModel twitchMessage)
         {
-            this.Platform = StreamingPlatformTypeEnum.Twitch;
             this.TwitchID = twitchMessage.UserID;
             this.TwitchLogin = twitchMessage.UserLogin;
             this.UserName = (!string.IsNullOrEmpty(twitchMessage.UserDisplayName)) ? twitchMessage.UserDisplayName : this.TwitchLogin;
 
-            this.mixerRoles.Clear();
-            this.mixerRoles.Add(MixerRoleEnum.User);
+            this.SetTwitchUserDetails();
+        }
 
-            List<string> displayRoles = new List<string>(this.mixerRoles.Select(r => EnumHelper.GetEnumName(r)));
-            displayRoles.AddRange(this.CustomRoles);
+        public UserViewModel(PubSubWhisperEventTagsModel twitchWhisper)
+        {
+            this.TwitchLogin = twitchWhisper.login;
+            this.UserName = (!string.IsNullOrEmpty(twitchWhisper.display_name)) ? twitchWhisper.display_name : this.TwitchLogin;
 
-            this.RolesDisplayString = string.Join(", ", displayRoles.OrderByDescending(r => r));
-
-            this.Data.UpdateData(this);
+            this.SetTwitchUserDetails();
         }
 
         public string AvatarLink
@@ -774,6 +765,21 @@ namespace MixItUp.Base.ViewModel.User
 
                 this.RolesDisplayString = string.Join(", ", displayRoles.OrderByDescending(r => r));
             }
+        }
+
+        private void SetTwitchUserDetails()
+        {
+            this.Platform = StreamingPlatformTypeEnum.Twitch;
+
+            this.mixerRoles.Clear();
+            this.mixerRoles.Add(MixerRoleEnum.User);
+
+            List<string> displayRoles = new List<string>(this.mixerRoles.Select(r => EnumHelper.GetEnumName(r)));
+            displayRoles.AddRange(this.CustomRoles);
+
+            this.RolesDisplayString = string.Join(", ", displayRoles.OrderByDescending(r => r));
+
+            this.Data.UpdateData(this);
         }
     }
 }
