@@ -16,7 +16,7 @@ namespace MixItUp.Base.ViewModel.Chat.Twitch
         public TwitchChatMessageViewModel(PubSubWhisperEventModel whisper)
             : base(whisper.message_id, StreamingPlatformTypeEnum.Twitch, new UserViewModel(whisper.tags))
         {
-            this.TargetUsername = whisper.recipient.username;
+            this.TargetUsername = (!string.IsNullOrEmpty(whisper.recipient.display_name)) ? whisper.recipient.display_name : whisper.recipient.username;
             this.AddStringMessagePart(whisper.body);
         }
     }
