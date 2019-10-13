@@ -1,11 +1,13 @@
-﻿using MixItUp.Base.Util;
-using StreamingClient.Base.Model.OAuth;
+﻿using StreamingClient.Base.Model.OAuth;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Twitch.Base;
-using NewAPI = Twitch.Base.Models.NewAPI.Users;
+using Twitch.Base.Models.NewAPI.Games;
+using Twitch.Base.Models.V5.Channel;
+using NewAPI = Twitch.Base.Models.NewAPI;
+using V5API = Twitch.Base.Models.V5;
 
 namespace MixItUp.Base.Services.Twitch
 {
@@ -91,11 +93,35 @@ namespace MixItUp.Base.Services.Twitch
             return (this.Connection != null);
         }
 
-        public async Task<NewAPI.UserModel> GetNewAPICurrentUser() { return await this.RunAsync(this.Connection.NewAPI.Users.GetCurrentUser()); }
+        public async Task<NewAPI.Users.UserModel> GetNewAPICurrentUser() { return await this.RunAsync(this.Connection.NewAPI.Users.GetCurrentUser()); }
 
-        public async Task<NewAPI.UserModel> GetNewAPIUserByID(string userID) { return await this.RunAsync(this.Connection.NewAPI.Users.GetUserByID(userID)); }
+        public async Task<NewAPI.Users.UserModel> GetNewAPIUserByID(string userID) { return await this.RunAsync(this.Connection.NewAPI.Users.GetUserByID(userID)); }
 
-        public async Task<NewAPI.UserModel> GetNewAPIUserByLogin(string login) { return await this.RunAsync(this.Connection.NewAPI.Users.GetUserByLogin(login)); }
+        public async Task<NewAPI.Users.UserModel> GetNewAPIUserByLogin(string login) { return await this.RunAsync(this.Connection.NewAPI.Users.GetUserByLogin(login)); }
+
+        public async Task<V5API.Users.UserModel> GetV5APIUserByID(string userID) { return await this.RunAsync(this.Connection.V5API.Users.GetUserByID(userID)); }
+
+        public async Task<V5API.Users.UserModel> GetV5APIUserByLogin(string login) { return await this.RunAsync(this.Connection.V5API.Users.GetUserByLogin(login)); }
+
+        public async Task<V5API.Channel.ChannelModel> GetV5APIChannel(string channelID) { return await this.RunAsync(this.Connection.V5API.Channels.GetChannelByID(channelID)); }
+
+        public async Task<V5API.Channel.ChannelModel> GetV5APIChannel(V5API.Users.UserModel user) { return await this.RunAsync(this.Connection.V5API.Channels.GetChannel(user)); }
+
+        public async Task<V5API.Channel.ChannelModel> GetV5APIChannel(V5API.Channel.ChannelModel channel) { return await this.RunAsync(this.Connection.V5API.Channels.GetChannel(channel)); }
+
+        public async Task UpdateChannel(V5API.Channel.ChannelModel channel, string status = null, GameModel game = null)
+        {
+            ChannelUpdateModel update = new ChannelUpdateModel()
+            {
+                status = (!string.IsNullOrEmpty(status)) ? status : null,
+                game = (game != null) ? game.name : null
+            };
+            await this.RunAsync(this.Connection.V5API.Channels.UpdateChannel(channel, update));
+        }
+
+        public async Task<NewAPI.Games.GameModel> GetNewAPIGameByID(string id) { return await this.RunAsync(this.Connection.NewAPI.Games.GetGameByID(id)); }
+
+        public async Task<IEnumerable<NewAPI.Games.GameModel>> GetNewAPIGamesByName(string name) { return await this.RunAsync(this.Connection.NewAPI.Games.GetGamesByName(name)); }
 
         private async Task<bool> Connect(IEnumerable<OAuthClientScopeEnum> scopes)
         {

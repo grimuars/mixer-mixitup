@@ -87,7 +87,7 @@ namespace MixItUp.Base.Services.Twitch
 
                         await Task.Delay(1000);
 
-                        await this.userClient.Join(ChannelSession.TwitchChannel);
+                        await this.userClient.Join(ChannelSession.TwitchNewAPIChannel);
 
                         AsyncRunner.RunBackgroundTask(this.cancellationTokenSource.Token, 2500, this.ChatterJoinLeaveBackground);
 
@@ -146,6 +146,7 @@ namespace MixItUp.Base.Services.Twitch
                 }
                 return Task.FromResult(0);
             });
+            this.initialUserLogins.Clear();
         }
 
         public async Task SendMessage(string message, bool sendAsStreamer = false)
@@ -155,7 +156,7 @@ namespace MixItUp.Base.Services.Twitch
                 ChatClient client = this.GetChatClient(sendAsStreamer);
                 if (client != null)
                 {
-                    await client.SendMessage(ChannelSession.TwitchChannel, message);
+                    await client.SendMessage(ChannelSession.TwitchNewAPIChannel, message);
                 }
             });
         }
@@ -270,7 +271,7 @@ namespace MixItUp.Base.Services.Twitch
 
         private void Client_OnSentOccurred(object sender, string packet)
         {
-            Logger.Log(LogLevel.Debug, string.Format("Twitch Client Packet Sent: {0}", packet));
+            Logger.Log(LogLevel.Debug, string.Format("Twitch Chat Packet Sent: {0}", packet));
         }
 
         private async void UserClient_OnDisconnectOccurred(object sender, WebSocketCloseStatus closeStatus)

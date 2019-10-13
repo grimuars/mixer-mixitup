@@ -44,7 +44,9 @@ namespace MixItUp.Base
         public static TwitchConnectionService TwitchBotConnection { get; private set; }
         public static TwitchNewAPI.Users.UserModel TwitchUser { get; set; }
         public static TwitchNewAPI.Users.UserModel TwitchBotUser { get; set; }
-        public static TwitchNewAPI.Users.UserModel TwitchChannel { get; private set; }
+        public static TwitchNewAPI.Users.UserModel TwitchNewAPIChannel { get; private set; }
+        public static TwitchV5API.Users.UserModel TwitchV5User { get; private set; }
+        public static TwitchV5API.Channel.ChannelModel TwitchV5Channel { get; private set; }
 
         public static IChannelSettings Settings { get; private set; }
 
@@ -274,16 +276,27 @@ namespace MixItUp.Base
 
         public static async Task RefreshChannel()
         {
-            ExpandedChannelModel mixerChannel = await ChannelSession.MixerUserConnection.GetChannel(ChannelSession.MixerChannel.id);
-            if (mixerChannel != null)
+            if (ChannelSession.MixerUserConnection != null)
             {
-                ChannelSession.MixerChannel = mixerChannel;
+                ExpandedChannelModel mixerChannel = await ChannelSession.MixerUserConnection.GetChannel(ChannelSession.MixerChannel.id);
+                if (mixerChannel != null)
+                {
+                    ChannelSession.MixerChannel = mixerChannel;
+                }
             }
 
-            TwitchNewAPI.Users.UserModel twitchUser = await ChannelSession.TwitchUserConnection.GetNewAPICurrentUser();
-            if (twitchUser != null)
+            if (ChannelSession.TwitchUserConnection != null)
             {
-                ChannelSession.TwitchUser = twitchUser;
+                TwitchNewAPI.Users.UserModel newChannel = await ChannelSession.TwitchUserConnection.GetNewAPIUserByID(ChannelSession.TwitchNewAPIChannel?.id);
+                if (newChannel != null)
+                {
+                    ChannelSession.TwitchNewAPIChannel = newChannel;
+                    TwitchV5API.Channel.ChannelModel channel = await ChannelSession.TwitchUserConnection.GetV5APIChannel(ChannelSession.TwitchNewAPIChannel.id);
+                    if (channel != null)
+                    {
+                        ChannelSession.TwitchV5Channel = channel;
+                    }
+                }
             }
         }
 
@@ -327,11 +340,11 @@ namespace MixItUp.Base
 
                 if (twitchChannelName == null || isStreamer)
                 {
-                    ChannelSession.TwitchChannel = await ChannelSession.TwitchUserConnection.GetNewAPICurrentUser();
+                    ChannelSession.TwitchNewAPIChannel = await ChannelSession.TwitchUserConnection.GetNewAPICurrentUser();
                 }
                 else
                 {
-                    ChannelSession.TwitchChannel = await ChannelSession.TwitchUserConnection.GetNewAPIUserByLogin(twitchChannelName);
+                    ChannelSession.TwitchNewAPIChannel = await ChannelSession.TwitchUserConnection.GetNewAPIUserByLogin(twitchChannelName);
                 }
                 
                 if (ChannelSession.MixerChannel != null)
@@ -358,7 +371,7 @@ namespace MixItUp.Base
                         return false;
                     }
 
-                    ChannelSession.Settings.TwitchChannel = ChannelSession.TwitchChannel;
+                    ChannelSession.Settings.TwitchChannel = ChannelSession.TwitchNewAPIChannel;
 
                     ChannelSession.Services.Telemetry.SetUserId(ChannelSession.Settings.TelemetryUserId);
 
