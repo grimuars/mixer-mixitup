@@ -331,27 +331,30 @@ namespace MixItUp.Base.Services
                 message.User = activeUser;
             }
 
-            await DispatcherHelper.InvokeDispatcher(() =>
+            if (!(message is AlertChatMessageViewModel) || !ChannelSession.Settings.OnlyShowAlertsInDashboard)
             {
-                this.messagesLookup[message.ID] = message;
-                if (ChannelSession.Settings.LatestChatAtTop)
+                await DispatcherHelper.InvokeDispatcher(() =>
                 {
-                    this.Messages.Insert(0, message);
-                }
-                else
-                {
-                    this.Messages.Add(message);
-                }
+                    this.messagesLookup[message.ID] = message;
+                    if (ChannelSession.Settings.LatestChatAtTop)
+                    {
+                        this.Messages.Insert(0, message);
+                    }
+                    else
+                    {
+                        this.Messages.Add(message);
+                    }
 
-                if (this.Messages.Count > ChannelSession.Settings.MaxMessagesInChat)
-                {
-                    ChatMessageViewModel removedMessage = (ChannelSession.Settings.LatestChatAtTop) ? this.Messages.Last() : this.Messages.First();
-                    this.messagesLookup.Remove(removedMessage.ID);
-                    this.Messages.Remove(removedMessage);
-                }
+                    if (this.Messages.Count > ChannelSession.Settings.MaxMessagesInChat)
+                    {
+                        ChatMessageViewModel removedMessage = (ChannelSession.Settings.LatestChatAtTop) ? this.Messages.Last() : this.Messages.First();
+                        this.messagesLookup.Remove(removedMessage.ID);
+                        this.Messages.Remove(removedMessage);
+                    }
 
-                return Task.FromResult(0);
-            });
+                    return Task.FromResult(0);
+                });
+            }
 
             if (message is MixerChatMessageViewModel || message is TwitchChatMessageViewModel)
             {
@@ -585,18 +588,18 @@ namespace MixItUp.Base.Services
 
         #region Mixer Events
 
-        private async void MixerChatService_OnDeleteMessageOccurred(object sender, Guid id)
+        private async void MixerChatService_OnDeleteMessageOccurred(object sender, Tuple<Guid, UserViewModel> messageDeletion)
         {
-            if (this.messagesLookup.TryGetValue(id.ToString(), out ChatMessageViewModel message))
+            if (this.messagesLookup.TryGetValue(messageDeletion.Item1.ToString(), out ChatMessageViewModel message))
             {
-                await message.Delete();
-                GlobalEvents.ChatMessageDeleted(id);
+                await message.Delete(messageDeletion.Item2);
+                GlobalEvents.ChatMessageDeleted(messageDeletion.Item1);
 
                 if (ChannelSession.Settings.HideDeletedMessages)
                 {
                     await DispatcherHelper.InvokeDispatcher(() =>
                     {
-                        this.messagesLookup.Remove(id.ToString());
+                        this.messagesLookup.Remove(messageDeletion.Item1.ToString());
                         this.Messages.Remove(message);
                         return Task.FromResult(0);
                     });

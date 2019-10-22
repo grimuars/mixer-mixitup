@@ -66,6 +66,7 @@ namespace MixItUp.Base
         bool SaveChatEventLogs { get; set; }
 
         bool WhisperAllAlerts { get; set; }
+        bool OnlyShowAlertsInDashboard { get; set; }
         bool LatestChatAtTop { get; set; }
         bool HideViewerAndChatterNumbers { get; set; }
         bool HideChatUserList { get; set; }
