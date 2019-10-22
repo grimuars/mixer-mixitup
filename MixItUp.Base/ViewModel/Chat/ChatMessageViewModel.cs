@@ -43,7 +43,7 @@ namespace MixItUp.Base.ViewModel.Chat
 
         public ChatMessageViewModel(string id, StreamingPlatformTypeEnum platform, UserViewModel user)
         {
-            this.ID = id;
+            this.ID = (!string.IsNullOrEmpty(id)) ? id : Guid.NewGuid().ToString();
             this.Platform = platform;
             this.User = user;
         }
