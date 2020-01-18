@@ -240,8 +240,6 @@ namespace MixItUp.WPF.Controls.Command
                         case OtherEventTypeEnum.StreamlootsPackGifted:
                             extraSpecialIdentifiers["streamlootspurchasequantity"] = "1";
                             break;
-                        case OtherEventTypeEnum.TwitterStreamTweetRetweet:
-                            break;
                         case OtherEventTypeEnum.MixerSkillUsed:
                             extraSpecialIdentifiers["skillname"] = "Lots of stars";
                             extraSpecialIdentifiers["skilltype"] = EnumHelper.GetEnumName(MixerSkillTypeEnum.Sticker);
@@ -296,11 +294,6 @@ namespace MixItUp.WPF.Controls.Command
                     }
                     else
                     {
-                        extraSpecialIdentifiers["songtitle"] = "Test Song";
-                        extraSpecialIdentifiers["songalbumart"] = SpotifySongRequestProviderService.SpotifyDefaultAlbumArt;
-                        extraSpecialIdentifiers["songusername"] = currentUser.UserName;
-                        extraSpecialIdentifiers["spotifysongtitle"] = "Test Song";
-                        extraSpecialIdentifiers["spotifysongalbumart"] = SpotifySongRequestProviderService.SpotifyDefaultAlbumArt;
                         extraSpecialIdentifiers["queueposition"] = "1";
                     }
                 }

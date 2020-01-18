@@ -4,9 +4,8 @@ using Mixer.Base.Model.Patronage;
 using Mixer.Base.Model.User;
 using MixItUp.Base.Commands;
 using MixItUp.Base.Model.Overlay;
-using MixItUp.Base.Model.SongRequests;
-using MixItUp.Base.Model.Spotify;
 using MixItUp.Base.Services;
+using MixItUp.Base.Services.External;
 using MixItUp.Base.ViewModel.User;
 using System;
 using System.Collections.Generic;
@@ -54,10 +53,6 @@ namespace MixItUp.Base.Util
 
         public const string QuoteSpecialIdentifierHeader = "quote";
 
-        public const string SongIdentifierHeader = "song";
-        public const string CurrentSongIdentifierHeader = "currentsong";
-        public const string NextSongIdentifierHeader = "nextsong";
-
         public const string DonationSourceSpecialIdentifier = "donationsource";
         public const string DonationTypeSpecialIdentifier = "donationtype";
         public const string DonationAmountNumberSpecialIdentifier = "donationamountnumber";
@@ -73,6 +68,18 @@ namespace MixItUp.Base.Util
         public const string ExtraLifeSpecialIdentifierHeader = "extralife";
 
         public const string UnicodeRegexSpecialIdentifier = "unicode";
+
+        public const string LatestFollowerUserData = "latestfollower";
+        public const string LatestHostUserData = "latesthost";
+        public const string LatestHostViewerCountData = "latesthostviewercount";
+        public const string LatestSubscriberUserData = "latestsubscriber";
+        public const string LatestSubscriberSubMonthsData = "latestsubscribersubmonths";
+        public const string LatestSparkUsageUserData = "latestsparkusage";
+        public const string LatestSparkUsageAmountData = "latestsparkusageamount";
+        public const string LatestEmberUsageUserData = "latestemberusage";
+        public const string LatestEmberUsageAmountData = "latestemberusageamount";
+        public const string LatestDonationUserData = "latestdonation";
+        public const string LatestDonationAmountData = "latestdonationamount";
 
         public const string InteractiveTextBoxTextEntrySpecialIdentifierHelpText = "User Text Entered = " + SpecialIdentifierStringBuilder.SpecialIdentifierHeader +
             SpecialIdentifierStringBuilder.ArgSpecialIdentifierHeader + "1text";
@@ -265,11 +272,7 @@ namespace MixItUp.Base.Util
 
             if (this.ContainsSpecialIdentifier(SpecialIdentifierStringBuilder.TopSpecialIdentifierHeader))
             {
-                Dictionary<uint, UserDataViewModel> allUsersDictionary = ChannelSession.Settings.UserData.ToDictionary();
-                allUsersDictionary.Remove(ChannelSession.MixerChannel.user.id);
-
-                IEnumerable<UserDataViewModel> allUsers = allUsersDictionary.Select(kvp => kvp.Value);
-                allUsers = allUsers.Where(u => !u.IsCurrencyRankExempt);
+                IEnumerable<UserDataViewModel> allUsers = this.GetAllCurrencyUsers();
 
                 if (this.ContainsRegexSpecialIdentifier(SpecialIdentifierStringBuilder.TopSparksUsedRegexSpecialIdentifierHeader))
                 {
@@ -333,16 +336,6 @@ namespace MixItUp.Base.Util
                 }
             }
 
-            if (this.ContainsSpecialIdentifier(SongIdentifierHeader) || this.ContainsSpecialIdentifier(CurrentSongIdentifierHeader) || this.ContainsSpecialIdentifier(NextSongIdentifierHeader))
-            {
-                if (ChannelSession.Services.SongRequestService != null && ChannelSession.Services.SongRequestService.IsEnabled)
-                {
-                    await this.ReplaceSongRequestSpecialIdentifiers(SongIdentifierHeader, await ChannelSession.Services.SongRequestService.GetCurrent());
-                    await this.ReplaceSongRequestSpecialIdentifiers(CurrentSongIdentifierHeader, await ChannelSession.Services.SongRequestService.GetCurrent());
-                    await this.ReplaceSongRequestSpecialIdentifiers(NextSongIdentifierHeader, await ChannelSession.Services.SongRequestService.GetNext());
-                }
-            }
-
             if (this.ContainsSpecialIdentifier(UptimeSpecialIdentifierHeader) || this.ContainsSpecialIdentifier(StartSpecialIdentifierHeader))
             {
                 DateTimeOffset startTime = await UptimeChatCommand.GetStartTime();
@@ -388,7 +381,7 @@ namespace MixItUp.Base.Util
                 this.ReplaceSpecialIdentifier(CostreamUsersSpecialIdentifier, await CostreamChatCommand.GetCostreamUsers());
             }
 
-            if (ChannelSession.Services.Twitter != null && this.ContainsSpecialIdentifier("tweet"))
+            if (ChannelSession.Services.Twitter.IsConnected && this.ContainsSpecialIdentifier("tweet"))
             {
                 IEnumerable<Tweet> tweets = await ChannelSession.Services.Twitter.GetLatestTweets();
                 if (tweets != null && tweets.Count() > 0)
@@ -415,24 +408,7 @@ namespace MixItUp.Base.Util
                 }
             }
 
-            if (ChannelSession.Services.Spotify != null && this.ContainsSpecialIdentifier("spotify"))
-            {
-                SpotifyUserProfileModel profile = await ChannelSession.Services.Spotify.GetCurrentProfile();
-                if (profile != null)
-                {
-                    this.ReplaceSpecialIdentifier("spotifyprofileurl", profile.Link);
-                }
-
-                SpotifyCurrentlyPlayingModel currentlyPlaying = await ChannelSession.Services.Spotify.GetCurrentlyPlaying();
-                if (currentlyPlaying != null)
-                {
-                    this.ReplaceSpecialIdentifier("spotifysongalbumimage", (!string.IsNullOrEmpty(currentlyPlaying.Album?.ImageLink)) ? currentlyPlaying.Album?.ImageLink : SpotifySongRequestProviderService.SpotifyDefaultAlbumArt);
-                    this.ReplaceSpecialIdentifier("spotifysongtitle", currentlyPlaying.ToString());
-                    this.ReplaceSpecialIdentifier("spotifycurrentlyplaying", currentlyPlaying.ToString());
-                }
-            }
-
-            if (ChannelSession.Services.ExtraLife.IsConnected() && this.ContainsSpecialIdentifier(ExtraLifeSpecialIdentifierHeader))
+            if (ChannelSession.Services.ExtraLife.IsConnected && this.ContainsSpecialIdentifier(ExtraLifeSpecialIdentifierHeader))
             {
                 ExtraLifeTeam team = await ChannelSession.Services.ExtraLife.GetTeam();
 
@@ -661,6 +637,13 @@ namespace MixItUp.Base.Util
                 }
             }
 
+            await this.HandleLatestSpecialIdentifier(SpecialIdentifierStringBuilder.LatestFollowerUserData);
+            await this.HandleLatestSpecialIdentifier(SpecialIdentifierStringBuilder.LatestHostUserData, SpecialIdentifierStringBuilder.LatestHostViewerCountData);
+            await this.HandleLatestSpecialIdentifier(SpecialIdentifierStringBuilder.LatestSubscriberUserData, SpecialIdentifierStringBuilder.LatestSubscriberSubMonthsData);
+            await this.HandleLatestSpecialIdentifier(SpecialIdentifierStringBuilder.LatestSparkUsageUserData, SpecialIdentifierStringBuilder.LatestSparkUsageAmountData);
+            await this.HandleLatestSpecialIdentifier(SpecialIdentifierStringBuilder.LatestEmberUsageUserData, SpecialIdentifierStringBuilder.LatestEmberUsageAmountData);
+            await this.HandleLatestSpecialIdentifier(SpecialIdentifierStringBuilder.LatestDonationUserData, SpecialIdentifierStringBuilder.LatestDonationAmountData);
+
             foreach (UserInventoryViewModel inventory in ChannelSession.Settings.Inventories.Values.OrderByDescending(c => c.SpecialIdentifier))
             {
                 if (this.ContainsSpecialIdentifier(inventory.RandomItemSpecialIdentifier))
@@ -782,14 +765,23 @@ namespace MixItUp.Base.Util
 
                     foreach (UserCurrencyViewModel currency in ChannelSession.Settings.Currencies.Values.OrderByDescending(c => c.UserAmountSpecialIdentifier))
                     {
+                        if (this.ContainsSpecialIdentifier(identifierHeader + currency.UserPositionSpecialIdentifier))
+                        {
+                            List<UserDataViewModel> allUsers = new List<UserDataViewModel>(this.GetAllCurrencyUsers());
+                            int index = allUsers.FindIndex(u => u.ID == user.ID);
+                            this.ReplaceSpecialIdentifier(identifierHeader + currency.UserPositionSpecialIdentifier, (index + 1).ToString());
+                        }
+
                         UserCurrencyDataViewModel currencyData = userData.GetCurrency(currency);
                         UserRankViewModel rank = currencyData.GetRank();
                         UserRankViewModel nextRank = currencyData.GetNextRank();
 
                         this.ReplaceSpecialIdentifier(identifierHeader + currency.UserRankNextNameSpecialIdentifier, nextRank.Name);
+                        this.ReplaceSpecialIdentifier(identifierHeader + currency.UserAmountNextDisplaySpecialIdentifier, nextRank.MinimumPoints.ToString("N0"));
                         this.ReplaceSpecialIdentifier(identifierHeader + currency.UserAmountNextSpecialIdentifier, nextRank.MinimumPoints.ToString());
 
                         this.ReplaceSpecialIdentifier(identifierHeader + currency.UserRankNameSpecialIdentifier, rank.Name);
+                        this.ReplaceSpecialIdentifier(identifierHeader + currency.UserAmountDisplaySpecialIdentifier, currencyData.Amount.ToString("N0"));
                         this.ReplaceSpecialIdentifier(identifierHeader + currency.UserAmountSpecialIdentifier, currencyData.Amount.ToString());
                     }
 
@@ -909,19 +901,17 @@ namespace MixItUp.Base.Util
             }
         }
 
-        private async Task ReplaceSongRequestSpecialIdentifiers(string header, SongRequestModel song)
+        private async Task HandleLatestSpecialIdentifier(string userkey, string extrakey = null)
         {
-            if (song != null)
+            if (ChannelSession.Settings.LatestSpecialIdentifiersData.ContainsKey(userkey) && ChannelSession.Settings.LatestSpecialIdentifiersData[userkey] != null && ChannelSession.Settings.LatestSpecialIdentifiersData[userkey] is UserViewModel)
             {
-                this.ReplaceSpecialIdentifier(header + "title", song.Name);
-                this.ReplaceSpecialIdentifier(header + "albumimage", (song.AlbumImage != null) ? song.AlbumImage : string.Empty);
-                await this.HandleUserSpecialIdentifiers((song.User != null) ? song.User : new UserViewModel(0, "Backup"), header);
+                UserViewModel user = (UserViewModel)ChannelSession.Settings.LatestSpecialIdentifiersData[userkey];
+                await this.HandleUserSpecialIdentifiers(user, userkey);
             }
-            else
+
+            if (!string.IsNullOrEmpty(extrakey) && ChannelSession.Settings.LatestSpecialIdentifiersData.ContainsKey(extrakey) && ChannelSession.Settings.LatestSpecialIdentifiersData[extrakey] != null)
             {
-                this.ReplaceSpecialIdentifier(header + "title", "No Song");
-                this.ReplaceSpecialIdentifier(header + "albumimage", string.Empty);
-                this.ReplaceSpecialIdentifier(header + "username", "Nobody");
+                this.ReplaceSpecialIdentifier(extrakey, ChannelSession.Settings.LatestSpecialIdentifiersData[extrakey].ToString());
             }
         }
 
@@ -956,6 +946,16 @@ namespace MixItUp.Base.Util
                     }
                 }
             }
+        }
+
+        private IEnumerable<UserDataViewModel> GetAllCurrencyUsers()
+        {
+            Dictionary<uint, UserDataViewModel> allUsersDictionary = ChannelSession.Settings.UserData.ToDictionary();
+            allUsersDictionary.Remove(ChannelSession.MixerChannel.user.id);
+
+            IEnumerable<UserDataViewModel> allUsers = allUsersDictionary.Select(kvp => kvp.Value);
+            allUsers = allUsers.Where(u => !u.IsCurrencyRankExempt);
+            return allUsers;
         }
     }
 }

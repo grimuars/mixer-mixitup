@@ -6,7 +6,6 @@ using MixItUp.Base.Model.MixPlay;
 using MixItUp.Base.Model.Overlay;
 using MixItUp.Base.Model.Remote.Authentication;
 using MixItUp.Base.Model.Serial;
-using MixItUp.Base.Model.SongRequests;
 using MixItUp.Base.Model.User;
 using MixItUp.Base.Remote.Models;
 using MixItUp.Base.Services;
@@ -44,7 +43,6 @@ namespace MixItUp.Base
 
         OAuthTokenModel StreamlabsOAuthToken { get; set; }
         OAuthTokenModel TwitterOAuthToken { get; set; }
-        OAuthTokenModel SpotifyOAuthToken { get; set; }
         OAuthTokenModel DiscordOAuthToken { get; set; }
         OAuthTokenModel TiltifyOAuthToken { get; set; }
         OAuthTokenModel TipeeeStreamOAuthToken { get; set; }
@@ -198,19 +196,6 @@ namespace MixItUp.Base
 
         List<FavoriteGroupModel> FavoriteGroups { get; set; }
 
-        HashSet<SongRequestServiceTypeEnum> SongRequestServiceTypes { get; set; }
-        bool SpotifyAllowExplicit { get; set; }
-        string DefaultPlaylist { get; set; }
-        bool SongRequestSubPriority { get; set; }
-        int SongRequestsMaxRequests { get; set; }
-        bool SongRequestsSaveRequestQueue { get; set; }
-        List<SongRequestModel> SongRequestsSavedRequestQueue { get; set; }
-        int SongRequestVolume { get; set; }
-        List<SongRequestModel> SongRequestsBannedSongs { get; set; }
-        CustomCommand SongAddedCommand { get; set; }
-        CustomCommand SongRemovedCommand { get; set; }
-        CustomCommand SongPlayedCommand { get; set; }
-
         Dictionary<uint, JObject> CustomMixPlaySettings { get; set; }
 
         DashboardLayoutTypeEnum DashboardLayout { get; set; }
@@ -218,6 +203,8 @@ namespace MixItUp.Base
         List<Guid> DashboardQuickCommands { get; set; }
 
         List<string> RecentStreamTitles { get; set; }
+
+        Dictionary<string, object> LatestSpecialIdentifiersData { get; set; }
 
         string TelemetryUserId { get; set; }
 

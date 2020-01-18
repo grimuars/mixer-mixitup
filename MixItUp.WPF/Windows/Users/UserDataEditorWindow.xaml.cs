@@ -1,6 +1,7 @@
 ﻿using MixItUp.Base;
 using MixItUp.Base.Commands;
 using MixItUp.Base.Services;
+using MixItUp.Base.Services.External;
 using MixItUp.Base.ViewModel.User;
 using MixItUp.WPF.Controls.Command;
 using MixItUp.WPF.Controls.Currency;
@@ -87,7 +88,7 @@ namespace MixItUp.WPF.Windows.Users
                 this.ExistingEntranceCommandButtons.Visibility = Visibility.Collapsed;
             }
 
-            if (ChannelSession.Services.Patreon != null)
+            if (ChannelSession.Services.Patreon.IsConnected)
             {
                 this.PatreonUserComboBox.IsEnabled = true;
                 this.PatreonUserComboBox.ItemsSource = ChannelSession.Services.Patreon.CampaignMembers;

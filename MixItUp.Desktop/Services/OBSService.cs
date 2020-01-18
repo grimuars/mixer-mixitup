@@ -1,7 +1,8 @@
-﻿using MixItUp.Base.Actions;
-using MixItUp.Base.Services;
-using MixItUp.Base.Util;
+﻿using MixItUp.Base;
+using MixItUp.Base.Actions;
+using MixItUp.Base.Services.External;
 using OBSWebsocketDotNet;
+using OBSWebsocketDotNet.Types;
 using StreamingClient.Base.Util;
 using System;
 using System.Linq;
@@ -15,57 +16,48 @@ namespace MixItUp.OBS
         public event EventHandler Connected = delegate { };
         public event EventHandler Disconnected = delegate { };
 
-        private string serverIP;
-        private string password;
-        private OBSWebsocket OBSWebsocket;
+        private OBSWebsocket OBSWebsocket = new OBSWebsocket();
 
-        public OBSService(string serverIP, string password)
-        {
-            this.serverIP = serverIP;
-            this.password = password;
-        }
+        public OBSService() { }
 
-        public async Task<bool> Connect()
+        public string Name { get { return "OBS Studio"; } }
+
+        public bool IsConnected { get; private set; }
+
+        public async Task<ExternalServiceResult> Connect()
         {
-            if (this.OBSWebsocket == null)
+            this.IsConnected = false;
+
+            try
             {
-                this.OBSWebsocket = new OBSWebsocket();
-
-                bool connected = false;
-
-                try
+                this.OBSWebsocket.Connect(ChannelSession.Settings.OBSStudioServerIP, ChannelSession.Settings.OBSStudioServerPassword);
+                if (this.OBSWebsocket.IsConnected)
                 {
-                    this.OBSWebsocket.Connect(this.serverIP, this.password);
-                    if (this.OBSWebsocket.IsConnected)
-                    {
-                        this.OBSWebsocket.Disconnected += OBSWebsocket_Disconnected;
-                        connected = true;
-                    }
+                    this.OBSWebsocket.Disconnected += OBSWebsocket_Disconnected;
+                    this.IsConnected = true;
                 }
-                catch (Exception ex) { Logger.Log(ex); }
-
-                if (connected)
-                {
-                    await this.StartReplayBuffer();
-                    this.Connected(this, new EventArgs());
-                }
-                else
-                {
-                    this.OBSWebsocket = null;
-                }
-                return connected;
             }
-            return false;
+            catch (Exception ex) { Logger.Log(ex); }
+
+            if (this.IsConnected)
+            {
+                await this.StartReplayBuffer();
+                this.Connected(this, new EventArgs());
+                ChannelSession.ReconnectionOccurred("OBS");
+                return new ExternalServiceResult();
+            }
+            return new ExternalServiceResult("Failed to connect to OBS Studio web socket.");
         }
 
         public Task Disconnect()
         {
+            this.IsConnected = false;
             if (this.OBSWebsocket != null)
             {
                 this.OBSWebsocket.Disconnected -= OBSWebsocket_Disconnected;
                 this.OBSWebsocket.Disconnect();
                 this.Disconnected(this, new EventArgs());
-                this.OBSWebsocket = null;
+                ChannelSession.DisconnectionOccurred("OBS");
             }
             return Task.FromResult(0);
         }
@@ -122,10 +114,14 @@ namespace MixItUp.OBS
         {
             try
             {
-                OBSScene scene = this.OBSWebsocket.GetCurrentScene();
+                OBSScene scene;
                 if (!string.IsNullOrEmpty(sceneName))
                 {
                     scene = this.OBSWebsocket.ListScenes().FirstOrDefault(s => s.Name.Equals(sceneName));
+                }
+                else
+                {
+                    scene = this.OBSWebsocket.GetCurrentScene();
                 }
 
                 foreach (SceneItem item in scene.Items)
@@ -207,11 +203,14 @@ namespace MixItUp.OBS
         {
             await this.Disconnect();
 
+            ExternalServiceResult result;
             do
             {
                 await Task.Delay(2500);
+
+                result = await this.Connect();
             }
-            while (!await this.Connect());
+            while (!result.Success);
         }
     }
 }

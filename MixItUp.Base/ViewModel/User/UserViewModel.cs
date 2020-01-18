@@ -6,6 +6,7 @@ using MixItUp.Base.Model;
 using MixItUp.Base.Model.MixPlay;
 using MixItUp.Base.Model.User;
 using MixItUp.Base.Services;
+using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
 using Newtonsoft.Json;
 using StreamingClient.Base.Util;
@@ -387,7 +388,7 @@ namespace MixItUp.Base.ViewModel.User
         {
             get
             {
-                if (ChannelSession.Services.Patreon != null && this.PatreonUser != null)
+                if (ChannelSession.Services.Patreon.IsConnected && this.PatreonUser != null)
                 {
                     return ChannelSession.Services.Patreon.Campaign.GetTier(this.PatreonUser.TierID);
                 }
@@ -408,7 +409,7 @@ namespace MixItUp.Base.ViewModel.User
 
         public bool IsEquivalentToMixerSubscriber()
         {
-            if (this.PatreonUser != null && ChannelSession.Services.Patreon != null && !string.IsNullOrEmpty(ChannelSession.Settings.PatreonTierMixerSubscriberEquivalent))
+            if (this.PatreonUser != null && ChannelSession.Services.Patreon.IsConnected && !string.IsNullOrEmpty(ChannelSession.Settings.PatreonTierMixerSubscriberEquivalent))
             {
                 PatreonTier userTier = this.PatreonTier;
                 PatreonTier equivalentTier = ChannelSession.Services.Patreon.Campaign.GetTier(ChannelSession.Settings.PatreonTierMixerSubscriberEquivalent);
@@ -500,7 +501,7 @@ namespace MixItUp.Base.ViewModel.User
             {
                 this.CustomRoles.Clear();
 
-                if (ChannelSession.Services.Patreon != null)
+                if (ChannelSession.Services.Patreon.IsConnected)
                 {
                     if (this.PatreonUser == null)
                     {
@@ -545,7 +546,7 @@ namespace MixItUp.Base.ViewModel.User
 
         public Task SetPatreonSubscriber()
         {
-            if (ChannelSession.Services.Patreon != null)
+            if (ChannelSession.Services.Patreon.IsConnected)
             {
                 IEnumerable<PatreonCampaignMember> campaignMembers = ChannelSession.Services.Patreon.CampaignMembers;
 

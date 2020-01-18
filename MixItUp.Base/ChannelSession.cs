@@ -7,16 +7,19 @@ using MixItUp.Base.MixerAPI;
 using MixItUp.Base.Model.API;
 using MixItUp.Base.Model.Chat.Mixer;
 using MixItUp.Base.Services;
+using MixItUp.Base.Services.External;
 using MixItUp.Base.Services.Mixer;
 using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Statistics;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
+using StreamingClient.Base.Model.OAuth;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using TwitchV5API = Twitch.Base.Models.V5;
@@ -75,6 +78,8 @@ namespace MixItUp.Base
             #endif
         }
 
+        public static bool IsElevated { get; set; }
+
         public static IEnumerable<PermissionsCommandBase> AllEnabledChatCommands
         {
             get
@@ -122,7 +127,7 @@ namespace MixItUp.Base
             get
             {
                 Dictionary<string, int> results = new Dictionary<string, int>(ChannelSession.Settings.OverlayCustomNameAndPorts);
-                results.Add(ChannelSession.Services.OverlayServers.DefaultOverlayName, ChannelSession.Services.OverlayServers.DefaultOverlayPort);
+                results.Add(ChannelSession.Services.Overlay.DefaultOverlayName, ChannelSession.Services.Overlay.DefaultOverlayPort);
                 return results;
             }
         }
@@ -418,84 +423,69 @@ namespace MixItUp.Base
 
                     await ChannelSession.Services.Chat.Initialize(mixerChatService, twitchChatService);
 
-                    if (!string.IsNullOrEmpty(ChannelSession.Settings.OBSStudioServerIP))
-                    {
-                        await ChannelSession.Services.InitializeOBSWebsocket();
-                    }
-                    if (ChannelSession.Settings.EnableStreamlabsOBSConnection)
-                    {
-                        await ChannelSession.Services.InitializeStreamlabsOBSService();
-                    }
-                    if (ChannelSession.Settings.EnableXSplitConnection)
-                    {
-                        await ChannelSession.Services.InitializeXSplitServer();
-                    }
+                    // Connect External Services
+                    Dictionary<IExternalService, OAuthTokenModel> externalServiceToConnect = new Dictionary<IExternalService, OAuthTokenModel>();
+                    if (ChannelSession.Settings.StreamlabsOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Streamlabs] = ChannelSession.Settings.StreamlabsOAuthToken; }
+                    if (ChannelSession.Settings.StreamJarOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.StreamJar] = ChannelSession.Settings.StreamJarOAuthToken; }
+                    if (ChannelSession.Settings.TipeeeStreamOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.TipeeeStream] = ChannelSession.Settings.TipeeeStreamOAuthToken; }
+                    if (ChannelSession.Settings.TreatStreamOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.TreatStream] = ChannelSession.Settings.TreatStreamOAuthToken; }
+                    if (ChannelSession.Settings.StreamlootsOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Streamloots] = ChannelSession.Settings.StreamlootsOAuthToken; }
+                    if (ChannelSession.Settings.TiltifyOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Tiltify] = ChannelSession.Settings.TiltifyOAuthToken; }
+                    if (ChannelSession.Settings.JustGivingOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.JustGiving] = ChannelSession.Settings.JustGivingOAuthToken; }
+                    if (ChannelSession.Settings.IFTTTOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.IFTTT] = ChannelSession.Settings.IFTTTOAuthToken; }
+                    if (ChannelSession.Settings.ExtraLifeTeamID > 0) { externalServiceToConnect[ChannelSession.Services.ExtraLife] = new OAuthTokenModel(); }
+                    if (ChannelSession.Settings.PatreonOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Patreon] = ChannelSession.Settings.PatreonOAuthToken; }
+                    if (ChannelSession.Settings.DiscordOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Discord] = ChannelSession.Settings.DiscordOAuthToken; }
+                    if (ChannelSession.Settings.TwitterOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Twitter] = ChannelSession.Settings.TwitterOAuthToken; }
+                    if (!string.IsNullOrEmpty(ChannelSession.Settings.OBSStudioServerIP)) { externalServiceToConnect[ChannelSession.Services.OBSStudio] = null; }
+                    if (ChannelSession.Settings.EnableStreamlabsOBSConnection) { externalServiceToConnect[ChannelSession.Services.StreamlabsOBS] = null; }
+                    if (ChannelSession.Settings.EnableXSplitConnection) { externalServiceToConnect[ChannelSession.Services.XSplit] = null; }
+                    if (!string.IsNullOrEmpty(ChannelSession.Settings.OvrStreamServerIP)) { externalServiceToConnect[ChannelSession.Services.OvrStream] = null; }
+                    if (ChannelSession.Settings.EnableOverlay) { externalServiceToConnect[ChannelSession.Services.Overlay] = null; }
+                    if (ChannelSession.Settings.EnableDeveloperAPI) { externalServiceToConnect[ChannelSession.Services.DeveloperAPI] = null; }
 
-                    if (ChannelSession.Settings.EnableOverlay)
+                    if (externalServiceToConnect.Count > 0)
                     {
-                        await ChannelSession.Services.InitializeOverlayServer();
-                    }
+                        Dictionary<IExternalService, Task<ExternalServiceResult>> externalServiceTasks = new Dictionary<IExternalService, Task<ExternalServiceResult>>();
+                        foreach (var kvp in externalServiceToConnect)
+                        {
+                            if (kvp.Key is IOAuthExternalService && kvp.Value != null)
+                            {
+                                externalServiceTasks[kvp.Key] = ((IOAuthExternalService)kvp.Key).Connect(kvp.Value);
+                            }
+                            else
+                            {
+                                externalServiceTasks[kvp.Key] = kvp.Key.Connect();
+                            }
+                        }
+                        await Task.WhenAll(externalServiceTasks.Values);
 
-                    if (ChannelSession.Settings.EnableDeveloperAPI)
-                    {
-                        await ChannelSession.Services.InitializeDeveloperAPI();
-                    }
+                        List<IExternalService> failedServices = new List<IExternalService>();
+                        foreach (var kvp in externalServiceTasks)
+                        {
+                            if (!kvp.Value.Result.Success)
+                            {
+                                ExternalServiceResult result = await kvp.Key.Connect();
+                                if (!result.Success)
+                                {
+                                    failedServices.Add(kvp.Key);
+                                }
+                            }
+                        }
 
-                    if (ChannelSession.Settings.StreamlabsOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializeStreamlabs();
-                    }
-                    if (ChannelSession.Settings.TwitterOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializeTwitter();
-                    }
-                    if (ChannelSession.Settings.SpotifyOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializeSpotify();
-                    }
-                    if (ChannelSession.Settings.DiscordOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializeDiscord();
-                    }
-                    if (ChannelSession.Settings.TiltifyOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializeTiltify();
-                    }
-                    if (ChannelSession.Settings.TipeeeStreamOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializeTipeeeStream();
-                    }
-                    if (ChannelSession.Settings.TreatStreamOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializeTreatStream();
-                    }
-                    if (ChannelSession.Settings.StreamJarOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializeStreamJar();
-                    }
-                    if (ChannelSession.Settings.PatreonOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializePatreon();
-                    }
-                    if (!string.IsNullOrEmpty(ChannelSession.Settings.OvrStreamServerIP))
-                    {
-                        await ChannelSession.Services.InitializeOvrStream();
-                    }
-                    if (ChannelSession.Settings.IFTTTOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializeIFTTT();
-                    }
-                    if (ChannelSession.Settings.StreamlootsOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializeStreamloots();
-                    }
-                    if (ChannelSession.Settings.ExtraLifeTeamID > 0)
-                    {
-                        await ChannelSession.Services.InitializeExtraLife();
-                    }
-                    if (ChannelSession.Settings.JustGivingOAuthToken != null)
-                    {
-                        await ChannelSession.Services.InitializeJustGiving();
+                        if (failedServices.Count > 0)
+                        {
+                            StringBuilder message = new StringBuilder();
+                            message.AppendLine("The following services could not be connected:");
+                            message.AppendLine();
+                            foreach (IExternalService service in failedServices)
+                            {
+                                message.AppendLine(" - " + service.Name);
+                            }
+                            message.AppendLine();
+                            message.Append("Please go to the Services page to reconnect them manually.");
+                            await DialogHelper.ShowMessage(message.ToString());
+                        }
                     }
 
                     if (ChannelSession.Settings.RemoteHostConnection != null)

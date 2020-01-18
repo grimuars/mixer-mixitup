@@ -232,6 +232,9 @@
     <Reference Include="System.IO.Pipelines, Version=4.0.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.IO.Pipelines.4.5.3\lib\netstandard2.0\System.IO.Pipelines.dll</HintPath>
     </Reference>
+    <Reference Include="System.IO.Ports, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.Ports.4.7.0\lib\net461\System.IO.Ports.dll</HintPath>
+    </Reference>
     <Reference Include="System.Linq, Version=4.1.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="System.Memory, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Memory.4.5.3\lib\netstandard2.0\System.Memory.dll</HintPath>
@@ -515,9 +518,6 @@
     </Compile>
     <Compile Include="Controls\Dashboard\QuickCommandsDashboardControl.xaml.cs">
       <DependentUpon>QuickCommandsDashboardControl.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\Dashboard\SongRequestsDashboardControl.xaml.cs">
-      <DependentUpon>SongRequestsDashboardControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\Dashboard\StatisticsDashboardControl.xaml.cs">
       <DependentUpon>StatisticsDashboardControl.xaml</DependentUpon>
@@ -840,6 +840,10 @@
     <Compile Include="Controls\Services\OvrStreamServiceControl.xaml.cs">
       <DependentUpon>OvrStreamServiceControl.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Controls\Services\ServiceContainerControl.xaml.cs">
+      <DependentUpon>ServiceContainerControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\Services\ServiceControlBase.cs" />
     <Compile Include="Controls\Services\StreamAvatarsServiceControl.xaml.cs">
       <DependentUpon>StreamAvatarsServiceControl.xaml</DependentUpon>
     </Compile>
@@ -870,9 +874,6 @@
     <Compile Include="Controls\Services\ServicesControlBase.cs" />
     <Compile Include="Controls\Services\ServicesGroupBoxControl.xaml.cs">
       <DependentUpon>ServicesGroupBoxControl.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\Services\SpotifyServiceControl.xaml.cs">
-      <DependentUpon>SpotifyServiceControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\Services\StreamJarServiceControl.xaml.cs">
       <DependentUpon>StreamJarServiceControl.xaml</DependentUpon>
@@ -935,9 +936,6 @@
       <DependentUpon>SerialDevicesSettingsControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\Settings\SettingsControlBase.cs" />
-    <Compile Include="Controls\Settings\SongRequestsSettingsControl.xaml.cs">
-      <DependentUpon>SongRequestsSettingsControl.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Controls\Settings\ThemeSettingsControl.xaml.cs">
       <DependentUpon>ThemeSettingsControl.xaml</DependentUpon>
     </Compile>
@@ -994,7 +992,6 @@
     <Compile Include="UpdateWindow.xaml.cs">
       <DependentUpon>UpdateWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Util\BitmapImageLoader.cs" />
     <Compile Include="Util\InstalledFonts.cs" />
     <Compile Include="Util\InverseBooleanConverter.cs" />
     <Compile Include="Util\LocalizationConverter.cs" />
@@ -1269,10 +1266,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controls\Dashboard\QuickCommandsDashboardControl.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\Dashboard\SongRequestsDashboardControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -1700,6 +1693,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="Controls\Services\ServiceContainerControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Controls\Services\StreamAvatarsServiceControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -1737,10 +1734,6 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Controls\Services\ServicesGroupBoxControl.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\Services\SpotifyServiceControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -1821,10 +1814,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controls\Settings\SerialDevicesSettingsControl.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\Settings\SongRequestsSettingsControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -2150,6 +2139,12 @@
       <Link>Assets\Images\SuperAnimalRoyaleDropMap\map.png</Link>
     </Resource>
     <Resource Include="Assets\Images\AppleAppStoreDownloadBadge.png" />
+    <Resource Include="Assets\CommunityBannedWords.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Content Include="Assets\OBS\obs-websocket-4.7.0-Windows-Installer.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Assets\Sounds\Ariel.mp3">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

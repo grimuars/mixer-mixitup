@@ -1,5 +1,4 @@
 ﻿using Mixer.Base.Model.Channel;
-using Mixer.Base.Model.Game;
 using MixItUp.Base;
 using MixItUp.Base.Actions;
 using MixItUp.Base.Commands;
@@ -8,7 +7,6 @@ using MixItUp.Base.Model.MixPlay;
 using MixItUp.Base.Model.Overlay;
 using MixItUp.Base.Model.Remote.Authentication;
 using MixItUp.Base.Model.Serial;
-using MixItUp.Base.Model.SongRequests;
 using MixItUp.Base.Model.User;
 using MixItUp.Base.Remote.Models;
 using MixItUp.Base.Services;
@@ -76,8 +74,6 @@ namespace MixItUp.Desktop
         public OAuthTokenModel StreamlabsOAuthToken { get; set; }
         [JsonProperty]
         public OAuthTokenModel TwitterOAuthToken { get; set; }
-        [JsonProperty]
-        public OAuthTokenModel SpotifyOAuthToken { get; set; }
         [JsonProperty]
         public OAuthTokenModel DiscordOAuthToken { get; set; }
         [JsonProperty]
@@ -359,31 +355,6 @@ namespace MixItUp.Desktop
         public List<FavoriteGroupModel> FavoriteGroups { get; set; }
 
         [JsonProperty]
-        public HashSet<SongRequestServiceTypeEnum> SongRequestServiceTypes { get; set; }
-        [JsonProperty]
-        public bool SpotifyAllowExplicit { get; set; }
-        [JsonProperty]
-        public string DefaultPlaylist { get; set; }
-        [JsonProperty]
-        public bool SongRequestSubPriority { get; set; }
-        [JsonProperty]
-        public int SongRequestsMaxRequests { get; set; }
-        [JsonProperty]
-        public bool SongRequestsSaveRequestQueue { get; set; }
-        [JsonProperty]
-        public List<SongRequestModel> SongRequestsSavedRequestQueue { get; set; } = new List<SongRequestModel>();
-        [JsonProperty]
-        public int SongRequestVolume { get; set; } = 100;
-        [JsonProperty]
-        public List<SongRequestModel> SongRequestsBannedSongs { get; set; } = new List<SongRequestModel>();
-        [JsonProperty]
-        public CustomCommand SongAddedCommand { get; set; }
-        [JsonProperty]
-        public CustomCommand SongRemovedCommand { get; set; }
-        [JsonProperty]
-        public CustomCommand SongPlayedCommand { get; set; }
-
-        [JsonProperty]
         public Dictionary<uint, JObject> CustomMixPlaySettings { get; set; }
 
         [JsonProperty]
@@ -395,6 +366,9 @@ namespace MixItUp.Desktop
 
         [JsonProperty]
         public List<string> RecentStreamTitles { get; set; } = new List<string>();
+
+        [DataMember]
+        public Dictionary<string, object> LatestSpecialIdentifiersData { get; set; } = new Dictionary<string, object>();
 
         [JsonProperty]
         public string TelemetryUserId { get; set; }
@@ -464,7 +438,6 @@ namespace MixItUp.Desktop
             this.SerialDevices = new List<SerialDeviceModel>();
             this.RemoteClientConnections = new List<RemoteConnectionModel>();
             this.FavoriteGroups = new List<FavoriteGroupModel>();
-            this.SongRequestServiceTypes = new HashSet<SongRequestServiceTypeEnum>();
             this.CustomMixPlaySettings = new Dictionary<uint, JObject>();
 
             this.currenciesInternal = new Dictionary<Guid, UserCurrencyViewModel>();
@@ -693,54 +666,17 @@ namespace MixItUp.Desktop
                 this.TwitchBotOAuthToken = ChannelSession.TwitchBotConnection.Connection.GetOAuthTokenCopy();
             }
 
-            if (ChannelSession.Services.Streamlabs != null)
-            {
-                this.StreamlabsOAuthToken = ChannelSession.Services.Streamlabs.GetOAuthTokenCopy();
-            }
-            if (ChannelSession.Services.Twitter != null)
-            {
-                this.TwitterOAuthToken = ChannelSession.Services.Twitter.GetOAuthTokenCopy();
-            }
-            if (ChannelSession.Services.Spotify != null)
-            {
-                this.SpotifyOAuthToken = ChannelSession.Services.Spotify.GetOAuthTokenCopy();
-            }
-            if (ChannelSession.Services.Discord != null)
-            {
-                this.DiscordOAuthToken = ChannelSession.Services.Discord.GetOAuthTokenCopy();
-            }
-            if (ChannelSession.Services.Tiltify != null)
-            {
-                this.TiltifyOAuthToken = ChannelSession.Services.Tiltify.GetOAuthTokenCopy();
-            }
-            if (ChannelSession.Services.TipeeeStream != null)
-            {
-                this.TipeeeStreamOAuthToken = ChannelSession.Services.TipeeeStream.GetOAuthTokenCopy();
-            }
-            if (ChannelSession.Services.TreatStream != null)
-            {
-                this.TreatStreamOAuthToken = ChannelSession.Services.TreatStream.GetOAuthTokenCopy();
-            }
-            if (ChannelSession.Services.StreamJar != null)
-            {
-                this.StreamJarOAuthToken = ChannelSession.Services.StreamJar.GetOAuthTokenCopy();
-            }
-            if (ChannelSession.Services.Patreon != null)
-            {
-                this.PatreonOAuthToken = ChannelSession.Services.Patreon.GetOAuthTokenCopy();
-            }
-            if (ChannelSession.Services.IFTTT != null)
-            {
-                this.IFTTTOAuthToken = ChannelSession.Services.IFTTT.Token;
-            }
-            if (ChannelSession.Services.Streamloots != null)
-            {
-                this.StreamlootsOAuthToken = ChannelSession.Services.Streamloots.GetOAuthTokenCopy();
-            }
-            if (ChannelSession.Services.JustGiving != null)
-            {
-                this.JustGivingOAuthToken = ChannelSession.Services.JustGiving.GetOAuthTokenCopy();
-            }
+            this.StreamlabsOAuthToken = ChannelSession.Services.Streamlabs.GetOAuthTokenCopy();
+            this.StreamJarOAuthToken = ChannelSession.Services.StreamJar.GetOAuthTokenCopy();
+            this.TipeeeStreamOAuthToken = ChannelSession.Services.TipeeeStream.GetOAuthTokenCopy();
+            this.TreatStreamOAuthToken = ChannelSession.Services.TreatStream.GetOAuthTokenCopy();
+            this.StreamlootsOAuthToken = ChannelSession.Services.Streamloots.GetOAuthTokenCopy();
+            this.TiltifyOAuthToken = ChannelSession.Services.Tiltify.GetOAuthTokenCopy();
+            this.PatreonOAuthToken = ChannelSession.Services.Patreon.GetOAuthTokenCopy();
+            this.IFTTTOAuthToken = ChannelSession.Services.IFTTT.GetOAuthTokenCopy();
+            this.JustGivingOAuthToken = ChannelSession.Services.JustGiving.GetOAuthTokenCopy();
+            this.DiscordOAuthToken = ChannelSession.Services.Discord.GetOAuthTokenCopy();
+            this.TwitterOAuthToken = ChannelSession.Services.Twitter.GetOAuthTokenCopy();
 
             this.currenciesInternal = this.Currencies.ToDictionary();
             this.inventoriesInternal = this.Inventories.ToDictionary();
@@ -814,10 +750,6 @@ namespace MixItUp.Desktop
             this.GiveawayStartedReminderCommand = this.GiveawayStartedReminderCommand ?? CustomCommand.BasicChatCommand("Giveaway Started/Reminder", "A giveaway has started for $giveawayitem! Type $giveawaycommand in chat in the next $giveawaytimelimit minute(s) to enter!");
             this.GiveawayUserJoinedCommand = this.GiveawayUserJoinedCommand ?? CustomCommand.BasicChatCommand("Giveaway User Joined", "You have been entered into the giveaway, stay tuned to see who wins!", isWhisper: true);
             this.GiveawayWinnerSelectedCommand = this.GiveawayWinnerSelectedCommand ?? CustomCommand.BasicChatCommand("Giveaway Winner Selected", "Congratulations @$username, you won $giveawayitem!");
-
-            this.SongAddedCommand = this.SongAddedCommand ?? CustomCommand.BasicChatCommand("Song Request Added", "$songtitle has been added to the queue", isWhisper: true);
-            this.SongRemovedCommand = this.SongRemovedCommand ?? CustomCommand.BasicChatCommand("Song Request Removed", "$songtitle has been removed from the queue", isWhisper: true);
-            this.SongPlayedCommand = this.SongPlayedCommand ?? CustomCommand.BasicChatCommand("Song Request Played", "Now Playing: $songtitle");
 
             this.ModerationStrike1Command = this.ModerationStrike1Command ?? CustomCommand.BasicChatCommand("Moderation Strike 1", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);
             this.ModerationStrike2Command = this.ModerationStrike2Command ?? CustomCommand.BasicChatCommand("Moderation Strike 2", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);

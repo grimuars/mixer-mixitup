@@ -46,6 +46,7 @@ namespace MixItUp.Base.Commands
         [Name("JustGiving Donation")]
         JustGivingDonation = 17,
 
+        [Obsolete]
         [Name("Stream Tweet Retweet")]
         TwitterStreamTweetRetweet = 20,
 
@@ -68,7 +69,6 @@ namespace MixItUp.Base.Commands
         ChatUserLeft = 37,
         [Name("Chat Message Deleted")]
         ChatMessageDeleted = 38,
-
 
         [Name("Channel Stream Start")]
         MixerChannelStreamStart = 40,
@@ -160,6 +160,9 @@ namespace MixItUp.Base.Commands
             }
 
             user.Data.TotalAmountDonated += donation.Amount;
+
+            ChannelSession.Settings.LatestSpecialIdentifiersData[SpecialIdentifierStringBuilder.LatestDonationUserData] = user;
+            ChannelSession.Settings.LatestSpecialIdentifiersData[SpecialIdentifierStringBuilder.LatestDonationAmountData] = donation.AmountText;
 
             Dictionary<string, string> specialIdentifiers = donation.GetSpecialIdentifiers();
             if (additionalSpecialIdentifiers != null)
