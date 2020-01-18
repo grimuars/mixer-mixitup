@@ -56,6 +56,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="SettingsTemplateDatabase.db">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="SkillsCatalogData.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

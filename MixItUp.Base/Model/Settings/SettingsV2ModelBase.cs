@@ -1,5 +1,4 @@
-﻿using Mixer.Base.Model.Channel;
-using MixItUp.Base.Services;
+﻿using MixItUp.Base.Services;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Window.Dashboard;
 using Newtonsoft.Json;
@@ -7,15 +6,16 @@ using StreamingClient.Base.Model.OAuth;
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 namespace MixItUp.Base.Model.Settings
 {
     [DataContract]
-    public abstract class BaseSettingsV2ModelBase
+    public abstract class SettingsV2ModelBase
     {
         public const int LatestVersion = 1;
         [DataMember]
-        public int Version { get; set; } = BaseSettingsV2ModelBase.LatestVersion;
+        public int Version { get; set; } = SettingsV2ModelBase.LatestVersion;
 
         [DataMember]
         public Guid ID { get; set; }
@@ -131,12 +131,32 @@ namespace MixItUp.Base.Model.Settings
         [DataMember]
         public int MaxUsersShownInChat { get; set; } = 100;
 
-        public BaseSettingsV2ModelBase() { }
+        public SettingsV2ModelBase() { }
+
+        [JsonIgnore]
+        public string FileName { get { return this.ID + SettingsV2Service.SettingsFileExtension; } }
+        [JsonIgnore]
+        public string BackupFileName { get { return this.FileName + SettingsV2Service.LocalBackupFileExtension; } }
 
         public virtual void Initialize()
         {
+            this.ID = Guid.NewGuid();
+
             this.DashboardItems = new List<DashboardItemTypeEnum>() { DashboardItemTypeEnum.None, DashboardItemTypeEnum.None, DashboardItemTypeEnum.None, DashboardItemTypeEnum.None };
             this.DashboardQuickCommands = new List<Guid>() { Guid.Empty, Guid.Empty, Guid.Empty, Guid.Empty, Guid.Empty };
+        }
+
+        public virtual Task CopyLatestValues()
+        {
+            if (ChannelSession.MixerUserConnection != null)
+            {
+                this.MixerUserOAuthToken = ChannelSession.MixerUserConnection.Connection.GetOAuthTokenCopy();
+            }
+            if (ChannelSession.TwitchUserConnection != null)
+            {
+                this.TwitchUserOAuthToken = ChannelSession.TwitchUserConnection.Connection.GetOAuthTokenCopy();
+            }
+            return Task.FromResult(0);
         }
     }
 }

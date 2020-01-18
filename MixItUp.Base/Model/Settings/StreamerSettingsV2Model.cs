@@ -9,240 +9,249 @@ using MixItUp.Base.Services;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Requirement;
 using MixItUp.Base.ViewModel.User;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using StreamingClient.Base.Model.OAuth;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 namespace MixItUp.Base.Model.Settings
 {
     [DataContract]
-    public class StreamerSettingsV2Model : BaseSettingsV2ModelBase
+    public class StreamerSettingsV2Model : SettingsV2ModelBase
     {
-        [JsonProperty]
+        [DataMember]
         public bool FeatureMe { get; set; }
 
+        [DataMember]
+        public OAuthTokenModel MixerBotOAuthToken { get; set; }
+        [DataMember]
+        public OAuthTokenModel TwitchBotOAuthToken { get; set; }
+
         // External Services
-        [JsonProperty]
+        [DataMember]
         public OAuthTokenModel StreamlabsOAuthToken { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public OAuthTokenModel TwitterOAuthToken { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public OAuthTokenModel DiscordOAuthToken { get; set; }
-        [JsonProperty]
+        [DataMember]
         public string DiscordServer { get; set; }
-        [JsonProperty]
+        [DataMember]
         public string DiscordCustomClientID { get; set; }
-        [JsonProperty]
+        [DataMember]
         public string DiscordCustomClientSecret { get; set; }
-        [JsonProperty]
+        [DataMember]
         public string DiscordCustomBotToken { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public OAuthTokenModel TiltifyOAuthToken { get; set; }
-        [JsonProperty]
+        [DataMember]
         public int TiltifyCampaign { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public OAuthTokenModel TipeeeStreamOAuthToken { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public OAuthTokenModel TreatStreamOAuthToken { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public OAuthTokenModel StreamJarOAuthToken { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public OAuthTokenModel PatreonOAuthToken { get; set; }
-        [JsonProperty]
+        [DataMember]
         public string PatreonTierMixerSubscriberEquivalent { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public OAuthTokenModel IFTTTOAuthToken { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public OAuthTokenModel StreamlootsOAuthToken { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public OAuthTokenModel JustGivingOAuthToken { get; set; }
-        [JsonProperty]
+        [DataMember]
         public string JustGivingPageShortName { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public int ExtraLifeTeamID { get; set; }
-        [JsonProperty]
+        [DataMember]
         public int ExtraLifeParticipantID { get; set; }
-        [JsonProperty]
+        [DataMember]
         public bool ExtraLifeIncludeTeamDonations { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public string OvrStreamServerIP { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public string OBSStudioServerIP { get; set; }
-        [JsonProperty]
+        [DataMember]
         public string OBSStudioServerPassword { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public bool EnableStreamlabsOBSConnection { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public bool EnableXSplitConnection { get; set; }
-        [JsonProperty]
+        [DataMember]
         public bool EnableDeveloperAPI { get; set; }
 
         // Timers
-        [JsonProperty]
+        [DataMember]
         public int TimerCommandsInterval { get; set; } = 10;
-        [JsonProperty]
+        [DataMember]
         public int TimerCommandsMinimumMessages { get; set; } = 10;
-        [JsonProperty]
+        [DataMember]
         public bool DisableAllTimers { get; set; }
 
         // MixPlay
-        [JsonProperty]
+        [DataMember]
         public uint DefaultMixPlayGame { get; set; }
-        [JsonProperty]
+        [DataMember]
         public bool PreventUnknownMixPlayUsers { get; set; }
-        [JsonProperty]
+        [DataMember]
         public bool PreventSmallerMixPlayCooldowns { get; set; }
-        [JsonProperty]
+        [DataMember]
         public List<MixPlaySharedProjectModel> CustomMixPlayProjectIDs { get; set; } = new List<MixPlaySharedProjectModel>();
-        [JsonProperty]
+        [DataMember]
         public Dictionary<uint, JObject> CustomMixPlaySettings { get; set; } = new Dictionary<uint, JObject>();
-        [JsonProperty]
+        [DataMember]
         public Dictionary<uint, List<MixPlayUserGroupModel>> MixPlayUserGroups { get; set; } = new Dictionary<uint, List<MixPlayUserGroupModel>>();
 
         // Quotes
-        [JsonProperty]
+        [DataMember]
         public bool QuotesEnabled { get; set; }
-        [JsonProperty]
+        [DataMember]
         public string QuotesFormat { get; set; }
 
         // Game Queue
-        [JsonProperty]
+        [DataMember]
         public bool GameQueueSubPriority { get; set; }
-        [JsonProperty]
+        [DataMember]
         public RequirementViewModel GameQueueRequirements { get; set; } = new RequirementViewModel();
-        [JsonProperty]
+        [DataMember]
         public CustomCommand GameQueueUserJoinedCommand { get; set; }
-        [JsonProperty]
+        [DataMember]
         public CustomCommand GameQueueUserSelectedCommand { get; set; }
 
         // Giveaway
-        [JsonProperty]
+        [DataMember]
         public string GiveawayCommand { get; set; } = "giveaway";
-        [JsonProperty]
+        [DataMember]
         public int GiveawayTimer { get; set; } = 1;
-        [JsonProperty]
+        [DataMember]
         public int GiveawayMaximumEntries { get; set; } = 1;
-        [JsonProperty]
+        [DataMember]
         public RequirementViewModel GiveawayRequirements { get; set; } = new RequirementViewModel();
-        [JsonProperty]
+        [DataMember]
         public int GiveawayReminderInterval { get; set; } = 5;
-        [JsonProperty]
+        [DataMember]
         public bool GiveawayRequireClaim { get; set; } = true;
-        [JsonProperty]
+        [DataMember]
         public bool GiveawayAllowPastWinners { get; set; }
-        [JsonProperty]
+        [DataMember]
         public CustomCommand GiveawayStartedReminderCommand { get; set; }
-        [JsonProperty]
+        [DataMember]
         public CustomCommand GiveawayUserJoinedCommand { get; set; }
-        [JsonProperty]
+        [DataMember]
         public CustomCommand GiveawayWinnerSelectedCommand { get; set; }
 
         // Moderation
-        [JsonProperty]
+        [DataMember]
         public bool ModerationUseCommunityFilteredWords { get; set; }
-        [JsonProperty]
+        [DataMember]
         public int ModerationFilteredWordsTimeout1MinuteOffenseCount { get; set; }
-        [JsonProperty]
+        [DataMember]
         public int ModerationFilteredWordsTimeout5MinuteOffenseCount { get; set; }
-        [JsonProperty]
+        [DataMember]
         public MixerRoleEnum ModerationFilteredWordsExcempt { get; set; } = MixerRoleEnum.Mod;
-        [JsonProperty]
+        [DataMember]
         public bool ModerationFilteredWordsApplyStrikes { get; set; } = true;
-        [JsonProperty]
+        [DataMember]
         public int ModerationCapsBlockCount { get; set; }
-        [JsonProperty]
+        [DataMember]
         public bool ModerationCapsBlockIsPercentage { get; set; } = true;
-        [JsonProperty]
+        [DataMember]
         public int ModerationPunctuationBlockCount { get; set; }
-        [JsonProperty]
+        [DataMember]
         public bool ModerationPunctuationBlockIsPercentage { get; set; } = true;
-        [JsonProperty]
+        [DataMember]
         public MixerRoleEnum ModerationChatTextExcempt { get; set; } = MixerRoleEnum.Mod;
-        [JsonProperty]
+        [DataMember]
         public bool ModerationChatTextApplyStrikes { get; set; } = true;
-        [JsonProperty]
+        [DataMember]
         public bool ModerationBlockLinks { get; set; }
-        [JsonProperty]
+        [DataMember]
         public MixerRoleEnum ModerationBlockLinksExcempt { get; set; } = MixerRoleEnum.Mod;
-        [JsonProperty]
+        [DataMember]
         public bool ModerationBlockLinksApplyStrikes { get; set; } = true;
-        [JsonProperty]
+        [DataMember]
         public ModerationChatInteractiveParticipationEnum ModerationChatInteractiveParticipation { get; set; } = ModerationChatInteractiveParticipationEnum.None;
-        [JsonProperty]
+        [DataMember]
         public MixerRoleEnum ModerationChatInteractiveParticipationExcempt { get; set; } = MixerRoleEnum.Mod;
-        [JsonProperty]
+        [DataMember]
         public bool ModerationResetStrikesOnLaunch { get; set; }
-        [JsonProperty]
+        [DataMember]
         public CustomCommand ModerationStrike1Command { get; set; }
-        [JsonProperty]
+        [DataMember]
         public CustomCommand ModerationStrike2Command { get; set; }
-        [JsonProperty]
+        [DataMember]
         public CustomCommand ModerationStrike3Command { get; set; }
-        [JsonProperty]
+        [DataMember]
         public List<string> FilteredWords { get; set; } = new List<string>();
-        [JsonProperty]
+        [DataMember]
         public List<string> BannedWords { get; set; } = new List<string>();
 
         // Remote
-        [JsonProperty]
+        [DataMember]
         public RemoteConnectionAuthenticationTokenModel RemoteHostConnection { get; set; }
-        [JsonProperty]
+        [DataMember]
         public List<RemoteConnectionModel> RemoteClientConnections { get; set; } = new List<RemoteConnectionModel>();
-        [JsonProperty]
+        [DataMember]
         public List<RemoteProfileModel> RemoteProfiles { get; set; } = new List<RemoteProfileModel>();
-        [JsonProperty]
+        [DataMember]
         public Dictionary<Guid, RemoteProfileBoardsModel> RemoteProfileBoards { get; set; } = new Dictionary<Guid, RemoteProfileBoardsModel>();
 
         // Overlay
-        [JsonProperty]
+        [DataMember]
         public bool EnableOverlay { get; set; }
-        [JsonProperty]
+        [DataMember]
         public Dictionary<string, int> OverlayCustomNameAndPorts { get; set; } = new Dictionary<string, int>();
-        [JsonProperty]
+        [DataMember]
         public string OverlaySourceName { get; set; }
-        [JsonProperty]
+        [DataMember]
         public int OverlayWidgetRefreshTime { get; set; } = 5;
-        [JsonProperty]
+        [DataMember]
         public List<OverlayWidgetModel> OverlayWidgets { get; set; } = new List<OverlayWidgetModel>();
 
         // Misc
-        [JsonProperty]
+        [DataMember]
+        public List<PreMadeChatCommandSettings> PreMadeChatCommandSettings { get; set; } = new List<PreMadeChatCommandSettings>();
+
+        [DataMember]
         public List<SerialDeviceModel> SerialDevices { get; set; } = new List<SerialDeviceModel>();
 
-        [JsonProperty]
+        [DataMember]
         public Dictionary<string, CommandGroupSettings> CommandGroups { get; set; } = new Dictionary<string, CommandGroupSettings>();
-        [JsonProperty]
+        [DataMember]
         public Dictionary<string, HotKeyConfiguration> HotKeys { get; set; } = new Dictionary<string, HotKeyConfiguration>();
 
-        [JsonProperty]
+        [DataMember]
         public StreamingSoftwareTypeEnum DefaultStreamingSoftware { get; set; } = StreamingSoftwareTypeEnum.OBSStudio;
-        [JsonProperty]
+        [DataMember]
         public string DefaultAudioOutput { get; set; }
 
-        [JsonProperty]
+        [DataMember]
         public List<string> RecentStreamTitles { get; set; } = new List<string>();
         [DataMember]
         public Dictionary<string, object> LatestSpecialIdentifiersData { get; set; } = new Dictionary<string, object>();
 
-        [JsonProperty]
+        [DataMember]
         public Dictionary<string, int> CooldownGroups { get; set; } = new Dictionary<string, int>();
 
         public StreamerSettingsV2Model() { }
@@ -250,6 +259,8 @@ namespace MixItUp.Base.Model.Settings
         public override void Initialize()
         {
             base.Initialize();
+
+            this.IsStreamer = true;
 
             this.GameQueueUserJoinedCommand = CustomCommand.BasicChatCommand("Game Queue Used Joined", "You are #$queueposition in the queue to play.", isWhisper: true);
             this.GameQueueUserSelectedCommand = CustomCommand.BasicChatCommand("Game Queue Used Selected", "It's time to play @$username! Listen carefully for instructions on how to join...");
@@ -261,6 +272,53 @@ namespace MixItUp.Base.Model.Settings
             this.ModerationStrike1Command = CustomCommand.BasicChatCommand("Moderation Strike 1", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);
             this.ModerationStrike2Command = CustomCommand.BasicChatCommand("Moderation Strike 2", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);
             this.ModerationStrike3Command = CustomCommand.BasicChatCommand("Moderation Strike 3", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);
+        }
+
+        public override Task CopyLatestValues()
+        {
+            if (ChannelSession.MixerBotConnection != null)
+            {
+                this.MixerBotOAuthToken = ChannelSession.MixerBotConnection.Connection.GetOAuthTokenCopy();
+            }
+            if (ChannelSession.TwitchBotConnection != null)
+            {
+                this.TwitchBotOAuthToken = ChannelSession.TwitchBotConnection.Connection.GetOAuthTokenCopy();
+            }
+
+            this.StreamlabsOAuthToken = ChannelSession.Services.Streamlabs.GetOAuthTokenCopy();
+            this.StreamJarOAuthToken = ChannelSession.Services.StreamJar.GetOAuthTokenCopy();
+            this.TipeeeStreamOAuthToken = ChannelSession.Services.TipeeeStream.GetOAuthTokenCopy();
+            this.TreatStreamOAuthToken = ChannelSession.Services.TreatStream.GetOAuthTokenCopy();
+            this.StreamlootsOAuthToken = ChannelSession.Services.Streamloots.GetOAuthTokenCopy();
+            this.TiltifyOAuthToken = ChannelSession.Services.Tiltify.GetOAuthTokenCopy();
+            this.PatreonOAuthToken = ChannelSession.Services.Patreon.GetOAuthTokenCopy();
+            this.IFTTTOAuthToken = ChannelSession.Services.IFTTT.GetOAuthTokenCopy();
+            this.JustGivingOAuthToken = ChannelSession.Services.JustGiving.GetOAuthTokenCopy();
+            this.DiscordOAuthToken = ChannelSession.Services.Discord.GetOAuthTokenCopy();
+            this.TwitterOAuthToken = ChannelSession.Services.Twitter.GetOAuthTokenCopy();
+
+            // Clear out unused Cooldown Groups and Command Groups
+            //var allUsedCooldownGroupNames =
+            //    this.MixPlayCommands.Select(c => c.Requirements?.Cooldown?.GroupName)
+            //    .Union(this.ChatCommands.Select(c => c.Requirements?.Cooldown?.GroupName))
+            //    .Union(this.GameCommands.Select(c => c.Requirements?.Cooldown?.GroupName))
+            //    .Distinct();
+            //var allUnusedCooldownGroupNames = this.CooldownGroups.Where(c => !allUsedCooldownGroupNames.Contains(c.Key, StringComparer.InvariantCultureIgnoreCase));
+            //foreach (var unused in allUnusedCooldownGroupNames)
+            //{
+            //    this.CooldownGroups.Remove(unused.Key);
+            //}
+
+            //var allUsedCommandGroupNames =
+            //    this.ChatCommands.Select(c => c.GroupName)
+            //    .Union(this.ActionGroupCommands.Select(a => a.GroupName))
+            //    .Union(this.TimerCommands.Select(a => a.GroupName))
+            //    .Distinct();
+            //var allUnusedCommandGroupNames = this.CommandGroups.Where(c => !allUsedCommandGroupNames.Contains(c.Key, StringComparer.InvariantCultureIgnoreCase));
+            //foreach (var unused in allUnusedCommandGroupNames)
+            //{
+            //    this.CommandGroups.Remove(unused.Key);
+            //}
         }
     }
 }
