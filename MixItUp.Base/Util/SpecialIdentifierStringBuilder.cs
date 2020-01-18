@@ -228,7 +228,7 @@ namespace MixItUp.Base.Util
             UserViewModel user = ChannelSession.Services.User.GetUserByUsername(username);
             if (user == null)
             {
-                UserModel argUserModel = await ChannelSession.MixerStreamerConnection.GetUser(username);
+                UserModel argUserModel = await ChannelSession.MixerUserConnection.GetUser(username);
                 if (argUserModel != null)
                 {
                     user = new UserViewModel(argUserModel);
@@ -768,7 +768,7 @@ namespace MixItUp.Base.Util
                         if (this.ContainsSpecialIdentifier(identifierHeader + currency.UserPositionSpecialIdentifier))
                         {
                             List<UserDataViewModel> allUsers = new List<UserDataViewModel>(this.GetAllCurrencyUsers());
-                            int index = allUsers.FindIndex(u => u.ID == user.ID);
+                            int index = allUsers.FindIndex(u => u.ID == user.MixerID);
                             this.ReplaceSpecialIdentifier(identifierHeader + currency.UserPositionSpecialIdentifier, (index + 1).ToString());
                         }
 

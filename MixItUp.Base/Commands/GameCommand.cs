@@ -3520,7 +3520,7 @@ namespace MixItUp.Base.Commands
                 }
             }
 
-            await this.PerformCommand(this.CorrectAnswerCommand, await ChannelSession.GetCurrentUser(), new List<string>(), 0, this.totalPayout);
+            await this.PerformCommand(this.CorrectAnswerCommand, ChannelSession.GetCurrentUser(), new List<string>(), 0, this.totalPayout);
         }
 
         protected override void AddAdditionalSpecialIdentifiers(UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> specialIdentifiers)

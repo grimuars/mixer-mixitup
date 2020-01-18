@@ -134,7 +134,7 @@ namespace MixItUp.Base.Commands
             }
             else
             {
-                await command.Perform(await ChannelSession.GetCurrentUser(), arguments: arguments, extraSpecialIdentifiers: extraSpecialIdentifiers);
+                await command.Perform(ChannelSession.GetCurrentUser(), arguments: arguments, extraSpecialIdentifiers: extraSpecialIdentifiers);
             }
         }
 

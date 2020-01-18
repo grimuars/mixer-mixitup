@@ -439,10 +439,10 @@ namespace MixItUp.Base.ViewModel.User
                     {
                         this.SetMixerUserDetails(user);
 
-                    this.FollowDate = await ChannelSession.MixerStreamerConnection.CheckIfFollows(ChannelSession.MixerChannel, this.GetModel());
+                    this.MixerFollowDate = await ChannelSession.MixerUserConnection.CheckIfFollows(ChannelSession.MixerChannel, this.GetModel());
                     if (this.IsMixerSubscriber || force)
                     {
-                        UserWithGroupsModel userGroups = await ChannelSession.MixerStreamerConnection.GetUserInChannel(ChannelSession.MixerChannel, this.ID);
+                        UserWithGroupsModel userGroups = await ChannelSession.MixerUserConnection.GetUserInChannel(ChannelSession.MixerChannel, this.MixerID);
                         if (userGroups != null)
                         {
                             this.MixerSubscribeDate = userGroups.GetSubscriberDate();
@@ -621,7 +621,7 @@ namespace MixItUp.Base.ViewModel.User
             {
                 this.Data.OfflineViewingMinutes++;
             }
-            ChannelSession.Settings.UserData.ManualValueChanged(this.ID);
+            ChannelSession.Settings.UserData.ManualValueChanged(this.MixerID);
 
             if (ChannelSession.Settings.RegularUserMinimumHours > 0 && this.Data.ViewingHoursPart >= ChannelSession.Settings.RegularUserMinimumHours)
             {

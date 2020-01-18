@@ -380,7 +380,7 @@ namespace MixItUp.Base.MixerAPI
 
                             if (string.IsNullOrEmpty(user.UserName))
                             {
-                                UserModel userModel = await ChannelSession.MixerStreamerConnection.GetUser(userID);
+                                UserModel userModel = await ChannelSession.MixerUserConnection.GetUser(userID);
                                 if (userModel != null)
                                 {
                                     user = new UserViewModel(userModel);

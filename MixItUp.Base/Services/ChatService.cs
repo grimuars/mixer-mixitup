@@ -336,11 +336,11 @@ namespace MixItUp.Base.Services
             {
                 await this.whisperNumberLock.WaitAndRelease(() =>
                 {
-                    if (!whisperMap.ContainsKey(message.User.ID.ToString()))
+                    if (!whisperMap.ContainsKey(message.User.MixerID.ToString()))
                     {
-                        whisperMap[message.User.ID.ToString()] = whisperMap.Count + 1;
+                        whisperMap[message.User.MixerID.ToString()] = whisperMap.Count + 1;
                     }
-                    message.User.WhispererNumber = whisperMap[message.User.ID.ToString()];
+                    message.User.WhispererNumber = whisperMap[message.User.MixerID.ToString()];
                     return Task.FromResult(0);
                 });
             }
@@ -516,7 +516,7 @@ namespace MixItUp.Base.Services
 
             foreach (UserViewModel user in users)
             {
-                this.AllUsers[user.ID.ToString()] = user;
+                this.AllUsers[user.MixerID.ToString()] = user;
                 lock (displayUsersLock)
                 {
                     this.displayUsers[user.SortableID] = user;

@@ -223,7 +223,7 @@ namespace MixItUp.WPF.Controls.MainControls
 
             await this.Window.RunAsyncOperation(async () =>
             {
-                await ChannelSession.MixerStreamerConnection.UpdateChannel(ChannelSession.MixerChannel.id, this.StreamTitleComboBox.Text, gameType.id, ((string)this.AgeRatingComboBox.SelectedItem).ToLower());
+                await ChannelSession.MixerUserConnection.UpdateChannel(ChannelSession.MixerChannel.id, this.StreamTitleComboBox.Text, gameType.id, ((string)this.AgeRatingComboBox.SelectedItem).ToLower());
 
                 await ChannelSession.RefreshChannel();
 

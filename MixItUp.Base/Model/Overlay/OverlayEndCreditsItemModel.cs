@@ -134,13 +134,13 @@ namespace MixItUp.Base.Model.Overlay
         [JsonIgnore]
         public override bool SupportsTestData { get { return true; } }
 
-        public override async Task LoadTestData()
+        public override Task LoadTestData()
         {
-            UserViewModel user = await ChannelSession.GetCurrentUser();
+            UserViewModel user = ChannelSession.GetCurrentUser();
             List<uint> userIDs = new List<uint>(ChannelSession.Settings.UserData.Keys.Take(20));
             for (int i = userIDs.Count; i < 20; i++)
             {
-                userIDs.Add(user.ID);
+                userIDs.Add(user.MixerID);
             }
 
             foreach (uint userID in userIDs)
@@ -190,6 +190,7 @@ namespace MixItUp.Base.Model.Overlay
                     this.embers[userID] = 10;
                 }
             }
+            return Task.FromResult(0);
         }
 
         public override Task Initialize()
@@ -256,7 +257,7 @@ namespace MixItUp.Base.Model.Overlay
             StringBuilder htmlBuilder = new StringBuilder();
 
             htmlBuilder.AppendLine(SectionSeparatorHTML);
-            htmlBuilder.AppendLine(await this.ReplaceStringWithSpecialModifiers(this.TitleTemplate, await ChannelSession.GetCurrentUser(), new List<string>(), new Dictionary<string, string>()));
+            htmlBuilder.AppendLine(await this.ReplaceStringWithSpecialModifiers(this.TitleTemplate, ChannelSession.GetCurrentUser(), new List<string>(), new Dictionary<string, string>()));
 
             foreach (var kvp in this.SectionTemplates)
             {
@@ -266,7 +267,7 @@ namespace MixItUp.Base.Model.Overlay
                     OverlayEndCreditsSectionModel sectionTemplate = this.SectionTemplates[kvp.Key];
 
                     string sectionHTML = this.PerformTemplateReplacements(sectionTemplate.SectionHTML, new Dictionary<string, string>());
-                    sectionHTML = await this.ReplaceStringWithSpecialModifiers(sectionHTML, await ChannelSession.GetCurrentUser(), new List<string>(), new Dictionary<string, string>());
+                    sectionHTML = await this.ReplaceStringWithSpecialModifiers(sectionHTML, ChannelSession.GetCurrentUser(), new List<string>(), new Dictionary<string, string>());
 
                     string userHTML = this.PerformTemplateReplacements(sectionTemplate.UserHTML, new Dictionary<string, string>());
                     userHTML = await this.ReplaceStringWithSpecialModifiers(userHTML, user, new List<string>(), new Dictionary<string, string>());
@@ -309,81 +310,81 @@ namespace MixItUp.Base.Model.Overlay
 
         private void GlobalEvents_OnFollowOccurred(object sender, UserViewModel user)
         {
-            if (!this.follows.Contains(user.ID))
+            if (!this.follows.Contains(user.MixerID))
             {
-                this.follows.Add(user.ID);
+                this.follows.Add(user.MixerID);
                 this.AddUserForRole(user);
             }
         }
 
         private void GlobalEvents_OnUnfollowOccurred(object sender, UserViewModel user)
         {
-            this.follows.Remove(user.ID);
+            this.follows.Remove(user.MixerID);
         }
 
         private void GlobalEvents_OnHostOccurred(object sender, Tuple<UserViewModel, int> host)
         {
-            if (!this.hosts.Contains(host.Item1.ID))
+            if (!this.hosts.Contains(host.Item1.MixerID))
             {
-                this.hosts.Add(host.Item1.ID);
+                this.hosts.Add(host.Item1.MixerID);
                 this.AddUserForRole(host.Item1);
             }
         }
 
         private void GlobalEvents_OnSubscribeOccurred(object sender, UserViewModel user)
         {
-            if (!this.newSubs.Contains(user.ID))
+            if (!this.newSubs.Contains(user.MixerID))
             {
-                this.newSubs.Add(user.ID);
+                this.newSubs.Add(user.MixerID);
                 this.AddUserForRole(user);
             }
         }
 
         private void GlobalEvents_OnResubscribeOccurred(object sender, Tuple<UserViewModel, int> user)
         {
-            if (!this.resubs.ContainsKey(user.Item1.ID))
+            if (!this.resubs.ContainsKey(user.Item1.MixerID))
             {
-                this.resubs[user.Item1.ID] = (uint)user.Item2;
+                this.resubs[user.Item1.MixerID] = (uint)user.Item2;
                 this.AddUserForRole(user.Item1);
             }
         }
 
         private void GlobalEvents_OnSubscriptionGiftedOccurred(object sender, Tuple<UserViewModel, UserViewModel> e)
         {
-            if (!this.newSubs.Contains(e.Item2.ID))
+            if (!this.newSubs.Contains(e.Item2.MixerID))
             {
-                this.newSubs.Add(e.Item2.ID);
+                this.newSubs.Add(e.Item2.MixerID);
                 this.AddUserForRole(e.Item2);
             }
 
-            if (!this.giftedSubs.ContainsKey(e.Item1.ID))
+            if (!this.giftedSubs.ContainsKey(e.Item1.MixerID))
             {
-                this.giftedSubs[e.Item1.ID] = 0;
+                this.giftedSubs[e.Item1.MixerID] = 0;
                 this.AddUserForRole(e.Item1);
             }
-            this.giftedSubs[e.Item1.ID]++;
+            this.giftedSubs[e.Item1.MixerID]++;
         }
 
         private void GlobalEvents_OnDonationOccurred(object sender, UserDonationModel donation)
         {
-            if (!this.donations.ContainsKey(donation.User.ID))
+            if (!this.donations.ContainsKey(donation.User.MixerID))
             {
-                this.donations[donation.User.ID] = 0;
+                this.donations[donation.User.MixerID] = 0;
                 this.AddUserForRole(donation.User);
             }
-            this.donations[donation.User.ID] += donation.Amount;
+            this.donations[donation.User.MixerID] += donation.Amount;
         }
 
         private void GlobalEvents_OnSparkUseOccurred(object sender, Tuple<UserViewModel, uint> sparkUsage)
         {
             if (this.ShouldIncludeUser(sparkUsage.Item1))
             {
-                if (!this.sparks.ContainsKey(sparkUsage.Item1.ID))
+                if (!this.sparks.ContainsKey(sparkUsage.Item1.MixerID))
                 {
-                    this.sparks[sparkUsage.Item1.ID] = 0;
+                    this.sparks[sparkUsage.Item1.MixerID] = 0;
                     this.AddUserForRole(sparkUsage.Item1);
                 }
-                this.sparks[sparkUsage.Item1.ID] += sparkUsage.Item2;
+                this.sparks[sparkUsage.Item1.MixerID] += sparkUsage.Item2;
             }
         }
 
@@ -391,12 +392,12 @@ namespace MixItUp.Base.Model.Overlay
         {
             if (this.ShouldIncludeUser(emberUsage.User))
             {
-                if (!this.embers.ContainsKey(emberUsage.User.ID))
+                if (!this.embers.ContainsKey(emberUsage.User.MixerID))
                 {
-                    this.embers[emberUsage.User.ID] = 0;
+                    this.embers[emberUsage.User.MixerID] = 0;
                     this.AddUserForRole(emberUsage.User);
                 }
-                this.embers[emberUsage.User.ID] += emberUsage.Amount;
+                this.embers[emberUsage.User.MixerID] += emberUsage.Amount;
             }
         }
 
@@ -404,25 +405,25 @@ namespace MixItUp.Base.Model.Overlay
         {
             if (this.ShouldIncludeUser(user))
             {
-                this.viewers.Add(user.ID);
+                this.viewers.Add(user.MixerID);
                 if (user.MixerRoles.Contains(MixerRoleEnum.Subscriber) || user.IsEquivalentToMixerSubscriber())
                 {
-                    this.subs.Add(user.ID);
+                    this.subs.Add(user.MixerID);
                 }
                 if (user.MixerRoles.Contains(MixerRoleEnum.Mod) || user.MixerRoles.Contains(MixerRoleEnum.ChannelEditor))
                 {
-                    this.mods.Add(user.ID);
+                    this.mods.Add(user.MixerID);
                 }
             }
         }
 
         private bool ShouldIncludeUser(UserViewModel user)
         {
-            if (user.ID.Equals(ChannelSession.MixerStreamerUser.id))
+            if (user.MixerID.Equals(ChannelSession.MixerUser.id))
             {
                 return false;
             }
-            if (ChannelSession.MixerBotUser != null && user.ID.Equals(ChannelSession.MixerBotUser.id))
+            if (ChannelSession.MixerBotUser != null && user.MixerID.Equals(ChannelSession.MixerBotUser.id))
             {
                 return false;
             }
@@ -498,7 +499,7 @@ namespace MixItUp.Base.Model.Overlay
                     { "TEXT_SIZE", this.SectionTextSize.ToString() },
                     { "TEXT_COLOR", this.SectionTextColor }
                 });
-                sectionHTML = await this.ReplaceStringWithSpecialModifiers(sectionHTML, await ChannelSession.GetCurrentUser(), new List<string>(), new Dictionary<string, string>());
+                sectionHTML = await this.ReplaceStringWithSpecialModifiers(sectionHTML, ChannelSession.GetCurrentUser(), new List<string>(), new Dictionary<string, string>());
 
                 List<string> userHTMLs = new List<string>();
                 foreach (var kvp in replacers.OrderBy(kvp => kvp.Key.UserName))
