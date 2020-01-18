@@ -22,9 +22,9 @@ namespace MixItUp.WPF.Controls.Actions
 
         private OverlayAction action;
 
-        public OverlayActionControl(ActionContainerControl containerControl) : base(containerControl) { InitializeComponent(); }
+        public OverlayActionControl() : base() { InitializeComponent(); }
 
-        public OverlayActionControl(ActionContainerControl containerControl, OverlayAction action) : this(containerControl) { this.action = action; }
+        public OverlayActionControl(OverlayAction action) : this() { this.action = action; }
 
         public override Task OnLoaded()
         {
@@ -46,6 +46,8 @@ namespace MixItUp.WPF.Controls.Actions
             {
                 this.OverlayNotEnabledWarningTextBlock.Visibility = Visibility.Visible;
             }
+
+            this.AnimationsMayNotWork.Visibility = System.Windows.SystemParameters.ClientAreaAnimation ? Visibility.Collapsed : Visibility.Visible;
 
             List<string> typeOptions = new List<string>(EnumHelper.GetEnumNames<OverlayItemModelTypeEnum>(new List<OverlayItemModelTypeEnum>()
             {

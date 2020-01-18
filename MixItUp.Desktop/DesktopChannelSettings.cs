@@ -1,4 +1,5 @@
 ﻿using Mixer.Base.Model.Channel;
+using Mixer.Base.Model.Game;
 using MixItUp.Base;
 using MixItUp.Base.Actions;
 using MixItUp.Base.Commands;
@@ -93,6 +94,8 @@ namespace MixItUp.Desktop
         public OAuthTokenModel IFTTTOAuthToken { get; set; }
         [JsonProperty]
         public OAuthTokenModel StreamlootsOAuthToken { get; set; }
+        [JsonProperty]
+        public OAuthTokenModel JustGivingOAuthToken { get; set; }
 
         [JsonProperty]
         public Dictionary<string, CommandGroupSettings> CommandGroups { get; set; }
@@ -283,6 +286,9 @@ namespace MixItUp.Desktop
         public bool ExtraLifeIncludeTeamDonations { get; set; }
 
         [JsonProperty]
+        public string JustGivingPageShortName { get; set; }
+
+        [JsonProperty]
         public string DiscordServer { get; set; }
         [JsonProperty]
         public string DiscordCustomClientID { get; set; }
@@ -386,6 +392,9 @@ namespace MixItUp.Desktop
         public List<DashboardItemTypeEnum> DashboardItems { get; set; } = new List<DashboardItemTypeEnum>();
         [JsonProperty]
         public List<Guid> DashboardQuickCommands { get; set; } = new List<Guid>();
+
+        [JsonProperty]
+        public List<string> RecentStreamTitles { get; set; } = new List<string>();
 
         [JsonProperty]
         public string TelemetryUserId { get; set; }
@@ -549,20 +558,7 @@ namespace MixItUp.Desktop
             this.MixerChannel = channel;
             this.IsStreamer = isStreamer;
 
-            this.GameQueueUserJoinedCommand = CustomCommand.BasicChatCommand("Game Queue Used Joined", "You are #$queueposition in the queue to play.", isWhisper: true);
-            this.GameQueueUserSelectedCommand = CustomCommand.BasicChatCommand("Game Queue Used Selected", "It's time to play @$username! Listen carefully for instructions on how to join...");
-
-            this.GiveawayStartedReminderCommand = CustomCommand.BasicChatCommand("Giveaway Started/Reminder", "A giveaway has started for $giveawayitem! Type $giveawaycommand in chat in the next $giveawaytimelimit minute(s) to enter!");
-            this.GiveawayUserJoinedCommand = CustomCommand.BasicChatCommand("Giveaway User Joined", "You have been entered into the giveaway, stay tuned to see who wins!", isWhisper: true);
-            this.GiveawayWinnerSelectedCommand = CustomCommand.BasicChatCommand("Giveaway Winner Selected", "Congratulations @$username, you won $giveawayitem!");
-
-            this.SongAddedCommand = CustomCommand.BasicChatCommand("Song Request Added", "$songtitle has been added to the queue", isWhisper: true);
-            this.SongRemovedCommand = CustomCommand.BasicChatCommand("Song Request Removed", "$songtitle has been removed from the queue", isWhisper: true);
-            this.SongPlayedCommand = CustomCommand.BasicChatCommand("Song Request Played", "Now Playing: $songtitle");
-
-            this.ModerationStrike1Command = CustomCommand.BasicChatCommand("Moderation Strike 1", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);
-            this.ModerationStrike2Command = CustomCommand.BasicChatCommand("Moderation Strike 2", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);
-            this.ModerationStrike3Command = CustomCommand.BasicChatCommand("Moderation Strike 3", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);
+            BuildMissingCommands();
 
             this.DashboardItems = new List<DashboardItemTypeEnum>() { DashboardItemTypeEnum.None, DashboardItemTypeEnum.None, DashboardItemTypeEnum.None, DashboardItemTypeEnum.None };
             this.DashboardQuickCommands = new List<Guid>() { Guid.Empty, Guid.Empty, Guid.Empty, Guid.Empty, Guid.Empty };
@@ -671,6 +667,8 @@ namespace MixItUp.Desktop
                     this.TelemetryUserId = Guid.NewGuid().ToString();
                 }
             }
+
+            BuildMissingCommands();
         }
 
         public async Task CopyLatestValues()
@@ -739,6 +737,10 @@ namespace MixItUp.Desktop
             {
                 this.StreamlootsOAuthToken = ChannelSession.Services.Streamloots.GetOAuthTokenCopy();
             }
+            if (ChannelSession.Services.JustGiving != null)
+            {
+                this.JustGivingOAuthToken = ChannelSession.Services.JustGiving.GetOAuthTokenCopy();
+            }
 
             this.currenciesInternal = this.Currencies.ToDictionary();
             this.inventoriesInternal = this.Inventories.ToDictionary();
@@ -802,6 +804,24 @@ namespace MixItUp.Desktop
             {
                 this.CommandGroups.Remove(unused.Key);
             }
+        }
+
+        private void BuildMissingCommands()
+        {
+            this.GameQueueUserJoinedCommand = this.GameQueueUserJoinedCommand ?? CustomCommand.BasicChatCommand("Game Queue Used Joined", "You are #$queueposition in the queue to play.", isWhisper: true);
+            this.GameQueueUserSelectedCommand = this.GameQueueUserSelectedCommand ?? CustomCommand.BasicChatCommand("Game Queue Used Selected", "It's time to play @$username! Listen carefully for instructions on how to join...");
+
+            this.GiveawayStartedReminderCommand = this.GiveawayStartedReminderCommand ?? CustomCommand.BasicChatCommand("Giveaway Started/Reminder", "A giveaway has started for $giveawayitem! Type $giveawaycommand in chat in the next $giveawaytimelimit minute(s) to enter!");
+            this.GiveawayUserJoinedCommand = this.GiveawayUserJoinedCommand ?? CustomCommand.BasicChatCommand("Giveaway User Joined", "You have been entered into the giveaway, stay tuned to see who wins!", isWhisper: true);
+            this.GiveawayWinnerSelectedCommand = this.GiveawayWinnerSelectedCommand ?? CustomCommand.BasicChatCommand("Giveaway Winner Selected", "Congratulations @$username, you won $giveawayitem!");
+
+            this.SongAddedCommand = this.SongAddedCommand ?? CustomCommand.BasicChatCommand("Song Request Added", "$songtitle has been added to the queue", isWhisper: true);
+            this.SongRemovedCommand = this.SongRemovedCommand ?? CustomCommand.BasicChatCommand("Song Request Removed", "$songtitle has been removed from the queue", isWhisper: true);
+            this.SongPlayedCommand = this.SongPlayedCommand ?? CustomCommand.BasicChatCommand("Song Request Played", "Now Playing: $songtitle");
+
+            this.ModerationStrike1Command = this.ModerationStrike1Command ?? CustomCommand.BasicChatCommand("Moderation Strike 1", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);
+            this.ModerationStrike2Command = this.ModerationStrike2Command ?? CustomCommand.BasicChatCommand("Moderation Strike 2", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);
+            this.ModerationStrike3Command = this.ModerationStrike3Command ?? CustomCommand.BasicChatCommand("Moderation Strike 3", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);
         }
 
         public Version GetLatestVersion() { return Assembly.GetEntryAssembly().GetName().Version; }

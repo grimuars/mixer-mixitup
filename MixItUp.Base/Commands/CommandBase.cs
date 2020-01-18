@@ -1,9 +1,7 @@
-﻿using Mixer.Base.Util;
-using MixItUp.Base.Actions;
+﻿using MixItUp.Base.Actions;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
@@ -174,6 +172,10 @@ namespace MixItUp.Base.Commands
                 catch (Exception ex) { Logger.Log(ex); }
 
                 ChannelSession.Services.Telemetry.TrackCommand(this.Type, this.IsBasic);
+                if (user != null)
+                {
+                    user.Data.TotalCommandsRun++;
+                }
 
                 this.OnCommandStart(this, new EventArgs());
 

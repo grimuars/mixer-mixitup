@@ -86,14 +86,15 @@ namespace MixItUp.Base.Services
         {
             get
             {
-                IEnumerable<UserViewModel> users = this.displayUsers.Values;
-                users = users.ToList();
-                users = users.Take(ChannelSession.Settings.MaxUsersShownInChat);
-                return users;
+                lock (displayUsersLock)
+                {
+                    return this.displayUsers.Values.ToList().Take(ChannelSession.Settings.MaxUsersShownInChat);
+                }
             }
         }
         public event EventHandler DisplayUsersUpdated = delegate { };
         private SortedList<string, UserViewModel> displayUsers = new SortedList<string, UserViewModel>();
+        private object displayUsersLock = new object();
 
         public event EventHandler ChatCommandsReprocessed = delegate { };
         public IEnumerable<ChatCommand> ChatMenuCommands { get { return this.chatMenuCommands; } }
@@ -368,8 +369,9 @@ namespace MixItUp.Base.Services
                 if (message.User != null)
                 {
                     await message.User.RefreshDetails();
+                    message.User.UpdateLastActivity();
+                    message.User.Data.TotalChatMessageSent++;
                 }
-                message.User.UpdateLastActivity();
 
                 if (message.IsWhisper)
                 {
@@ -403,6 +405,16 @@ namespace MixItUp.Base.Services
                     {
                         await this.DeleteMessage(message);
                         return;
+                    }
+
+                    string primaryTaggedUsername = message.PrimaryTaggedUsername;
+                    if (!string.IsNullOrEmpty(primaryTaggedUsername))
+                    {
+                        UserViewModel primaryTaggedUser = ChannelSession.Services.User.GetUserByUsername(primaryTaggedUsername);
+                        if (primaryTaggedUser != null)
+                        {
+                            primaryTaggedUser.Data.TotalTimesTagged++;
+                        }
                     }
 
                     if (!string.IsNullOrEmpty(message.PlainTextMessage))
@@ -501,8 +513,11 @@ namespace MixItUp.Base.Services
 
             foreach (UserViewModel user in users)
             {
-                this.AllUsers[user.MixerID.ToString()] = user;
-                this.displayUsers[user.SortableID] = user;
+                this.AllUsers[user.ID.ToString()] = user;
+                lock (displayUsersLock)
+                {
+                    this.displayUsers[user.SortableID] = user;
+                }
 
                 if (ChannelSession.Settings.ChatShowUserJoinLeave && users.Count() < 5)
                 {
@@ -531,7 +546,10 @@ namespace MixItUp.Base.Services
             {
                 if (this.AllUsers.Remove(user.MixerID.ToString()))
                 {
-                    this.displayUsers.Remove(user.SortableID);
+                    lock (displayUsersLock)
+                    {
+                        this.displayUsers.Remove(user.SortableID);
+                    }
 
                     if (ChannelSession.Settings.ChatShowUserJoinLeave && users.Count() < 5)
                     {
@@ -547,10 +565,8 @@ namespace MixItUp.Base.Services
             }
         }
 
-        private async Task ProcessHoursCurrency(CancellationToken cancellationToken)
+        private Task ProcessHoursCurrency(CancellationToken cancellationToken)
         {
-            await ChannelSession.RefreshChannel();
-
             foreach (UserViewModel user in ChannelSession.Services.User.GetAllWorkableUsers())
             {
                 user.UpdateMinuteData();
@@ -560,6 +576,8 @@ namespace MixItUp.Base.Services
             {
                 currency.UpdateUserData();
             }
+
+            return Task.FromResult(0);
         }
 
         private async void ChatService_OnMessageOccurred(object sender, ChatMessageViewModel message)

@@ -10,6 +10,7 @@ using MixItUp.WPF.Util;
 using MixItUp.WPF.Windows.Currency;
 using StreamingClient.Base.Util;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Windows;
 
 namespace MixItUp.WPF.Controls.Command
@@ -149,6 +150,14 @@ namespace MixItUp.WPF.Controls.Command
             this.EnableDisableToggleSwitch.IsEnabled = false;
 
             CommandBase command = this.GetCommandFromCommandButtons<CommandBase>(this);
+            await CommandButtonsControl.TestCommand(command);
+            this.SwitchToPlay();
+
+            this.RaiseEvent(new RoutedEventArgs(CommandButtonsControl.PlayClickedEvent, this));
+        }
+
+        public static async Task TestCommand(CommandBase command)
+        {
             if (command != null)
             {
                 UserViewModel currentUser = ChannelSession.GetCurrentUser();
@@ -189,6 +198,7 @@ namespace MixItUp.WPF.Controls.Command
                         case OtherEventTypeEnum.TipeeeStreamDonation:
                         case OtherEventTypeEnum.TreatStreamDonation:
                         case OtherEventTypeEnum.StreamJarDonation:
+                        case OtherEventTypeEnum.JustGivingDonation:
                             UserDonationModel donation = new UserDonationModel()
                             {
                                 Amount = 12.34,
@@ -205,6 +215,7 @@ namespace MixItUp.WPF.Controls.Command
                                 case OtherEventTypeEnum.TipeeeStreamDonation: donation.Source = UserDonationSourceEnum.TipeeeStream; break;
                                 case OtherEventTypeEnum.TreatStreamDonation: donation.Source = UserDonationSourceEnum.TreatStream; break;
                                 case OtherEventTypeEnum.StreamJarDonation: donation.Source = UserDonationSourceEnum.StreamJar; break;
+                                case OtherEventTypeEnum.JustGivingDonation: donation.Source = UserDonationSourceEnum.JustGiving; break;
                             }
 
                             foreach (var kvp in donation.GetSpecialIdentifiers())
@@ -300,10 +311,7 @@ namespace MixItUp.WPF.Controls.Command
                     PermissionsCommandBase permissionCommand = (PermissionsCommandBase)command;
                     permissionCommand.ResetCooldown(ChannelSession.GetCurrentUser());
                 }
-                this.SwitchToPlay();
             }
-
-            this.RaiseEvent(new RoutedEventArgs(CommandButtonsControl.PlayClickedEvent, this));
         }
 
         private void StopButton_Click(object sender, RoutedEventArgs e)
@@ -326,7 +334,7 @@ namespace MixItUp.WPF.Controls.Command
 
         private async void DeleteButton_Click(object sender, RoutedEventArgs e)
         {
-            if (await MessageBoxHelper.ShowConfirmationDialog("Are you sure you want to delete this command?"))
+            if (await DialogHelper.ShowConfirmation("Are you sure you want to delete this command?"))
             {
                 this.RaiseEvent(new RoutedEventArgs(CommandButtonsControl.DeleteClickedEvent, this));
             }

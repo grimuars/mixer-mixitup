@@ -53,6 +53,7 @@ namespace MixItUp.Base
         OAuthTokenModel PatreonOAuthToken { get; set; }
         OAuthTokenModel IFTTTOAuthToken { get; set; }
         OAuthTokenModel StreamlootsOAuthToken { get; set; }
+        OAuthTokenModel JustGivingOAuthToken { get; set; }
 
         Dictionary<string, CommandGroupSettings> CommandGroups { get; set; }
         Dictionary<string, HotKeyConfiguration> HotKeys { get; set; }
@@ -155,6 +156,8 @@ namespace MixItUp.Base
         int ExtraLifeParticipantID { get; set; }
         bool ExtraLifeIncludeTeamDonations { get; set; }
 
+        string JustGivingPageShortName { get; set; }
+
         string DiscordServer { get; set; }
         string DiscordCustomClientID { get; set; }
         string DiscordCustomClientSecret { get; set; }
@@ -213,6 +216,8 @@ namespace MixItUp.Base
         DashboardLayoutTypeEnum DashboardLayout { get; set; }
         List<DashboardItemTypeEnum> DashboardItems { get; set; }
         List<Guid> DashboardQuickCommands { get; set; }
+
+        List<string> RecentStreamTitles { get; set; }
 
         string TelemetryUserId { get; set; }
 

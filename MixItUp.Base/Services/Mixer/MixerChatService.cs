@@ -21,7 +21,6 @@ namespace MixItUp.Base.Services.Mixer
     public interface IMixerChatService
     {
         event EventHandler<MixerChatMessageViewModel> OnMessageOccurred;
-        event EventHandler<MixerSkillChatMessageViewModel> OnSkillOccurred;
         event EventHandler<Tuple<Guid, UserViewModel>> OnDeleteMessageOccurred;
         event EventHandler OnClearMessagesOccurred;
 
@@ -65,7 +64,6 @@ namespace MixItUp.Base.Services.Mixer
     public class MixerChatService : MixerWebSocketServiceBase, IMixerChatService
     {
         public event EventHandler<MixerChatMessageViewModel> OnMessageOccurred = delegate { };
-        public event EventHandler<MixerSkillChatMessageViewModel> OnSkillOccurred = delegate { };
         public event EventHandler<Tuple<Guid, UserViewModel>> OnDeleteMessageOccurred = delegate { };
         public event EventHandler OnClearMessagesOccurred = delegate { };
 
@@ -364,8 +362,8 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await ChannelSession.MixerUserConnection.AddUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Banned });
-                await user.RefreshDetails(true);
+                await ChannelSession.MixerStreamerConnection.AddUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Banned });
+                await user.RefreshDetails(force: true);
             });
         }
 
@@ -373,8 +371,8 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await ChannelSession.MixerUserConnection.RemoveUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Banned });
-                await user.RefreshDetails(true);
+                await ChannelSession.MixerStreamerConnection.RemoveUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Banned });
+                await user.RefreshDetails(force: true);
             });
         }
 
@@ -382,8 +380,8 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await ChannelSession.MixerUserConnection.AddUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Mod });
-                await user.RefreshDetails(true);
+                await ChannelSession.MixerStreamerConnection.AddUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Mod });
+                await user.RefreshDetails(force: true);
             });
         }
 
@@ -391,8 +389,8 @@ namespace MixItUp.Base.Services.Mixer
         {
             await this.RunAsync(async () =>
             {
-                await ChannelSession.MixerUserConnection.RemoveUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Mod });
-                await user.RefreshDetails(true);
+                await ChannelSession.MixerStreamerConnection.RemoveUserRoles(ChannelSession.MixerChannel, user.GetModel(), new List<MixerRoleEnum>() { MixerRoleEnum.Mod });
+                await user.RefreshDetails(force: true);
             });
         }
 
@@ -557,18 +555,7 @@ namespace MixItUp.Base.Services.Mixer
                 {
                     MixerSkillChatMessageViewModel message = new MixerSkillChatMessageViewModel(e);
                     this.OnMessageOccurred(sender, message);
-                    GlobalEvents.SkillUseOccurred(message);
-                    if (message.Skill.Cost > 0)
-                    {
-                        if (message.Skill.CostType == MixerSkillCostTypeEnum.Sparks)
-                        {
-                            GlobalEvents.SparkUseOccurred(new Tuple<UserViewModel, uint>(message.User, message.Skill.Cost));
-                        }
-                        else if (message.Skill.CostType == MixerSkillCostTypeEnum.Embers)
-                        {
-                            GlobalEvents.EmberUseOccurred(new UserEmberUsageModel(message));
-                        }
-                    }
+                    this.ProcessSkill(message);
                 }
                 else
                 {
@@ -673,16 +660,25 @@ namespace MixItUp.Base.Services.Mixer
             }
 
             this.OnMessageOccurred(sender, message);
-            GlobalEvents.SkillUseOccurred(message);
-            if (message.Skill.Cost > 0)
+
+            this.ProcessSkill(message);
+        }
+
+        private void ProcessSkill(MixerSkillChatMessageViewModel message)
+        {
+            if (message.IsInUsersChannel)
             {
-                if (message.Skill.CostType == MixerSkillCostTypeEnum.Sparks)
+                GlobalEvents.SkillUseOccurred(message);
+                if (message.Skill.Cost > 0)
                 {
-                    GlobalEvents.SparkUseOccurred(new Tuple<UserViewModel, uint>(message.User, message.Skill.Cost));
-                }
-                else if (message.Skill.CostType == MixerSkillCostTypeEnum.Embers)
-                {
-                    GlobalEvents.EmberUseOccurred(new UserEmberUsageModel(message));
+                    if (message.Skill.CostType == MixerSkillCostTypeEnum.Sparks)
+                    {
+                        GlobalEvents.SparkUseOccurred(new Tuple<UserViewModel, uint>(message.User, message.Skill.Cost));
+                    }
+                    else if (message.Skill.CostType == MixerSkillCostTypeEnum.Embers)
+                    {
+                        GlobalEvents.EmberUseOccurred(new UserEmberUsageModel(message));
+                    }
                 }
             }
         }

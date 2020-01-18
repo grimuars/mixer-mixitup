@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <title>Mix It Up - Overlay</title>
-    <link rel="shortcut icon" type="image/x-icon" href="https://github.com/SaviorXTanren/mixer-mixitup/raw/master/Wiki/Branding/logo_hd_2.png" />
+    <link rel="shortcut icon" type="image/x-icon" href="https://github.com/SaviorXTanren/mixer-mixitup/raw/master/Branding/MixItUp-Logo-Base-WhiteXS.png" />
 
     <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
 
@@ -15,6 +15,9 @@
     <script src="https://vjs.zencdn.net/7.6.0/video.js"></script>
 
     <link rel="stylesheet" type="text/css" href="https://daneden.github.io/animate.css/animate.min.css">
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://gist.githubusercontent.com/hellt/bc4fc51d6f1b9584605517f5c8d6a5a0/raw/1541916ad019f8b5349d7353489b6fd2d36513dd/jumbotron-narrow.css">
 
     <style>
         .slidedown-animation {
@@ -104,6 +107,74 @@
                 transform: translateY(100%);
             }
         }
+
+        /* End Credits Overlay Widget Styles */
+
+        #titles {
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+            display: none;
+            position: absolute;
+            z-index: 99999;
+            left: 0;
+            top: 0;
+        }
+        #titles div#the-end {
+            font-size: 60px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 12px #ffffff;
+            width: 100%;
+            text-align: center;
+        }
+        #credits {
+            color: #ffffff;
+        }
+        #credits h1 {
+            width: 100%;
+            height: 100%;
+            margin-top: 30px;
+	        margin-bottom: 45px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 10px;
+        }
+        #credits dl {
+        }
+        #credits dt {
+            width: 50%;
+            transform: translate(25%, 0%);
+        }
+        #credits dd {
+            width: 50%;
+            transform: translate(125%, -100%);
+        }
+        #credits p {
+            width: 100%;
+            margin-top: 5px;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        #credits .fineprint {
+            color: #888888;
+            width: 100%;
+            margin: 80px 0 0 50px;
+            text-align: center;
+            font-size: 10px;
+            font-family: sans-serif;
+        }
+        .clearfix: after {
+            visibility: hidden;
+            display: block;
+            font-size: 0;
+            content: " ";
+            clear: both;
+            height: 0;
+        }
+        .clearfix {
+            display: inline-block;
+        }
+
     </style>
 </head>
     <body style="background-color: transparent; overflow: hidden; position: absolute; width: 100%; max-width: 100%; min-width: 100%; height: 100%; max-height: 100%; min-height: 100%; margin: 0px;">
@@ -250,6 +321,9 @@
                             }
                             else if (packet.data.ItemTypeName === "ProgressBar") {
                                 customPacket(packet.data);
+                            }
+                            else if (packet.data.ItemTypeName === "EndCredits") {
+                                endCreditsPacket(packet.data);
                             }
                         }
                         else if (packet.type == "Hide") {
@@ -589,6 +663,55 @@
                     else if (data.ProgressMade) {
                         $(divContainer).animateCss(data.ProgressAnimationName, function () { });
                     }
+                }
+            }
+
+            function endCreditsPacket(data) {
+                if (!widgetData.has(data.ID)) {
+                    var widget = {};
+                    widgetData.set(data.ID, widget);
+                    widget.MainDiv = document.createElement('div');
+                    widget.MainDiv.innerHTML = data.HTML;
+                    mainOverlayDiv.appendChild(widget.MainDiv);
+
+                    var maskHeight = $(document).height();
+                    var maskWidth = $(window).width();
+
+                    var titles = $('#titles');
+                    var titlesHeight = Math.max(titles.height(), maskHeight);
+                    var shiftHeight = Math.min(titlesHeight, maskHeight) + 100;
+
+                    $('#titles').css({
+                        'width': maskWidth,
+                        'height': titlesHeight
+                    });
+
+                    $('#credits').css({
+                        'position': 'absolute'
+                    });
+
+                    $('#titles').fadeIn(1000);
+                    $('#titles').fadeTo("fast");
+                    $('#titles').fadeIn();
+                    $('#credits').css("left", (($('#credits').parent().width() - $('#credits').outerWidth()) / 2) + "px");
+                    $('#credits').css("bottom", "-" + shiftHeight + "px");
+                    $('#credits').show('fast');
+
+                    $('#credits').animate(
+                        {
+                            bottom: titlesHeight + "px"
+                        },
+                        {
+                            duration: titlesHeight * data.SpeedNumber,
+                            easing: 'linear',
+                            complete: function () {
+                                $('#titles').fadeOut();
+
+                                mainOverlayDiv.removeChild(widget.MainDiv);
+                                widgetData.delete(data.ID);
+                            }
+                        }
+                    );
                 }
             }
 

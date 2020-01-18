@@ -72,11 +72,11 @@ namespace MixItUp.WPF.Controls.Command
 
                 if (this.command.Actions.First() is ChatAction)
                 {
-                    this.actionControl = new ChatActionControl(null, (ChatAction)this.command.Actions.First());
+                    this.actionControl = new ChatActionControl((ChatAction)this.command.Actions.First());
                 }
                 else if (this.command.Actions.First() is SoundAction)
                 {
-                    this.actionControl = new SoundActionControl(null, (SoundAction)this.command.Actions.First());
+                    this.actionControl = new SoundActionControl((SoundAction)this.command.Actions.First());
                 }
             }
             else
@@ -98,14 +98,24 @@ namespace MixItUp.WPF.Controls.Command
             await base.OnLoaded();
         }
 
+        private async void ConvertButton_Click(object sender, RoutedEventArgs e)
+        {
+            await SaveAndClose(false);
+        }
+
         private async void SaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            await SaveAndClose(true);
+        }
+
+        private async Task SaveAndClose(bool isBasic)
         {
             await this.window.RunAsyncOperation((System.Func<Task>)(async () =>
             {
                 int sparkCost = 0;
                 if (!int.TryParse(this.SparkCostTextBox.Text, out sparkCost) || sparkCost < 0)
                 {
-                    await MessageBoxHelper.ShowMessageDialog("Spark cost must be 0 or greater");
+                    await DialogHelper.ShowMessage("Spark cost must be 0 or greater");
                     return;
                 }
 
@@ -114,11 +124,11 @@ namespace MixItUp.WPF.Controls.Command
                 {
                     if (this.actionControl is ChatActionControl)
                     {
-                        await MessageBoxHelper.ShowMessageDialog("The chat message must not be empty");
+                        await DialogHelper.ShowMessage("The chat message must not be empty");
                     }
                     else if (this.actionControl is SoundActionControl)
                     {
-                        await MessageBoxHelper.ShowMessageDialog("The sound file path must not be empty");
+                        await DialogHelper.ShowMessage("The sound file path must not be empty");
                     }
                     return;
                 }
@@ -135,13 +145,21 @@ namespace MixItUp.WPF.Controls.Command
                 await ChannelSession.MixerUserConnection.UpdateMixPlayGameVersion(this.version);
 
                 this.command.UseChatModeration = this.UseChatModerationCheckBox.IsChecked.GetValueOrDefault();
-                this.command.IsBasic = true;
+                this.command.IsBasic = isBasic;
                 this.command.Actions.Clear();
                 this.command.Actions.Add(action);
 
                 await ChannelSession.SaveSettings();
 
                 this.window.Close();
+
+                if (!isBasic)
+                {
+                    await Task.Delay(250);
+                    CommandWindow window = new CommandWindow(new InteractiveTextBoxCommandDetailsControl(this.game, this.version, this.command));
+                    window.CommandSaveSuccessfully += (sender, cmd) => this.CommandSavedSuccessfully(cmd);
+                    window.Show();
+                }
             }));
         }
     }

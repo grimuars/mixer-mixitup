@@ -146,8 +146,9 @@
     <Reference Include="Microsoft.Owin.Host.HttpListener, Version=4.0.1.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Owin.Host.HttpListener.4.0.1\lib\net45\Microsoft.Owin.Host.HttpListener.dll</HintPath>
     </Reference>
-    <Reference Include="Mixer.Base, Version=0.9.0.8, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\mixer-client-csharp.0.9.0.8-beta\lib\netstandard2.0\Mixer.Base.dll</HintPath>
+    <Reference Include="Mixer.Base, Version=0.9.0.9, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\mixer-client-csharp.0.9.0.9-beta\lib\netstandard2.0\Mixer.Base.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="NAudio, Version=1.9.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\NAudio.1.9.0\lib\net35\NAudio.dll</HintPath>
@@ -179,7 +180,8 @@
       <HintPath>..\packages\SocketIoClientDotNet.1.0.6\lib\net45\SocketIoClientDotNet.dll</HintPath>
     </Reference>
     <Reference Include="StreamingClient.Base, Version=0.1.0.6, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\mixer-client-csharp.0.9.0.8-beta\lib\netstandard2.0\StreamingClient.Base.dll</HintPath>
+      <HintPath>..\packages\mixer-client-csharp.0.9.0.9-beta\lib\netstandard2.0\StreamingClient.Base.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="SuperSocket.ClientEngine, Version=0.10.0.0, Culture=neutral, PublicKeyToken=ee9af13f57f00acc, processorArchitecture=MSIL">
       <HintPath>..\packages\SuperSocket.ClientEngine.Core.0.10.0\lib\net45\SuperSocket.ClientEngine.dll</HintPath>
@@ -348,6 +350,9 @@
     <Compile Include="Controls\Actions\ActionContainerControl.xaml.cs">
       <DependentUpon>ActionContainerControl.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Controls\Actions\ActionContentContainerControl.xaml.cs">
+      <DependentUpon>ActionContentContainerControl.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controls\Actions\ActionControlBase.cs" />
     <Compile Include="Controls\Actions\ChatActionControl.xaml.cs">
       <DependentUpon>ChatActionControl.xaml</DependentUpon>
@@ -477,9 +482,6 @@
       <DependentUpon>BasicTimerCommandEditorControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\Command\CommandEditorControlBase.cs" />
-    <Compile Include="Controls\Command\CommandReferenceControl.xaml.cs">
-      <DependentUpon>CommandReferenceControl.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Controls\Command\CustomCommandDetailsControl.xaml.cs">
       <DependentUpon>CustomCommandDetailsControl.xaml</DependentUpon>
     </Compile>
@@ -590,6 +592,9 @@
     <Compile Include="Controls\Games\StealGameEditorControl.xaml.cs">
       <DependentUpon>StealGameEditorControl.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Controls\Games\TriviaGameEditorControl.xaml.cs">
+      <DependentUpon>TriviaGameEditorControl.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controls\Games\VendingMachineGameEditorControl.xaml.cs">
       <DependentUpon>VendingMachineGameEditorControl.xaml</DependentUpon>
     </Compile>
@@ -640,6 +645,9 @@
     </Compile>
     <Compile Include="Controls\Overlay\OverlayChatMessagesListItemControl.xaml.cs">
       <DependentUpon>OverlayChatMessagesListItemControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\Overlay\OverlayEndCreditsItemControl.xaml.cs">
+      <DependentUpon>OverlayEndCreditsItemControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\Overlay\OverlayGameQueueListItemControl.xaml.cs">
       <DependentUpon>OverlayGameQueueListItemControl.xaml</DependentUpon>
@@ -725,9 +733,6 @@
     </Compile>
     <Compile Include="Controls\Requirement\CooldownRequirementControl.xaml.cs">
       <DependentUpon>CooldownRequirementControl.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\Dialogs\RemoteReferenceCommandDialogControl.xaml.cs">
-      <DependentUpon>RemoteReferenceCommandDialogControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\MainControls\RemoteControl.xaml.cs">
       <DependentUpon>RemoteControl.xaml</DependentUpon>
@@ -828,6 +833,9 @@
     </Compile>
     <Compile Include="Controls\Services\IFITTServiceControl.xaml.cs">
       <DependentUpon>IFITTServiceControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\Services\JustGivingServiceControl.xaml.cs">
+      <DependentUpon>JustGivingServiceControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\Services\OvrStreamServiceControl.xaml.cs">
       <DependentUpon>OvrStreamServiceControl.xaml</DependentUpon>
@@ -991,7 +999,6 @@
     <Compile Include="Util\InverseBooleanConverter.cs" />
     <Compile Include="Util\LocalizationConverter.cs" />
     <Compile Include="Util\LogicalTreeHelpers.cs" />
-    <Compile Include="Util\MessageBoxHelper.cs" />
     <Compile Include="Util\ColorBrushConverter.cs" />
     <Compile Include="Util\VisualTreeHelpers.cs" />
     <Compile Include="Util\WPFDialogShower.cs" />
@@ -1046,6 +1053,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controls\Actions\ActionContainerControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controls\Actions\ActionContentContainerControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -1217,10 +1228,6 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\Command\CommandReferenceControl.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Controls\Command\CustomCommandDetailsControl.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -1365,6 +1372,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Controls\Games\TriviaGameEditorControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Controls\Games\VendingMachineGameEditorControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -1426,6 +1437,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controls\Overlay\OverlayChatMessagesListItemControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controls\Overlay\OverlayEndCreditsItemControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -1541,10 +1556,6 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\Dialogs\RemoteReferenceCommandDialogControl.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Controls\MainControls\RemoteControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -1594,10 +1605,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controls\MainControls\ServicesControl.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\MainControls\OldChatControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -1682,6 +1689,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controls\Services\IFITTServiceControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controls\Services\JustGivingServiceControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -1884,9 +1895,6 @@
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Controls\MainControls\OldChatControl.xaml.cs">
-      <DependentUpon>OldChatControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\Chat\ChatMessageControl.xaml.cs">
       <DependentUpon>ChatMessageControl.xaml</DependentUpon>

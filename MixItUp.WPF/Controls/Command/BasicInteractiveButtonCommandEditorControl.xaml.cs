@@ -2,6 +2,7 @@
 using MixItUp.Base;
 using MixItUp.Base.Actions;
 using MixItUp.Base.Commands;
+using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Requirement;
 using MixItUp.WPF.Controls.Actions;
 using MixItUp.WPF.Util;
@@ -81,11 +82,11 @@ namespace MixItUp.WPF.Controls.Command
 
                 if (this.command.Actions.First() is ChatAction)
                 {
-                    this.actionControl = new ChatActionControl(null, (ChatAction)this.command.Actions.First());
+                    this.actionControl = new ChatActionControl((ChatAction)this.command.Actions.First());
                 }
                 else if (this.command.Actions.First() is SoundAction)
                 {
-                    this.actionControl = new SoundActionControl(null, (SoundAction)this.command.Actions.First());
+                    this.actionControl = new SoundActionControl((SoundAction)this.command.Actions.First());
                 }
             }
             else
@@ -128,20 +129,30 @@ namespace MixItUp.WPF.Controls.Command
             }
         }
 
+        private async void ConvertButton_Click(object sender, RoutedEventArgs e)
+        {
+            await SaveAndClose(false);
+        }
+
         private async void SaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            await SaveAndClose(true);
+        }
+
+        private async Task SaveAndClose(bool isBasic)
         {
             await this.window.RunAsyncOperation((System.Func<Task>)(async () =>
             {
                 int sparkCost = 0;
                 if (!int.TryParse(this.SparkCostTextBox.Text, out sparkCost) || sparkCost < 0)
                 {
-                    await MessageBoxHelper.ShowMessageDialog("Spark cost must be 0 or greater");
+                    await DialogHelper.ShowMessage("Spark cost must be 0 or greater");
                     return;
                 }
 
                 if (this.CooldownTypeComboBox.SelectedIndex < 0)
                 {
-                    await MessageBoxHelper.ShowMessageDialog("A cooldown type must be selected");
+                    await DialogHelper.ShowMessage("A cooldown type must be selected");
                     return;
                 }
 
@@ -150,7 +161,7 @@ namespace MixItUp.WPF.Controls.Command
                 {
                     if (!int.TryParse(this.CooldownTextBox.Text, out cooldown) || cooldown < 0)
                     {
-                        await MessageBoxHelper.ShowMessageDialog("Cooldown must be 0 or greater");
+                        await DialogHelper.ShowMessage("Cooldown must be 0 or greater");
                         return;
                     }
                 }
@@ -160,11 +171,11 @@ namespace MixItUp.WPF.Controls.Command
                 {
                     if (this.actionControl is ChatActionControl)
                     {
-                        await MessageBoxHelper.ShowMessageDialog("The chat message must not be empty");
+                        await DialogHelper.ShowMessage("The chat message must not be empty");
                     }
                     else if (this.actionControl is SoundActionControl)
                     {
-                        await MessageBoxHelper.ShowMessageDialog("The sound file path must not be empty");
+                        await DialogHelper.ShowMessage("The sound file path must not be empty");
                     }
                     return;
                 }
@@ -192,13 +203,21 @@ namespace MixItUp.WPF.Controls.Command
                 this.command.Button.cost = sparkCost;
                 await ChannelSession.MixerUserConnection.UpdateMixPlayGameVersion(this.version);
 
-                this.command.IsBasic = true;
+                this.command.IsBasic = isBasic;
                 this.command.Actions.Clear();
                 this.command.Actions.Add(action);
 
                 await ChannelSession.SaveSettings();
 
                 this.window.Close();
+
+                if (!isBasic)
+                {
+                    await Task.Delay(250);
+                    CommandWindow window = new CommandWindow(new InteractiveButtonCommandDetailsControl(this.game, this.version, this.command));
+                    window.CommandSaveSuccessfully += (sender, cmd) => this.CommandSavedSuccessfully(cmd);
+                    window.Show();
+                }
             }));
         }
     }

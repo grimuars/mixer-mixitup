@@ -438,15 +438,22 @@ namespace MixItUp.Base.ViewModel.User
                     {
                         this.SetMixerUserDetails(user);
 
-                        this.MixerFollowDate = await ChannelSession.MixerUserConnection.CheckIfFollows(ChannelSession.MixerChannel, this.GetModel());
-                        if (this.IsMixerSubscriber || force)
+                    this.FollowDate = await ChannelSession.MixerStreamerConnection.CheckIfFollows(ChannelSession.MixerChannel, this.GetModel());
+                    if (this.IsMixerSubscriber || force)
+                    {
+                        UserWithGroupsModel userGroups = await ChannelSession.MixerStreamerConnection.GetUserInChannel(ChannelSession.MixerChannel, this.ID);
+                        if (userGroups != null)
                         {
-                            UserWithGroupsModel userGroups = await ChannelSession.MixerUserConnection.GetUserInChannel(ChannelSession.MixerChannel, this.MixerID);
-                            if (userGroups != null)
+                            this.MixerSubscribeDate = userGroups.GetSubscriberDate();
+                            if (this.MixerSubscribeDate != null)
                             {
-                                this.MixerSubscribeDate = userGroups.GetSubscriberDate();
+                                if (this.Data.TotalMonthsSubbed < this.MixerSubscribeDate.GetValueOrDefault().TotalMonthsFromNow())
+                                {
+                                    this.Data.TotalMonthsSubbed = (uint)this.MixerSubscribeDate.GetValueOrDefault().TotalMonthsFromNow();
+                                }
                             }
                         }
+                    }
 
                         this.FanProgression = await ChannelSession.MixerUserConnection.GetUserFanProgression(ChannelSession.MixerChannel, user);
                     }
@@ -613,6 +620,7 @@ namespace MixItUp.Base.ViewModel.User
             {
                 this.Data.OfflineViewingMinutes++;
             }
+            ChannelSession.Settings.UserData.ManualValueChanged(this.ID);
 
             if (ChannelSession.Settings.RegularUserMinimumHours > 0 && this.Data.ViewingHoursPart >= ChannelSession.Settings.RegularUserMinimumHours)
             {

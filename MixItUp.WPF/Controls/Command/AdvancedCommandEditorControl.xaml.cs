@@ -252,12 +252,40 @@ namespace MixItUp.WPF.Controls.Command
                 ActionBase action = control.GetAction();
                 if (action == null)
                 {
-                    await MessageBoxHelper.ShowMessageDialog("Required action information is missing");
+                    await DialogHelper.ShowMessage("Required action information is missing");
                     return new List<ActionBase>();
                 }
                 actions.Add(action);
             }
             return actions;
+        }
+
+        private async void PlayButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.PlayButton.Visibility = Visibility.Collapsed;
+            this.StopButton.Visibility = Visibility.Visible;
+
+            this.newCommand = await this.GetNewCommand();
+            if (this.newCommand != null)
+            {
+                await CommandButtonsControl.TestCommand(this.newCommand);
+            }
+            this.SwitchToPlay();
+        }
+
+        private void StopButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (this.newCommand != null)
+            {
+                this.newCommand.StopCurrentRun();
+            }
+            this.SwitchToPlay();
+        }
+
+        public void SwitchToPlay()
+        {
+            this.PlayButton.Visibility = Visibility.Visible;
+            this.StopButton.Visibility = Visibility.Collapsed;
         }
 
         private void AddActionControlContainer(ActionContainerControl actionControl)
@@ -278,7 +306,7 @@ namespace MixItUp.WPF.Controls.Command
 
             if (this.actionControls.Count == 0)
             {
-                await MessageBoxHelper.ShowMessageDialog("At least one action must be created");
+                await DialogHelper.ShowMessage("At least one action must be created");
                 return null;
             }
 

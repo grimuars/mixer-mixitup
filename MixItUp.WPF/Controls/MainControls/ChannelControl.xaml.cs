@@ -60,7 +60,9 @@ namespace MixItUp.WPF.Controls.MainControls
         {
             this.AgeRatingComboBox.ItemsSource = EnumHelper.GetEnumNames<AgeRatingEnum>();
 
-            this.StreamTitleTextBox.Text = ChannelSession.MixerChannel.name;
+            this.StreamTitleComboBox.Text = ChannelSession.MixerChannel.name;
+            List<string> streamTitles = new List<string>(ChannelSession.Settings.RecentStreamTitles);
+            this.StreamTitleComboBox.ItemsSource = streamTitles;
 
             this.shouldShowIntellisense = false;
             if (ChannelSession.MixerChannel?.type?.name != null)
@@ -200,30 +202,33 @@ namespace MixItUp.WPF.Controls.MainControls
 
         private async void UpdateChannelDataButton_Click(object sender, System.Windows.RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(this.StreamTitleTextBox.Text))
+            if (string.IsNullOrWhiteSpace(this.StreamTitleComboBox.Text))
             {
-                await MessageBoxHelper.ShowMessageDialog("A stream title must be specified");
+                await DialogHelper.ShowMessage("A stream title must be specified");
                 return;
             }
 
             GameTypeModel gameType = await GetValidGameType(this.GameNameTextBox.Text);
             if (gameType == null)
             {
-                await MessageBoxHelper.ShowMessageDialog("A valid & existing game name must be selected");
+                await DialogHelper.ShowMessage("A valid & existing game name must be selected");
                 return;
             }
 
             if (this.AgeRatingComboBox.SelectedIndex < 0)
             {
-                await MessageBoxHelper.ShowMessageDialog("A valid age rating must be selected");
+                await DialogHelper.ShowMessage("A valid age rating must be selected");
                 return;
             }
 
             await this.Window.RunAsyncOperation(async () =>
             {
-                await ChannelSession.MixerUserConnection.UpdateChannel(ChannelSession.MixerChannel.id, this.StreamTitleTextBox.Text, gameType.id, ((string)this.AgeRatingComboBox.SelectedItem).ToLower());
+                await ChannelSession.MixerStreamerConnection.UpdateChannel(ChannelSession.MixerChannel.id, this.StreamTitleComboBox.Text, gameType.id, ((string)this.AgeRatingComboBox.SelectedItem).ToLower());
 
                 await ChannelSession.RefreshChannel();
+
+                List<string> streamTitles = new List<string>(ChannelSession.Settings.RecentStreamTitles);
+                this.StreamTitleComboBox.ItemsSource = streamTitles;
             });
         }
 
@@ -233,7 +238,7 @@ namespace MixItUp.WPF.Controls.MainControls
             {
                 if (this.ChannelToRaidSearchCriteriaComboBox.SelectedIndex < 0)
                 {
-                    await MessageBoxHelper.ShowMessageDialog("Must select a search criteria for finding a channel to raid");
+                    await DialogHelper.ShowMessage("Must select a search criteria for finding a channel to raid");
                     return;
                 }
 
@@ -300,7 +305,7 @@ namespace MixItUp.WPF.Controls.MainControls
                 }
                 else
                 {
-                    await MessageBoxHelper.ShowMessageDialog("Unable to find a channel that met your search critera, please try selecting a different option");
+                    await DialogHelper.ShowMessage("Unable to find a channel that met your search critera, please try selecting a different option");
                 }
             });
         }
@@ -339,7 +344,7 @@ namespace MixItUp.WPF.Controls.MainControls
                             {
                                 if (ChannelSession.Settings.FavoriteGroups.Any(t => t.Team != null && t.Team.id.Equals(team.id)))
                                 {
-                                    await MessageBoxHelper.ShowMessageDialog("You have already favorited this team.");
+                                    await DialogHelper.ShowMessage("You have already favorited this team.");
                                     return;
                                 }
 
@@ -350,7 +355,7 @@ namespace MixItUp.WPF.Controls.MainControls
                             }
                             else
                             {
-                                await MessageBoxHelper.ShowMessageDialog("Could not find a team by that name.");
+                                await DialogHelper.ShowMessage("Could not find a team by that name.");
                             }
                         }
                     }
@@ -366,7 +371,7 @@ namespace MixItUp.WPF.Controls.MainControls
                                 {
                                     if (group.GroupUserIDs.Any(id => id.Equals(user.id)))
                                     {
-                                        await MessageBoxHelper.ShowMessageDialog("This user already exists in this group.");
+                                        await DialogHelper.ShowMessage("This user already exists in this group.");
                                         return;
                                     }
                                 }
@@ -383,7 +388,7 @@ namespace MixItUp.WPF.Controls.MainControls
                             }
                             else
                             {
-                                await MessageBoxHelper.ShowMessageDialog("Could not find a user by that name.");
+                                await DialogHelper.ShowMessage("Could not find a user by that name.");
                             }
                         }
                     }
@@ -406,7 +411,7 @@ namespace MixItUp.WPF.Controls.MainControls
             FavoriteGroupViewModel group = (FavoriteGroupViewModel)button.DataContext;
             await this.Window.RunAsyncOperation(async () =>
             {
-                if (await MessageBoxHelper.ShowConfirmationDialog("Are you sure you wish to remove this group?"))
+                if (await DialogHelper.ShowConfirmation("Are you sure you wish to remove this group?"))
                 {
                     ChannelSession.Settings.FavoriteGroups.Remove(group.Group);
                     await ChannelSession.SaveSettings();

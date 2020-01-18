@@ -1,12 +1,15 @@
-﻿using MixItUp.Base.Actions;
+﻿using MixItUp.Base;
+using MixItUp.Base.Actions;
 using MixItUp.Base.Commands;
 using MixItUp.Base.ViewModels;
+using MixItUp.WPF.Util;
 using StreamingClient.Base.Util;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace MixItUp.WPF.Controls.Actions
@@ -115,16 +118,52 @@ namespace MixItUp.WPF.Controls.Actions
     /// </summary>
     public partial class ConditionalActionControl : ActionControlBase
     {
+        private const string SingleActionCommandType = "Single Action";
+
         public ObservableCollection<ConditionalClauseViewModel> Clauses { get; set; } = new ObservableCollection<ConditionalClauseViewModel>();
 
         private ConditionalAction action;
 
-        public ConditionalActionControl(ActionContainerControl containerControl) : base(containerControl) { InitializeComponent(); }
+        public CommandBase Command
+        {
+            get { return this.command; }
+            set
+            {
+                this.command = value;
+                if (this.Command != null)
+                {
+                    this.CommandTypeComboBox.SelectedItem = EnumHelper.GetEnumName(this.Command.Type);
+                    this.CommandNameComboBox.SelectedItem = this.Command;
+                }
+            }
+        }
+        private CommandBase command;
 
-        public ConditionalActionControl(ActionContainerControl containerControl, ConditionalAction action) : this(containerControl) { this.action = action; }
+        private ContentControl ActionControlContentControl;
+        private ActionContentContainerControl actionContentContainerControl;
+
+        public ConditionalActionControl() : base() { InitializeComponent(); }
+
+        public ConditionalActionControl(ConditionalAction action) : this()
+        {
+            this.action = action;
+        }
 
         public override Task OnLoaded()
         {
+            this.ActionControlContentControl = (ContentControl)this.GetByUid("ActionControlContentControl");
+
+            List<CommandTypeEnum> commandTypes = EnumHelper.GetEnumList<CommandTypeEnum>().ToList();
+            commandTypes.Remove(CommandTypeEnum.Game);
+            commandTypes.Remove(CommandTypeEnum.Remote);
+            commandTypes.Remove(CommandTypeEnum.Custom);
+
+            List<string> commandTypeStrings = EnumHelper.GetEnumNames(commandTypes).ToList();
+            commandTypeStrings.Add(SingleActionCommandType);
+            this.CommandTypeComboBox.ItemsSource = commandTypeStrings;
+
+            this.SingleActionNameComboBox.ItemsSource = EnumHelper.GetEnumNames<ActionTypeEnum>().OrderBy(c => c);
+
             this.OperatorTypeComboBox.ItemsSource = EnumHelper.GetEnumNames<ConditionalOperatorTypeEnum>();
             if (this.action != null)
             {
@@ -135,21 +174,28 @@ namespace MixItUp.WPF.Controls.Actions
                 }
 #pragma warning restore CS0612 // Type or member is obsolete
 
-                this.IgnoreCasingToggleButton.IsChecked = this.action.IgnoreCase;
+                this.CaseSensitiveToggleButton.IsChecked = !this.action.IgnoreCase;
                 this.OperatorTypeComboBox.SelectedItem = EnumHelper.GetEnumName(this.action.Operator);
                 foreach (ConditionalClauseModel clause in this.action.Clauses)
                 {
                     this.Clauses.Add(new ConditionalClauseViewModel(clause, this));
                 }
                 this.Clauses.First().CanBeRemoved = false;
-                this.CommandReference.Command = this.action.GetCommand();
+                this.Command = this.action.GetCommand();
+
+                if (this.action.Action != null)
+                {
+                    this.CommandTypeComboBox.SelectedItem = SingleActionCommandType;
+                    this.SingleActionNameComboBox.SelectedItem = EnumHelper.GetEnumName(this.action.Action.Type);
+                    this.ActionControlContentControl.Visibility = Visibility.Visible;
+                    this.ActionControlContentControl.Content = this.actionContentContainerControl = new ActionContentContainerControl(this.action.Action);
+                }
             }
             else
             {
                 this.OperatorTypeComboBox.SelectedItem = EnumHelper.GetEnumName(ConditionalOperatorTypeEnum.And);
                 this.Clauses.Add(new ConditionalClauseViewModel(new ConditionalClauseModel(), this) { CanBeRemoved = false });
             }
-
             this.ClausesItemsControl.ItemsSource = this.Clauses;
 
             return Task.FromResult(0);
@@ -157,12 +203,26 @@ namespace MixItUp.WPF.Controls.Actions
 
         public override ActionBase GetAction()
         {
-            if (this.OperatorTypeComboBox.SelectedIndex >= 0 && this.Clauses.Count >= 0 && this.CommandReference.Command != null)
+            if (this.OperatorTypeComboBox.SelectedIndex >= 0 && this.Clauses.Count >= 0)
             {
                 ConditionalOperatorTypeEnum op = EnumHelper.GetEnumValueFromString<ConditionalOperatorTypeEnum>((string)this.OperatorTypeComboBox.SelectedItem);
                 if (this.Clauses.All(c => c.Validate()))
                 {
-                    return new ConditionalAction(this.IgnoreCasingToggleButton.IsChecked.GetValueOrDefault(), op, this.Clauses.Select(c => c.Clause), this.CommandReference.Command);
+                    if (this.Command != null)
+                    {
+                        return new ConditionalAction(!this.CaseSensitiveToggleButton.IsChecked.GetValueOrDefault(), op, this.Clauses.Select(c => c.Clause), this.Command);
+                    }
+                    else
+                    {
+                        if (this.actionContentContainerControl != null)
+                        {
+                            ActionBase action = this.actionContentContainerControl.GetAction();
+                            if (action != null)
+                            {
+                                return new ConditionalAction(!this.CaseSensitiveToggleButton.IsChecked.GetValueOrDefault(), op, this.Clauses.Select(c => c.Clause), action);
+                            }
+                        }
+                    }
                 }
             }
             return null;
@@ -171,6 +231,57 @@ namespace MixItUp.WPF.Controls.Actions
         private void AddClauseButton_Click(object sender, RoutedEventArgs e)
         {
             this.Clauses.Add(new ConditionalClauseViewModel(new ConditionalClauseModel(), this));
+        }
+
+        private void CommandTypeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            this.CommandNameComboBox.Visibility = Visibility.Collapsed;
+            this.SingleActionNameComboBox.Visibility = Visibility.Collapsed;
+            this.ActionControlContentControl.Visibility = Visibility.Collapsed;
+
+            if (this.CommandTypeComboBox.SelectedIndex >= 0)
+            {
+                string selection = (string)this.CommandTypeComboBox.SelectedItem;
+                if (selection.Equals(SingleActionCommandType))
+                {
+                    this.Command = null;
+
+                    this.SingleActionNameComboBox.SelectedIndex = -1;
+                    this.SingleActionNameComboBox.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    this.SingleActionNameComboBox.SelectedIndex = -1;
+                    this.ActionControlContentControl.Content = this.actionContentContainerControl = null;
+
+                    CommandTypeEnum commandType = EnumHelper.GetEnumValueFromString<CommandTypeEnum>((string)this.CommandTypeComboBox.SelectedItem);
+                    IEnumerable<CommandBase> commands = ChannelSession.AllEnabledCommands.Where(c => c.Type == commandType);
+                    if (commandType == CommandTypeEnum.Chat)
+                    {
+                        commands = commands.Where(c => !(c is PreMadeChatCommand));
+                    }
+                    this.CommandNameComboBox.ItemsSource = commands.OrderBy(c => c.Name);
+                    this.CommandNameComboBox.Visibility = Visibility.Visible;
+                }
+            }
+        }
+
+        private void CommandNameComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (this.CommandNameComboBox.SelectedIndex >= 0 && this.Command != this.CommandNameComboBox.SelectedItem)
+            {
+                this.Command = (CommandBase)this.CommandNameComboBox.SelectedItem;
+            }
+        }
+
+        private void SingleActionNameComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (this.SingleActionNameComboBox.SelectedIndex >= 0)
+            {
+                ActionTypeEnum actionType = EnumHelper.GetEnumValueFromString<ActionTypeEnum>((string)this.SingleActionNameComboBox.SelectedItem);
+                this.ActionControlContentControl.Visibility = Visibility.Visible;
+                this.ActionControlContentControl.Content = this.actionContentContainerControl = new ActionContentContainerControl(actionType);
+            }
         }
     }
 }

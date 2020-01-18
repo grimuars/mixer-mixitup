@@ -59,7 +59,7 @@ namespace MixItUp.Base.Services
 
     public class UserService : IUserService
     {
-        public static readonly HashSet<string> SpecialUserAccounts = new HashSet<string>() { "HypeBot", "boomtvmod", "StreamJar", "PretzelRocks", "ScottyBot" };
+        public static readonly HashSet<string> SpecialUserAccounts = new HashSet<string>() { "HypeBot", "boomtvmod", "StreamJar", "PretzelRocks", "ScottyBot", "Streamlabs", "StreamElements" };
 
         private LockedDictionary<string, UserViewModel> usersByMixerID = new LockedDictionary<string, UserViewModel>();
         private LockedDictionary<string, UserViewModel> usersByMixerUsername = new LockedDictionary<string, UserViewModel>();
@@ -176,6 +176,7 @@ namespace MixItUp.Base.Services
                 }
                 else
                 {
+                    user.IgnoreForQueries = false;
                     if (user.Data.ViewingMinutes == 0)
                     {
                         if (EventCommand.CanUserRunEvent(user, EnumHelper.GetEnumName(OtherEventTypeEnum.ChatUserFirstJoin)))
@@ -186,6 +187,7 @@ namespace MixItUp.Base.Services
 
                     if (EventCommand.CanUserRunEvent(user, EnumHelper.GetEnumName(OtherEventTypeEnum.ChatUserJoined)))
                     {
+                        user.Data.TotalStreamsWatched++;
                         await EventCommand.FindAndRunEventCommand(EnumHelper.GetEnumName(OtherEventTypeEnum.ChatUserJoined), user);
                     }
                 }

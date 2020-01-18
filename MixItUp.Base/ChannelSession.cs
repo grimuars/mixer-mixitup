@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using TwitchV5API = Twitch.Base.Models.V5;
 using TwitchNewAPI = Twitch.Base.Models.NewAPI;
@@ -61,6 +62,9 @@ namespace MixItUp.Base
         public static List<PreMadeChatCommand> PreMadeChatCommands { get; private set; }
 
         public static LockedDictionary<string, double> Counters { get; private set; }
+
+        private static CancellationTokenSource sessionBackgroundCancellationTokenSource = new CancellationTokenSource();
+        private static int sessionBackgroundTimer = 0;
 
         public static bool IsDebug()
         {
@@ -485,6 +489,14 @@ namespace MixItUp.Base
                     {
                         await ChannelSession.Services.InitializeStreamloots();
                     }
+                    if (ChannelSession.Settings.ExtraLifeTeamID > 0)
+                    {
+                        await ChannelSession.Services.InitializeExtraLife();
+                    }
+                    if (ChannelSession.Settings.JustGivingOAuthToken != null)
+                    {
+                        await ChannelSession.Services.InitializeJustGiving();
+                    }
 
                     if (ChannelSession.Settings.RemoteHostConnection != null)
                     {
@@ -556,6 +568,8 @@ namespace MixItUp.Base
 
                     GlobalEvents.OnRankChanged += GlobalEvents_OnRankChanged;
 
+                    AsyncRunner.RunBackgroundTask(sessionBackgroundCancellationTokenSource.Token, 60000, SessionBackgroundTask);
+
                     return true;
                 }
             }
@@ -576,6 +590,24 @@ namespace MixItUp.Base
                 return true;
             }
             return false;
+        }
+
+        private static async Task SessionBackgroundTask(CancellationToken cancellationToken)
+        {
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                sessionBackgroundTimer++;
+
+                await ChannelSession.RefreshUser();
+
+                await ChannelSession.RefreshChannel();
+
+                if (sessionBackgroundTimer >= 5)
+                {
+                    await ChannelSession.SaveSettings();
+                    sessionBackgroundTimer = 0;
+                }
+            }
         }
 
         private static async void GlobalEvents_OnRankChanged(object sender, UserCurrencyDataViewModel currency)
