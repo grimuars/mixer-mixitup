@@ -1,28 +1,48 @@
-﻿using MixItUp.Base.Services;
-using MixItUp.Base.Util;
+﻿using MixItUp.Base.Util;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace MixItUp.Desktop.Services
+namespace MixItUp.Desktop.Database
 {
-    public class DatabaseService : IDatabaseService
+    public class SQLiteDatabaseWrapper
     {
         private const int MaxBulkInsertRows = 10000;
 
         public string DatabaseFilePath { get; set; }
 
-        public DatabaseService(string databaseFilePath)
+        public SQLiteDatabaseWrapper(string databaseFilePath)
         {
             this.DatabaseFilePath = databaseFilePath;
         }
 
-        public async Task Read(string commandString, Action<DbDataReader> processRow)
+        public async Task EstablishConnection(Func<SQLiteConnection, Task> databaseQuery)
+        {
+            await this.AsyncWrapper(async () =>
+            {
+                try
+                {
+                    if (File.Exists(this.DatabaseFilePath))
+                    {
+                        using (SQLiteConnection connection = new SQLiteConnection("Data Source=" + this.DatabaseFilePath))
+                        {
+                            await connection.OpenAsync();
+                            await databaseQuery(connection);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log(ex);
+                }
+            });
+        }
+
+        public async Task RunReadCommand(string commandString, Action<SQLiteDataReader> processRow)
         {
             await this.EstablishConnection((connection) =>
             {
@@ -44,7 +64,7 @@ namespace MixItUp.Desktop.Services
             });
         }
 
-        public async Task Write(string commandString)
+        public async Task RunWriteCommand(string commandString)
         {
             Logger.Log(LogLevel.Debug, string.Format("SQLite Query: {0}", commandString));
 
@@ -57,25 +77,25 @@ namespace MixItUp.Desktop.Services
             });
         }
 
-        public async Task BulkWrite(string commandString, IEnumerable<Dictionary<string, object>> parameters)
+        public async Task RunBulkWriteCommand(string commandString, IEnumerable<IEnumerable<SQLiteParameter>> parameters)
         {
             await this.EstablishConnection(async (connection) =>
             {
-                for (int i = 0; i < parameters.Count(); i += DatabaseService.MaxBulkInsertRows)
+                for (int i = 0; i < parameters.Count(); i += SQLiteDatabaseWrapper.MaxBulkInsertRows)
                 {
-                    var rowsToInsert = parameters.Skip(i).Take(DatabaseService.MaxBulkInsertRows);
+                    var rowsToInsert = parameters.Skip(i).Take(SQLiteDatabaseWrapper.MaxBulkInsertRows);
 
                     using (SQLiteTransaction transaction = connection.BeginTransaction())
                     {
                         using (SQLiteCommand command = new SQLiteCommand(commandString, connection))
                         {
-                            foreach (Dictionary<string, object> rowParameters in rowsToInsert)
+                            foreach (IEnumerable<SQLiteParameter> rowParameters in rowsToInsert)
                             {
                                 try
                                 {
-                                    foreach (var kvp in rowParameters)
+                                    foreach (SQLiteParameter rowParam in rowParameters)
                                     {
-                                        command.Parameters.Add(new SQLiteParameter(kvp.Key, value: kvp.Value));
+                                        command.Parameters.Add(rowParam);
                                     }
 
                                     Logger.Log(LogLevel.Debug, string.Format("SQLite Query: {0} - {1}", commandString, SerializerHelper.SerializeToString(rowParameters)));
@@ -92,23 +112,6 @@ namespace MixItUp.Desktop.Services
             });
         }
 
-        private async Task EstablishConnection(Func<SQLiteConnection, Task> databaseQuery)
-        {
-            try
-            {
-                if (File.Exists(this.DatabaseFilePath))
-                {
-                    using (SQLiteConnection connection = new SQLiteConnection("Data Source=" + this.DatabaseFilePath))
-                    {
-                        await connection.OpenAsync();
-                        await databaseQuery(connection);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log(ex);
-            }
-        }
+        private async Task AsyncWrapper(Func<Task> function) { await Task.Run(async () => { await function(); }); }
     }
 }

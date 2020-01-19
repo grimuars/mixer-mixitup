@@ -14,14 +14,13 @@ using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Requirement;
 using MixItUp.Base.ViewModel.User;
 using MixItUp.Base.ViewModel.Window.Dashboard;
-using MixItUp.Desktop.Services;
+using MixItUp.Desktop.Database;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using StreamingClient.Base.Model.OAuth;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Common;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
@@ -521,7 +520,7 @@ namespace MixItUp.Desktop
         public string DatabasePath { get; set; }
 
         [JsonIgnore]
-        internal DatabaseService DatabaseWrapper;
+        internal SQLiteDatabaseWrapper DatabaseWrapper;
 
         [JsonIgnore]
         internal bool InitializeDB = true;
@@ -617,11 +616,11 @@ namespace MixItUp.Desktop
 
             if (this.IsStreamer)
             {
-                this.DatabaseWrapper = new DatabaseService(this.DatabasePath);
+                this.DatabaseWrapper = new SQLiteDatabaseWrapper(this.DatabasePath);
                 if (this.InitializeDB)
                 {
                     Dictionary<uint, UserDataViewModel> initialUsers = new Dictionary<uint, UserDataViewModel>();
-                    await this.DatabaseWrapper.Read("SELECT * FROM Users", (DbDataReader dataReader) =>
+                    await this.DatabaseWrapper.RunReadCommand("SELECT * FROM Users", (SQLiteDataReader dataReader) =>
                     {
                         UserDataViewModel userData = new UserDataViewModel(dataReader, this);
                         initialUsers[userData.ID] = userData;
@@ -700,11 +699,11 @@ namespace MixItUp.Desktop
             if (this.IsStreamer)
             {
                 IEnumerable<uint> removedUsers = this.UserData.GetRemovedValues();
-                await this.DatabaseWrapper.BulkWrite("DELETE FROM Users WHERE ID = @ID", removedUsers.Select(u => new Dictionary<string, object>() { new SQLiteParameter("@ID", value: (int)u) }));
+                await this.DatabaseWrapper.RunBulkWriteCommand("DELETE FROM Users WHERE ID = @ID", removedUsers.Select(u => new List<SQLiteParameter>() { new SQLiteParameter("@ID", value: (int)u) }));
 
                 IEnumerable<UserDataViewModel> addedUsers = this.UserData.GetAddedValues();
                 addedUsers = addedUsers.Where(u => !string.IsNullOrEmpty(u.UserName));
-                await this.DatabaseWrapper.BulkWrite("INSERT INTO Users(ID, UserName, ViewingMinutes, CurrencyAmounts, InventoryAmounts, CustomCommands, Options) VALUES(?,?,?,?,?,?,?)",
+                await this.DatabaseWrapper.RunBulkWriteCommand("INSERT INTO Users(ID, UserName, ViewingMinutes, CurrencyAmounts, InventoryAmounts, CustomCommands, Options) VALUES(?,?,?,?,?,?,?)",
                     addedUsers.Select(u => new List<SQLiteParameter>() { new SQLiteParameter(DbType.UInt32, u.ID), new SQLiteParameter(DbType.String, value: u.UserName),
                     new SQLiteParameter(DbType.Int32, value: u.ViewingMinutes), new SQLiteParameter(DbType.String, value: u.GetCurrencyAmountsString()),
                     new SQLiteParameter(DbType.String, value: u.GetInventoryAmountsString()), new SQLiteParameter(DbType.String, value: u.GetCustomCommandsString()),
@@ -712,7 +711,7 @@ namespace MixItUp.Desktop
 
                 IEnumerable<UserDataViewModel> changedUsers = this.UserData.GetChangedValues();
                 changedUsers = changedUsers.Where(u => !string.IsNullOrEmpty(u.UserName));
-                await this.DatabaseWrapper.BulkWrite("UPDATE Users SET UserName = @UserName, ViewingMinutes = @ViewingMinutes, CurrencyAmounts = @CurrencyAmounts," +
+                await this.DatabaseWrapper.RunBulkWriteCommand("UPDATE Users SET UserName = @UserName, ViewingMinutes = @ViewingMinutes, CurrencyAmounts = @CurrencyAmounts," +
                     " InventoryAmounts = @InventoryAmounts, CustomCommands = @CustomCommands, Options = @Options WHERE ID = @ID",
                     changedUsers.Select(u => new List<SQLiteParameter>() { new SQLiteParameter("@UserName", value: u.UserName), new SQLiteParameter("@ViewingMinutes", value: u.ViewingMinutes),
                     new SQLiteParameter("@CurrencyAmounts", value: u.GetCurrencyAmountsString()), new SQLiteParameter("@InventoryAmounts", value: u.GetInventoryAmountsString()),
