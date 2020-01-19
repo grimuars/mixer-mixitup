@@ -2082,7 +2082,7 @@
       <Name>MixItUp.AutoHoster</Name>
     </ProjectReference>
     <ProjectReference Include="..\MixItUp.Base\MixItUp.Base.csproj">
-      <Project>{59ba7d6e-bde7-446c-8845-0d7da8a9d53b}</Project>
+      <Project>{0e494acc-c46a-4ded-922b-ff378556be8a}</Project>
       <Name>MixItUp.Base</Name>
     </ProjectReference>
     <ProjectReference Include="..\MixItUp.Desktop\MixItUp.Desktop.csproj">
