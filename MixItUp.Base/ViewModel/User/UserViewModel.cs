@@ -410,6 +410,8 @@ namespace MixItUp.Base.ViewModel.User
 
         public async Task RefreshDetails(bool force = false)
         {
+            return;
+
             if (!this.IsAnonymous && (this.LastUpdated.TotalMinutesFromNow() >= 5 || force))
             {
                 UserWithChannelModel user = await ChannelSession.MixerUserConnection.GetUser(this.MixerID);
