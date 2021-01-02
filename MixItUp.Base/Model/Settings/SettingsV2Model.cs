@@ -1,8 +1,6 @@
-﻿using Mixer.Base.Model.Channel;
-using MixItUp.Base.Actions;
+﻿using MixItUp.Base.Actions;
 using MixItUp.Base.Commands;
-using MixItUp.Base.Model.Favorites;
-using MixItUp.Base.Model.MixPlay;
+using MixItUp.Base.Model.Currency;
 using MixItUp.Base.Model.Overlay;
 using MixItUp.Base.Model.Remote.Authentication;
 using MixItUp.Base.Model.Serial;
@@ -12,9 +10,8 @@ using MixItUp.Base.Services;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Requirement;
 using MixItUp.Base.ViewModel.User;
-using MixItUp.Base.ViewModel.Window.Dashboard;
+using MixItUp.Base.ViewModel.Dashboard;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using StreamingClient.Base.Model.OAuth;
 using StreamingClient.Base.Util;
 using System;
@@ -30,9 +27,10 @@ namespace MixItUp.Base.Model.Settings
     [DataContract]
     public class SettingsV2Model
     {
-        public const int LatestVersion = 40;
+        public const int LatestVersion = 45;
 
         public const string SettingsDirectoryName = "Settings";
+        public const string DefaultAutomaticBackupSettingsDirectoryName = "AutomaticBackups";
 
         public const string SettingsTemplateDatabaseFileName = "SettingsTemplateDatabase.db";
 
@@ -66,11 +64,18 @@ namespace MixItUp.Base.Model.Settings
         #region Authentication
 
         [DataMember]
-        public OAuthTokenModel MixerUserOAuthToken { get; set; }
-        [DataMember]
-        public OAuthTokenModel MixerBotOAuthToken { get; set; }
+        public uint MixerUserID { get; set; }
         [DataMember]
         public uint MixerChannelID { get; set; }
+
+        [JsonProperty]
+        public OAuthTokenModel TwitchUserOAuthToken { get; set; }
+        [JsonProperty]
+        public OAuthTokenModel TwitchBotOAuthToken { get; set; }
+        [JsonProperty]
+        public string TwitchUserID { get; set; }
+        [JsonProperty]
+        public string TwitchChannelID { get; set; }
 
         [DataMember]
         public OAuthTokenModel StreamlabsOAuthToken { get; set; }
@@ -124,24 +129,19 @@ namespace MixItUp.Base.Model.Settings
         [DataMember]
         public int ChatFontSize { get; set; } = 13;
         [DataMember]
-        public bool ChatShowUserJoinLeave { get; set; }
+        public bool AddSeparatorsBetweenMessages { get; set; }
         [DataMember]
-        public string ChatUserJoinLeaveColorScheme { get; set; } = ColorSchemes.DefaultColorScheme;
-        [DataMember]
-        public bool ChatShowEventAlerts { get; set; }
-        [DataMember]
-        public string ChatEventAlertsColorScheme { get; set; } = ColorSchemes.DefaultColorScheme;
-        [DataMember]
-        public bool ChatShowMixPlayAlerts { get; set; }
-        [DataMember]
-        public string ChatMixPlayAlertsColorScheme { get; set; } = ColorSchemes.DefaultColorScheme;
+        public bool UseAlternatingBackgroundColors { get; set; }
 
-        [DataMember]
-        public bool WhisperAllAlerts { get; set; }
         [DataMember]
         public bool OnlyShowAlertsInDashboard { get; set; }
         [DataMember]
         public bool LatestChatAtTop { get; set; }
+        [DataMember]
+        public bool TrackWhispererNumber { get; set; }
+        [DataMember]
+        public bool ShowChatMessageTimestamps { get; set; }
+
         [DataMember]
         public bool HideViewerAndChatterNumbers { get; set; }
         [DataMember]
@@ -149,23 +149,77 @@ namespace MixItUp.Base.Model.Settings
         [DataMember]
         public bool HideDeletedMessages { get; set; }
         [DataMember]
-        public bool TrackWhispererNumber { get; set; }
+        public bool HideBotMessages { get; set; }
+
+        [DataMember]
+        public bool ShowBetterTTVEmotes { get; set; }
+        [DataMember]
+        public bool ShowFrankerFaceZEmotes { get; set; }
+
+        [DataMember]
+        public bool HideUserAvatar { get; set; }
+        [DataMember]
+        public bool HideUserRoleBadge { get; set; }
+        [DataMember]
+        public bool HideUserSubscriberBadge { get; set; }
+        [DataMember]
+        public bool HideUserSpecialtyBadge { get; set; }
+
+        [DataMember]
+        public bool UseCustomUsernameColors { get; set; }
+        [DataMember]
+        public Dictionary<UserRoleEnum, string> CustomUsernameColors { get; set; } = new Dictionary<UserRoleEnum, string>();
+
+        #endregion Chat
+
+        #region Commands
+
         [DataMember]
         public bool AllowCommandWhispering { get; set; }
         [DataMember]
         public bool IgnoreBotAccountCommands { get; set; }
         [DataMember]
-        public bool CommandsOnlyInYourStream { get; set; }
-        [DataMember]
         public bool DeleteChatCommandsWhenRun { get; set; }
         [DataMember]
-        public bool ShowMixrElixrEmotes { get; set; }
-        [DataMember]
-        public bool ShowChatMessageTimestamps { get; set; }
+        public bool UnlockAllCommands { get; set; }
 
-        #endregion Chat
+        [DataMember]
+        public int TwitchMassGiftedSubsFilterAmount { get; set; } = 1;
+
+        [DataMember]
+        public HashSet<ActionTypeEnum> ActionsToHide { get; set; } = new HashSet<ActionTypeEnum>();
+
+        #endregion Commands
+
+        #region Alerts
+
+        [DataMember]
+        public string AlertUserJoinLeaveColor { get; set; }
+        [DataMember]
+        public string AlertFollowColor { get; set; }
+        [DataMember]
+        public string AlertHostColor { get; set; }
+        [DataMember]
+        public string AlertRaidColor { get; set; }
+        [DataMember]
+        public string AlertSubColor { get; set; }
+        [DataMember]
+        public string AlertGiftedSubColor { get; set; }
+        [DataMember]
+        public string AlertMassGiftedSubColor { get; set; }
+        [DataMember]
+        public string AlertBitsCheeredColor { get; set; }
+        [DataMember]
+        public string AlertChannelPointsColor { get; set; }
+        [DataMember]
+        public string AlertModerationColor { get; set; }
+
+        #endregion Alerts
 
         #region Notifications
+
+        [DataMember]
+        public string NotificationsAudioOutput { get; set; }
 
         [DataMember]
         public string NotificationChatMessageSoundFilePath { get; set; }
@@ -189,25 +243,6 @@ namespace MixItUp.Base.Model.Settings
         public int NotificationServiceDisconnectSoundVolume { get; set; } = 100;
 
         #endregion Notifications
-
-        #region MixPlay
-
-        [DataMember]
-        public uint DefaultMixPlayGame { get; set; }
-        [DataMember]
-        public bool PreventUnknownMixPlayUsers { get; set; }
-        [DataMember]
-        public bool PreventSmallerMixPlayCooldowns { get; set; }
-        [DataMember]
-        public List<MixPlaySharedProjectModel> CustomMixPlayProjectIDs { get; set; } = new List<MixPlaySharedProjectModel>();
-
-        [DataMember]
-        public Dictionary<uint, List<MixPlayUserGroupModel>> MixPlayUserGroups { get; set; } = new Dictionary<uint, List<MixPlayUserGroupModel>>();
-
-        [DataMember]
-        public Dictionary<uint, JObject> CustomMixPlaySettings { get; set; } = new Dictionary<uint, JObject>();
-
-        #endregion MixPlay
 
         #region Users
 
@@ -378,6 +413,8 @@ namespace MixItUp.Base.Model.Settings
 
         [DataMember]
         public bool EnableDeveloperAPI { get; set; }
+        [DataMember]
+        public bool EnableDeveloperAPIAdvancedMode { get; set; }
 
         [DataMember]
         public int TiltifyCampaign { get; set; }
@@ -424,17 +461,40 @@ namespace MixItUp.Base.Model.Settings
 
         [DataMember]
         public bool ReRunWizard { get; set; }
+
         [DataMember]
+        [Obsolete]
         public bool DiagnosticLogging { get; set; }
-        [DataMember]
-        public bool UnlockAllCommands { get; set; }
 
         #endregion Advanced
 
+        #region Currency
+
         [DataMember]
-        public Dictionary<Guid, UserCurrencyModel> Currencies { get; set; } = new Dictionary<Guid, UserCurrencyModel>();
+        public Dictionary<Guid, CurrencyModel> Currency { get; set; } = new Dictionary<Guid, CurrencyModel>();
+
         [DataMember]
-        public Dictionary<Guid, UserInventoryModel> Inventories { get; set; } = new Dictionary<Guid, UserInventoryModel>();
+        public Dictionary<Guid, InventoryModel> Inventory { get; set; } = new Dictionary<Guid, InventoryModel>();
+
+        [DataMember]
+        public Dictionary<Guid, StreamPassModel> StreamPass { get; set; } = new Dictionary<Guid, StreamPassModel>();
+
+        [DataMember]
+        public bool RedemptionStoreEnabled { get; set; }
+        [DataMember]
+        public Dictionary<Guid, RedemptionStoreProductModel> RedemptionStoreProducts { get; set; } = new Dictionary<Guid, RedemptionStoreProductModel>();
+        [DataMember]
+        public string RedemptionStoreChatPurchaseCommand { get; set; } = "!purchase";
+        [DataMember]
+        public string RedemptionStoreModRedeemCommand { get; set; } = "!redeem";
+        [DataMember]
+        public Guid RedemptionStoreManualRedeemNeededCommandID { get; set; }
+        [DataMember]
+        public Guid RedemptionStoreDefaultRedemptionCommandID { get; set; }
+        [DataMember]
+        public List<RedemptionStorePurchaseModel> RedemptionStorePurchases { get; set; } = new List<RedemptionStorePurchaseModel>();
+
+        #endregion Currency
 
         [DataMember]
         public Dictionary<string, int> CooldownGroups { get; set; } = new Dictionary<string, int>();
@@ -444,12 +504,11 @@ namespace MixItUp.Base.Model.Settings
 
         [DataMember]
         public List<string> RecentStreamTitles { get; set; } = new List<string>();
+        [DataMember]
+        public List<string> RecentStreamGames { get; set; } = new List<string>();
 
         [DataMember]
         public Dictionary<string, object> LatestSpecialIdentifiersData { get; set; } = new Dictionary<string, object>();
-
-        [DataMember]
-        public List<FavoriteGroupModel> FavoriteGroups { get; set; } = new List<FavoriteGroupModel>();
 
         [DataMember]
         public Dictionary<string, CommandGroupSettings> CommandGroups { get; set; } = new Dictionary<string, CommandGroupSettings>();
@@ -465,13 +524,18 @@ namespace MixItUp.Base.Model.Settings
         [JsonIgnore]
         public DatabaseList<EventCommand> EventCommands { get; set; } = new DatabaseList<EventCommand>();
         [JsonIgnore]
-        public DatabaseList<MixPlayCommand> MixPlayCommands { get; set; } = new DatabaseList<MixPlayCommand>();
-        [JsonIgnore]
         public DatabaseList<TimerCommand> TimerCommands { get; set; } = new DatabaseList<TimerCommand>();
         [JsonIgnore]
         public DatabaseList<ActionGroupCommand> ActionGroupCommands { get; set; } = new DatabaseList<ActionGroupCommand>();
         [JsonIgnore]
         public DatabaseList<GameCommandBase> GameCommands { get; set; } = new DatabaseList<GameCommandBase>();
+        [JsonIgnore]
+        public DatabaseList<TwitchChannelPointsCommand> TwitchChannelPointsCommands { get; set; } = new DatabaseList<TwitchChannelPointsCommand>();
+        [JsonIgnore]
+        public DatabaseDictionary<Guid, CustomCommand> CustomCommands { get; set; } = new DatabaseDictionary<Guid, CustomCommand>();
+
+        [JsonIgnore]
+        public List<MixPlayCommand> OldMixPlayCommands { get; set; } = new List<MixPlayCommand>();
 
         [JsonIgnore]
         public DatabaseList<UserQuoteViewModel> Quotes { get; set; } = new DatabaseList<UserQuoteViewModel>();
@@ -479,9 +543,28 @@ namespace MixItUp.Base.Model.Settings
         [JsonIgnore]
         public DatabaseDictionary<Guid, UserDataModel> UserData { get; set; } = new DatabaseDictionary<Guid, UserDataModel>();
         [JsonIgnore]
-        private Dictionary<uint, Guid> MixerUserIDLookups { get; set; } = new Dictionary<uint, Guid>();
+        private Dictionary<string, Guid> TwitchUserIDLookups { get; set; } = new Dictionary<string, Guid>();
+        [JsonIgnore]
+        private Dictionary<StreamingPlatformTypeEnum, Dictionary<string, Guid>> UsernameLookups { get; set; } = new Dictionary<StreamingPlatformTypeEnum, Dictionary<string, Guid>>();
 
         #endregion Database Data
+
+        #region Obsolete
+
+        [DataMember]
+        [Obsolete]
+        public bool ChatShowUserJoinLeave { get; set; }
+        [DataMember]
+        [Obsolete]
+        public string ChatUserJoinLeaveColorScheme { get; set; } = null;
+        [DataMember]
+        [Obsolete]
+        public bool ChatShowEventAlerts { get; set; }
+        [DataMember]
+        [Obsolete]
+        public string ChatEventAlertsColorScheme { get; set; } = null;
+
+        #endregion Obsolete
 
         [JsonIgnore]
         public string SettingsFileName { get { return string.Format("{0}.{1}", this.ID, SettingsV2Model.SettingsFileExtension); } }
@@ -500,17 +583,11 @@ namespace MixItUp.Base.Model.Settings
 
         public SettingsV2Model() { }
 
-        public SettingsV2Model(ExpandedChannelModel channel, bool isStreamer = true)
+        public SettingsV2Model(string name, bool isStreamer = true)
             : this()
         {
-            this.Name = channel.token;
-            this.MixerChannelID = channel.id;
+            this.Name = name;
             this.IsStreamer = isStreamer;
-
-            if (ChannelSession.IsDebug())
-            {
-                this.DiagnosticLogging = true;
-            }
 
             this.InitializeMissingData();
         }
@@ -524,91 +601,111 @@ namespace MixItUp.Base.Model.Settings
                     await ChannelSession.Services.FileService.CopyFile(SettingsV2Model.SettingsTemplateDatabaseFileName, this.DatabaseFilePath);
                 }
 
+                foreach (StreamingPlatformTypeEnum platform in StreamingPlatforms.Platforms)
+                {
+                    this.UsernameLookups[platform] = new Dictionary<string, Guid>();
+                }
+
                 await ChannelSession.Services.Database.Read(this.DatabaseFilePath, "SELECT * FROM Users", (Dictionary<string, object> data) =>
                 {
                     UserDataModel userData = JSONSerializerHelper.DeserializeFromString<UserDataModel>((string)data["Data"]);
                     this.UserData[userData.ID] = userData;
-                    this.MixerUserIDLookups[userData.MixerID] = userData.ID;
+                    if (userData.Platform.HasFlag(StreamingPlatformTypeEnum.Twitch))
+                    {
+                        this.TwitchUserIDLookups[userData.TwitchID] = userData.ID;
+                        if (!string.IsNullOrEmpty(userData.TwitchUsername))
+                        {
+                            this.UsernameLookups[StreamingPlatformTypeEnum.Twitch][userData.TwitchUsername.ToLowerInvariant()] = userData.ID;
+                        }
+                    }
+#pragma warning disable CS0612 // Type or member is obsolete
+                    else if (userData.Platform.HasFlag(StreamingPlatformTypeEnum.Mixer))
+                    {
+                        if (!string.IsNullOrEmpty(userData.MixerUsername))
+                        {
+                            this.UsernameLookups[StreamingPlatformTypeEnum.Mixer][userData.MixerUsername.ToLowerInvariant()] = userData.ID;
+                        }
+                    }
+#pragma warning restore CS0612 // Type or member is obsolete
                 });
                 this.UserData.ClearTracking();
 
-                await ChannelSession.Services.Database.Read(this.DatabaseFilePath, "SELECT * FROM CurrencyAmounts", (Dictionary<string, object> data) =>
-                {
-                    Guid currencyID = Guid.Parse((string)data["CurrencyID"]);
-                    Guid userID = Guid.Parse((string)data["UserID"]);
-                    int amount = Convert.ToInt32(data["Amount"]);
-
-                    if (this.Currencies.ContainsKey(currencyID))
-                    {
-                        this.Currencies[currencyID].UserAmounts[userID] = amount;
-                    }
-                });
-                foreach (var kvp in this.Currencies)
-                {
-                    kvp.Value.UserAmounts.ClearTracking();
-                }
-
-                await ChannelSession.Services.Database.Read(this.DatabaseFilePath, "SELECT * FROM InventoryAmounts", (Dictionary<string, object> data) =>
-                {
-                    Guid inventoryID = Guid.Parse((string)data["InventoryID"]);
-                    Guid userID = Guid.Parse((string)data["UserID"]);
-                    Guid itemID = Guid.Parse((string)data["ItemID"]);
-                    int amount = Convert.ToInt32(data["Amount"]);
-
-                    if (this.Inventories.ContainsKey(inventoryID))
-                    {
-                        if (!this.Inventories[inventoryID].UserAmounts.ContainsKey(userID))
-                        {
-                            this.Inventories[inventoryID].UserAmounts[userID] = new Dictionary<Guid, int>();
-                        }
-                        this.Inventories[inventoryID].UserAmounts[userID][itemID] = amount;
-                    }
-                });
-                foreach (var kvp in this.Inventories)
-                {
-                    kvp.Value.UserAmounts.ClearTracking();
-                }
-
                 await ChannelSession.Services.Database.Read(this.DatabaseFilePath, "SELECT * FROM Quotes", (Dictionary<string, object> data) =>
                 {
-                    this.Quotes.Add(JSONSerializerHelper.DeserializeFromString<UserQuoteViewModel>((string)data["Data"]));
+                    string json = (string)data["Data"];
+                    if (json.Contains("MixItUp.Base.ViewModel.User.UserQuoteViewModel"))
+                    {
+                        json = json.Replace("MixItUp.Base.ViewModel.User.UserQuoteViewModel", "MixItUp.Base.Model.User.UserQuoteModel");
+                        this.Quotes.Add(new UserQuoteViewModel(JSONSerializerHelper.DeserializeFromString<UserQuoteModel>(json)));
+                    }
+                    else
+                    {
+                        this.Quotes.Add(new UserQuoteViewModel(JSONSerializerHelper.DeserializeFromString<UserQuoteModel>((string)data["Data"])));
+                    }
                 });
+                this.Quotes.ClearTracking();
 
                 await ChannelSession.Services.Database.Read(this.DatabaseFilePath, "SELECT * FROM Commands", (Dictionary<string, object> data) =>
                 {
                     CommandTypeEnum type = (CommandTypeEnum)Convert.ToInt32(data["TypeID"]);
+                    string commandData = (string)data["Data"];
                     if (type == CommandTypeEnum.Chat)
                     {
-                        this.ChatCommands.Add(JSONSerializerHelper.DeserializeFromString<ChatCommand>((string)data["Data"]));
+                        this.ChatCommands.Add(JSONSerializerHelper.DeserializeFromString<ChatCommand>(commandData));
                     }
                     else if (type == CommandTypeEnum.Event)
                     {
-                        this.EventCommands.Add(JSONSerializerHelper.DeserializeFromString<EventCommand>((string)data["Data"]));
-                    }
-                    else if (type == CommandTypeEnum.Interactive)
-                    {
-                        this.MixPlayCommands.Add(JSONSerializerHelper.DeserializeFromString<MixPlayCommand>((string)data["Data"]));
+                        this.EventCommands.Add(JSONSerializerHelper.DeserializeFromString<EventCommand>(commandData));
                     }
                     else if (type == CommandTypeEnum.Timer)
                     {
-                        this.TimerCommands.Add(JSONSerializerHelper.DeserializeFromString<TimerCommand>((string)data["Data"]));
+                        this.TimerCommands.Add(JSONSerializerHelper.DeserializeFromString<TimerCommand>(commandData));
                     }
                     else if (type == CommandTypeEnum.ActionGroup)
                     {
-                        this.ActionGroupCommands.Add(JSONSerializerHelper.DeserializeFromString<ActionGroupCommand>((string)data["Data"]));
+                        this.ActionGroupCommands.Add(JSONSerializerHelper.DeserializeFromString<ActionGroupCommand>(commandData));
                     }
                     else if (type == CommandTypeEnum.Game)
                     {
-                        this.GameCommands.Add(JSONSerializerHelper.DeserializeFromString<GameCommandBase>((string)data["Data"]));
+                        commandData = commandData.Replace("MixItUp.Base.ViewModel.User.UserRoleEnum", "MixItUp.Base.Model.User.UserRoleEnum");
+                        this.GameCommands.Add(JSONSerializerHelper.DeserializeFromString<GameCommandBase>(commandData));
                     }
+                    else if (type == CommandTypeEnum.TwitchChannelPoints)
+                    {
+                        this.TwitchChannelPointsCommands.Add(JSONSerializerHelper.DeserializeFromString<TwitchChannelPointsCommand>(commandData));
+                    }
+                    else if (type == CommandTypeEnum.Custom)
+                    {
+                        CustomCommand command = JSONSerializerHelper.DeserializeFromString<CustomCommand>(commandData);
+                        this.CustomCommands[command.ID] = command;
+                    }
+#pragma warning disable CS0612 // Type or member is obsolete
+                    else if (type == CommandTypeEnum.Interactive)
+                    {
+                        MixPlayCommand command = JSONSerializerHelper.DeserializeFromString<MixPlayCommand>(commandData);
+                        if (command is MixPlayButtonCommand || command is MixPlayTextBoxCommand)
+                        {
+                            this.OldMixPlayCommands.Add(command);
+                        }
+                    }
+#pragma warning restore CS0612 // Type or member is obsolete
                 });
 
                 this.ChatCommands.ClearTracking();
                 this.EventCommands.ClearTracking();
-                this.MixPlayCommands.ClearTracking();
                 this.TimerCommands.ClearTracking();
                 this.ActionGroupCommands.ClearTracking();
                 this.GameCommands.ClearTracking();
+                this.TwitchChannelPointsCommands.ClearTracking();
+                this.CustomCommands.ClearTracking();
+
+                foreach (CounterModel counter in this.Counters.Values.ToList())
+                {
+                    if (counter.ResetOnLoad)
+                    {
+                        await counter.ResetAmount();
+                    }
+                }
             }
 
             if (string.IsNullOrEmpty(this.TelemetryUserID))
@@ -644,13 +741,13 @@ namespace MixItUp.Base.Model.Settings
 
             this.Version = SettingsV2Model.LatestVersion;
 
-            if (ChannelSession.MixerUserConnection != null)
+            if (ChannelSession.TwitchUserConnection != null)
             {
-                this.MixerUserOAuthToken = ChannelSession.MixerUserConnection.Connection.GetOAuthTokenCopy();
+                this.TwitchUserOAuthToken = ChannelSession.TwitchUserConnection.Connection.GetOAuthTokenCopy();
             }
-            if (ChannelSession.MixerBotConnection != null)
+            if (ChannelSession.TwitchBotConnection != null)
             {
-                this.MixerBotOAuthToken = ChannelSession.MixerBotConnection.Connection.GetOAuthTokenCopy();
+                this.TwitchBotOAuthToken = ChannelSession.TwitchBotConnection.Connection.GetOAuthTokenCopy();
             }
 
             if (ChannelSession.Services.Streamlabs.IsConnected)
@@ -704,8 +801,7 @@ namespace MixItUp.Base.Model.Settings
 
             // Clear out unused Cooldown Groups and Command Groups
             var allUsedCooldownGroupNames =
-                this.MixPlayCommands.Select(c => c.Requirements?.Cooldown?.GroupName)
-                .Union(this.ChatCommands.Select(c => c.Requirements?.Cooldown?.GroupName))
+                this.ChatCommands.Select(c => c.Requirements?.Cooldown?.GroupName)
                 .Union(this.GameCommands.Select(c => c.Requirements?.Cooldown?.GroupName))
                 .Distinct();
             var allUnusedCooldownGroupNames = this.CooldownGroups.ToList().Where(c => !allUsedCooldownGroupNames.Contains(c.Key, StringComparer.InvariantCultureIgnoreCase));
@@ -737,52 +833,25 @@ namespace MixItUp.Base.Model.Settings
                 await ChannelSession.Services.Database.BulkWrite(this.DatabaseFilePath, "REPLACE INTO Users(ID, Data) VALUES(@ID, @Data)",
                     changedUsers.Select(u => new Dictionary<string, object>() { { "@ID", u.ID.ToString() }, { "@Data", JSONSerializerHelper.SerializeToString(u) } }));
 
-                foreach (var kvp in this.Currencies)
-                {
-                    IEnumerable<Guid> changedKeys = kvp.Value.UserAmounts.GetChangedKeys();
-                    await ChannelSession.Services.Database.BulkWrite(this.DatabaseFilePath, "REPLACE INTO CurrencyAmounts(CurrencyID, UserID, Amount) VALUES(@CurrencyID, @UserID, @Amount)",
-                        changedKeys.Select(u => new Dictionary<string, object>() { { "@CurrencyID", kvp.Value.ID.ToString() }, { "@UserID", u.ToString() }, { "@Amount", kvp.Value.GetAmount(u) } }));
-                }
-
-                foreach (var kvp in this.Inventories)
-                {
-                    List<Dictionary<string, object>> changedData = new List<Dictionary<string, object>>();
-
-                    IEnumerable<Guid> changedKeys = kvp.Value.UserAmounts.GetChangedKeys();
-                    foreach (Guid changedKey in changedKeys)
-                    {
-                        foreach (var item in kvp.Value.GetAmounts(changedKey))
-                        {
-                            changedData.Add(new Dictionary<string, object>()
-                            {
-                                { "@InventoryID", kvp.Value.ID.ToString() },
-                                { "@UserID", changedKey.ToString() },
-                                { "@ItemID", item.Key.ToString() },
-                                { "@Amount", item.Value }
-                            });
-                        }
-                    }
-
-                    await ChannelSession.Services.Database.BulkWrite(this.DatabaseFilePath, "REPLACE INTO InventoryAmounts(InventoryID, UserID, ItemID, Amount) VALUES(@InventoryID, @UserID, @ItemID, @Amount)", changedData);
-                }
-
-                List<CommandBase> removedCommands = new List<CommandBase>();
-                removedCommands.AddRange(this.ChatCommands.GetRemovedValues());
-                removedCommands.AddRange(this.EventCommands.GetRemovedValues());
-                removedCommands.AddRange(this.MixPlayCommands.GetRemovedValues());
-                removedCommands.AddRange(this.TimerCommands.GetRemovedValues());
-                removedCommands.AddRange(this.ActionGroupCommands.GetRemovedValues());
-                removedCommands.AddRange(this.GameCommands.GetRemovedValues());
+                List<Guid> removedCommands = new List<Guid>();
+                removedCommands.AddRange(this.ChatCommands.GetRemovedValues().Select(c => c.ID));
+                removedCommands.AddRange(this.EventCommands.GetRemovedValues().Select(c => c.ID));
+                removedCommands.AddRange(this.TimerCommands.GetRemovedValues().Select(c => c.ID));
+                removedCommands.AddRange(this.ActionGroupCommands.GetRemovedValues().Select(c => c.ID));
+                removedCommands.AddRange(this.GameCommands.GetRemovedValues().Select(c => c.ID));
+                removedCommands.AddRange(this.TwitchChannelPointsCommands.GetRemovedValues().Select(c => c.ID));
+                removedCommands.AddRange(this.CustomCommands.GetRemovedValues());
                 await ChannelSession.Services.Database.BulkWrite(this.DatabaseFilePath, "DELETE FROM Commands WHERE ID = @ID",
-                    removedCommands.Select(c => new Dictionary<string, object>() { { "@ID", c.ID.ToString() } }));
+                    removedCommands.Select(id => new Dictionary<string, object>() { { "@ID", id.ToString() } }));
 
                 List<CommandBase> addedChangedCommands = new List<CommandBase>();
                 addedChangedCommands.AddRange(this.ChatCommands.GetAddedChangedValues());
                 addedChangedCommands.AddRange(this.EventCommands.GetAddedChangedValues());
-                addedChangedCommands.AddRange(this.MixPlayCommands.GetAddedChangedValues());
                 addedChangedCommands.AddRange(this.TimerCommands.GetAddedChangedValues());
                 addedChangedCommands.AddRange(this.ActionGroupCommands.GetAddedChangedValues());
                 addedChangedCommands.AddRange(this.GameCommands.GetAddedChangedValues());
+                addedChangedCommands.AddRange(this.TwitchChannelPointsCommands.GetAddedChangedValues());
+                addedChangedCommands.AddRange(this.CustomCommands.GetAddedChangedValues());
                 await ChannelSession.Services.Database.BulkWrite(this.DatabaseFilePath, "REPLACE INTO Commands(ID, TypeID, Data) VALUES(@ID, @TypeID, @Data)",
                     addedChangedCommands.Select(c => new Dictionary<string, object>() { { "@ID", c.ID.ToString() }, { "@TypeID", (int)c.Type }, { "@Data", JSONSerializerHelper.SerializeToString(c) } }));
 
@@ -790,7 +859,7 @@ namespace MixItUp.Base.Model.Settings
                     this.Quotes.GetRemovedValues().Select(q => new Dictionary<string, object>() { { "@ID", q.ID.ToString() } }));
 
                 await ChannelSession.Services.Database.BulkWrite(this.DatabaseFilePath, "REPLACE INTO Quotes(ID, Data) VALUES(@ID, @Data)",
-                    this.Quotes.GetAddedChangedValues().Select(q => new Dictionary<string, object>() { { "@ID", q.ID.ToString() }, { "@Data", JSONSerializerHelper.SerializeToString(q) } }));
+                    this.Quotes.GetAddedChangedValues().Select(q => new Dictionary<string, object>() { { "@ID", q.ID.ToString() }, { "@Data", JSONSerializerHelper.SerializeToString(q.Model) } }));
             }
         }
 
@@ -806,43 +875,82 @@ namespace MixItUp.Base.Model.Settings
             }
         }
 
-        public UserDataModel GetUserDataByMixerID(uint mixerID)
+        public UserDataModel GetUserDataByTwitchID(string twitchID)
         {
             lock (this.UserData)
             {
-                if (mixerID > 0 && this.MixerUserIDLookups.ContainsKey(mixerID))
+                if (!string.IsNullOrEmpty(twitchID) && this.TwitchUserIDLookups.ContainsKey(twitchID))
                 {
-                    Guid id = this.MixerUserIDLookups[mixerID];
+                    Guid id = this.TwitchUserIDLookups[twitchID];
                     if (this.UserData.ContainsKey(id))
                     {
                         return this.UserData[id];
                     }
                 }
-                return this.CreateUserData(mixerID);
+                return null;
             }
         }
 
-        private UserDataModel CreateUserData(uint mixerID = 0)
+        public UserDataModel GetUserDataByUsername(StreamingPlatformTypeEnum platform, string username)
         {
-            UserDataModel userData = new UserDataModel();
-            this.UserData[userData.ID] = userData;
-
-            userData.MixerID = mixerID;
-            if (userData.MixerID > 0)
+            if (!string.IsNullOrEmpty(username))
             {
-                this.MixerUserIDLookups[userData.MixerID] = userData.ID;
+                if (platform == StreamingPlatformTypeEnum.All)
+                {
+                    foreach (StreamingPlatformTypeEnum p in StreamingPlatforms.Platforms)
+                    {
+                        UserDataModel userData = this.GetUserDataByUsername(p, username);
+                        if (userData != null)
+                        {
+                            return userData;
+                        }
+                    }
+                }
+                else
+                {
+                    lock (this.UserData)
+                    {
+                        if (this.UsernameLookups.ContainsKey(platform) && this.UsernameLookups[platform].ContainsKey(username.ToLowerInvariant()))
+                        {
+                            Guid id = this.UsernameLookups[platform][username.ToLowerInvariant()];
+                            if (this.UserData.ContainsKey(id))
+                            {
+                                return this.UserData[id];
+                            }
+                        }
+                    }
+                }
             }
+            return null;
+        }
 
-            return userData;
+        public void AddUserData(UserDataModel user)
+        {
+            this.UserData[user.ID] = user;
+            if (!string.IsNullOrEmpty(user.TwitchID))
+            {
+                this.TwitchUserIDLookups[user.TwitchID] = user.ID;
+            }
+            this.UserData.ManualValueChanged(user.ID);
+        }
+
+        public CustomCommand GetCustomCommand(Guid id) { return this.CustomCommands.ContainsKey(id) ? this.CustomCommands[id] : null; }
+
+        public void SetCustomCommand(CustomCommand command)
+        {
+            if (command != null)
+            {
+                this.CustomCommands[command.ID] = command;
+            }
         }
 
         private void InitializeMissingData()
         {
-            this.GameQueueUserJoinedCommand = this.GameQueueUserJoinedCommand ?? CustomCommand.BasicChatCommand("Game Queue Used Joined", "You are #$queueposition in the queue to play.", isWhisper: true);
+            this.GameQueueUserJoinedCommand = this.GameQueueUserJoinedCommand ?? CustomCommand.BasicChatCommand("Game Queue Used Joined", "You are #$queueposition in the queue to play.");
             this.GameQueueUserSelectedCommand = this.GameQueueUserSelectedCommand ?? CustomCommand.BasicChatCommand("Game Queue Used Selected", "It's time to play @$username! Listen carefully for instructions on how to join...");
 
             this.GiveawayStartedReminderCommand = this.GiveawayStartedReminderCommand ?? CustomCommand.BasicChatCommand("Giveaway Started/Reminder", "A giveaway has started for $giveawayitem! Type $giveawaycommand in chat in the next $giveawaytimelimit minute(s) to enter!");
-            this.GiveawayUserJoinedCommand = this.GiveawayUserJoinedCommand ?? CustomCommand.BasicChatCommand("Giveaway User Joined", "You have been entered into the giveaway, stay tuned to see who wins!", isWhisper: true);
+            this.GiveawayUserJoinedCommand = this.GiveawayUserJoinedCommand ?? CustomCommand.BasicChatCommand("Giveaway User Joined");
             this.GiveawayWinnerSelectedCommand = this.GiveawayWinnerSelectedCommand ?? CustomCommand.BasicChatCommand("Giveaway Winner Selected", "Congratulations @$username, you won $giveawayitem!");
 
             this.ModerationStrike1Command = this.ModerationStrike1Command ?? CustomCommand.BasicChatCommand("Moderation Strike 1", "$moderationreason. You have received a moderation strike & currently have $usermoderationstrikes strike(s)", isWhisper: true);
@@ -856,6 +964,19 @@ namespace MixItUp.Base.Model.Settings
             if (this.DashboardQuickCommands.Count < 5)
             {
                 this.DashboardQuickCommands = new List<Guid>() { Guid.Empty, Guid.Empty, Guid.Empty, Guid.Empty, Guid.Empty };
+            }
+
+            if (this.GetCustomCommand(this.RedemptionStoreManualRedeemNeededCommandID) == null)
+            {
+                CustomCommand command = CustomCommand.BasicChatCommand(MixItUp.Base.Resources.RedemptionStoreManualRedeemNeededCommandName, "@$username just purchased $productname and needs to be manually redeemed");
+                this.RedemptionStoreManualRedeemNeededCommandID = command.ID;
+                this.SetCustomCommand(command);
+            }
+            if (this.GetCustomCommand(this.RedemptionStoreDefaultRedemptionCommandID) == null)
+            {
+                CustomCommand command = CustomCommand.BasicChatCommand(MixItUp.Base.Resources.RedemptionStoreDefaultRedemptionCommandName, "@$username just redeemed $productname");
+                this.RedemptionStoreDefaultRedemptionCommandID = command.ID;
+                this.SetCustomCommand(command);
             }
         }
 

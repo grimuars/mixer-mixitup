@@ -49,7 +49,7 @@
                         <DockPanel>
                             <MaterialDesign:ColorZone Padding="16,8,16,8" MaterialDesign:ShadowAssist.ShadowDepth="Depth2" Mode="PrimaryMid" DockPanel.Dock="Top">
                                 <Grid>
-                                    <ToggleButton Style="{StaticResource MaterialDesignHamburgerToggleButton}" IsChecked="False" x:Name="MenuToggleButton" HorizontalAlignment="Left" />
+                                    <ToggleButton Style="{StaticResource MaterialDesignHamburgerToggleButton}" IsChecked="False" x:Name="MenuToggleButton" Checked="MenuToggleButton_Checked" Unchecked="MenuToggleButton_Unchecked" HorizontalAlignment="Left" />
 
                                     <TextBlock Text="{Binding Name}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="22" />
                         
@@ -59,7 +59,7 @@
                                             <MaterialDesign:PackIcon Kind="LanDisconnect" Height="24" Width="24" Margin="-13,-10" Foreground="{StaticResource AlertColor}" />
                                         </Button>
 
-                                        <Controls:MixerStatusAlertControl x:Name="MixerStatusAlertButton" />
+                                        <Controls:StreamingPlatformStatusAlertControl />
 
                                         <Button x:Name="SectionHelpButton" Style="{StaticResource MaterialDesignFlatButton}" Click="SectionHelpButton_Click" Visibility="{Binding HelpLinkVisibility}" Width="40" HorizontalAlignment="Center" ToolTip="{x:Static resx:Resources.Help}" Margin="5,0">
                                             <MaterialDesign:PackIcon Kind="Help" Height="24" Width="24" Margin="-13,-10" Foreground="{StaticResource WhiteColor}" />

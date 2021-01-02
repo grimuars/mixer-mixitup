@@ -1,7 +1,8 @@
-﻿using Mixer.Base.Model.Patronage;
-using MixItUp.Base.Model.User;
+﻿using MixItUp.Base.Model.User;
+using MixItUp.Base.Model.User.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
+using Newtonsoft.Json;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
@@ -16,9 +17,14 @@ namespace MixItUp.Base.Model.Overlay
         Hosts,
         Subscribers,
         Donations,
+        [Obsolete]
         Milestones,
+        [Obsolete]
         Sparks,
+        [Obsolete]
         Embers,
+        Bits,
+        Raids,
     }
 
     [DataContract]
@@ -33,8 +39,13 @@ namespace MixItUp.Base.Model.Overlay
         [DataMember]
         public List<OverlayEventListItemTypeEnum> ItemTypes { get; set; }
 
+        [JsonIgnore]
         private HashSet<Guid> follows = new HashSet<Guid>();
+        [JsonIgnore]
         private HashSet<Guid> hosts = new HashSet<Guid>();
+        [JsonIgnore]
+        private HashSet<Guid> raids = new HashSet<Guid>();
+        [JsonIgnore]
         private HashSet<Guid> subs = new HashSet<Guid>();
 
         public OverlayEventListItemModel() : base() { }
@@ -64,6 +75,10 @@ namespace MixItUp.Base.Model.Overlay
             {
                 GlobalEvents.OnHostOccurred += GlobalEvents_OnHostOccurred;
             }
+            if (this.ItemTypes.Contains(OverlayEventListItemTypeEnum.Raids))
+            {
+                GlobalEvents.OnRaidOccurred += GlobalEvents_OnRaidOccurred;
+            }
             if (this.ItemTypes.Contains(OverlayEventListItemTypeEnum.Subscribers))
             {
                 GlobalEvents.OnSubscribeOccurred += GlobalEvents_OnSubscribeOccurred;
@@ -75,17 +90,9 @@ namespace MixItUp.Base.Model.Overlay
                 GlobalEvents.OnDonationOccurred += GlobalEvents_OnDonationOccurred;
                 GlobalEvents.OnStreamlootsPurchaseOccurred += GlobalEvents_OnStreamlootsPurchaseOccurred;
             }
-            if (this.ItemTypes.Contains(OverlayEventListItemTypeEnum.Sparks))
+            if (this.ItemTypes.Contains(OverlayEventListItemTypeEnum.Bits))
             {
-                GlobalEvents.OnSparkUseOccurred += GlobalEvents_OnSparkUseOccurred;
-            }
-            if (this.ItemTypes.Contains(OverlayEventListItemTypeEnum.Embers))
-            {
-                GlobalEvents.OnEmberUseOccurred += GlobalEvents_OnEmberUseOccurred;
-            }
-            if (this.ItemTypes.Contains(OverlayEventListItemTypeEnum.Milestones))
-            {
-                GlobalEvents.OnPatronageMilestoneReachedOccurred += GlobalEvents_OnPatronageMilestoneReachedOccurred;
+                GlobalEvents.OnBitsOccurred += GlobalEvents_OnBitsOccurred;
             }
 
             await base.Enable();
@@ -95,14 +102,13 @@ namespace MixItUp.Base.Model.Overlay
         {
             GlobalEvents.OnFollowOccurred -= GlobalEvents_OnFollowOccurred;
             GlobalEvents.OnHostOccurred -= GlobalEvents_OnHostOccurred;
+            GlobalEvents.OnRaidOccurred -= GlobalEvents_OnRaidOccurred;
             GlobalEvents.OnSubscribeOccurred -= GlobalEvents_OnSubscribeOccurred;
             GlobalEvents.OnResubscribeOccurred -= GlobalEvents_OnResubscribeOccurred;
             GlobalEvents.OnSubscriptionGiftedOccurred -= GlobalEvents_OnSubscriptionGiftedOccurred;
             GlobalEvents.OnDonationOccurred -= GlobalEvents_OnDonationOccurred;
             GlobalEvents.OnStreamlootsPurchaseOccurred -= GlobalEvents_OnStreamlootsPurchaseOccurred;
-            GlobalEvents.OnSparkUseOccurred -= GlobalEvents_OnSparkUseOccurred;
-            GlobalEvents.OnEmberUseOccurred -= GlobalEvents_OnEmberUseOccurred;
-            GlobalEvents.OnPatronageMilestoneReachedOccurred -= GlobalEvents_OnPatronageMilestoneReachedOccurred;
+            GlobalEvents.OnBitsOccurred -= GlobalEvents_OnBitsOccurred;
 
             await base.Disable();
         }
@@ -116,12 +122,21 @@ namespace MixItUp.Base.Model.Overlay
             }
         }
 
-        private async void GlobalEvents_OnHostOccurred(object sender, Tuple<UserViewModel, int> host)
+        private async void GlobalEvents_OnHostOccurred(object sender, UserViewModel user)
         {
-            if (!this.hosts.Contains(host.Item1.ID))
+            if (!this.hosts.Contains(user.ID))
             {
-                this.hosts.Add(host.Item1.ID);
-                await this.AddEvent(host.Item1.Username, string.Format("Hosted ({0})", host.Item2));
+                this.hosts.Add(user.ID);
+                await this.AddEvent(user.Username, "Hosted");
+            }
+        }
+
+        private async void GlobalEvents_OnRaidOccurred(object sender, Tuple<UserViewModel, int> raid)
+        {
+            if (!this.raids.Contains(raid.Item1.ID))
+            {
+                this.raids.Add(raid.Item1.ID);
+                await this.AddEvent(raid.Item1.Username, string.Format("Raided ({0})", raid.Item2));
             }
         }
 
@@ -156,11 +171,7 @@ namespace MixItUp.Base.Model.Overlay
 
         private async void GlobalEvents_OnStreamlootsPurchaseOccurred(object sender, Tuple<UserViewModel, int> purchase) { await this.AddEvent(purchase.Item1.Username, string.Format("Purchased {0} Packs", purchase.Item2)); }
 
-        private async void GlobalEvents_OnSparkUseOccurred(object sender, Tuple<UserViewModel, uint> sparkUsage) { await this.AddEvent(sparkUsage.Item1.Username, string.Format("{0} Sparks", sparkUsage.Item2)); }
-
-        private async void GlobalEvents_OnEmberUseOccurred(object sender, UserEmberUsageModel emberUsage) { await this.AddEvent(emberUsage.User.Username, string.Format("{0} Embers", emberUsage.Amount)); }
-
-        private async void GlobalEvents_OnPatronageMilestoneReachedOccurred(object sender, PatronageMilestoneModel patronageMilestone) { await this.AddEvent(string.Format("{0} Milestone", patronageMilestone.PercentageAmountText()), string.Format("{0} Sparks", patronageMilestone.target)); }
+        private async void GlobalEvents_OnBitsOccurred(object sender, TwitchUserBitsCheeredModel e) { await this.AddEvent(e.User.Username, string.Format("Cheer {0} Bits", e.Amount)); }
 
         private async Task AddEvent(string name, string details)
         {

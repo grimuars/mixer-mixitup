@@ -1,11 +1,9 @@
 ﻿using MaterialDesignThemes.Wpf;
 using MixItUp.Base;
-using MixItUp.Base.Commands;
-using MixItUp.Base.Model.Chat.Mixer;
+using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Chat;
-using MixItUp.Base.ViewModel.Chat.Mixer;
-using MixItUp.Base.ViewModel.Controls.Chat;
 using MixItUp.Base.ViewModel.User;
 using StreamingClient.Base.Util;
 using System;
@@ -17,6 +15,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using Twitch.Base.Models.V5.Emotes;
 
 namespace MixItUp.WPF.Controls.Chat
 {
@@ -45,7 +44,6 @@ namespace MixItUp.WPF.Controls.Chat
         {
             this.viewModel = new ChatListControlViewModel(this.Window.ViewModel);
 
-            this.viewModel.GifSkillOccured += ViewModel_GifSkillOccured;
             this.viewModel.MessageSentOccurred += ViewModel_MessageSentOccurred;
             this.viewModel.ScrollingLockChanged += ViewModel_ScrollingLockChanged;
             this.viewModel.ContextMenuCommandsChanged += ViewModel_ContextMenuCommandsChanged;
@@ -71,23 +69,6 @@ namespace MixItUp.WPF.Controls.Chat
         private void Messages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
             this.ChatList.Items.Refresh();
-        }
-
-        private void ViewModel_GifSkillOccured(object sender, MixerSkillChatMessageViewModel skillMessage)
-        {
-            if (!string.IsNullOrEmpty(skillMessage.Skill.Image))
-            {
-                Task.Run(() =>
-                {
-                    this.gifSkillPopoutLock.WaitAndRelease(async () =>
-                    {
-                        await this.Dispatcher.InvokeAsync(async () =>
-                        {
-                            await this.GifSkillPopout.ShowGif(skillMessage);
-                        });
-                    });
-                });
-            }
         }
 
         private async void ViewModel_MessageSentOccurred(object sender, EventArgs e)
@@ -129,7 +110,7 @@ namespace MixItUp.WPF.Controls.Chat
                 if (viewModel.ContextMenuChatCommands.Count() > 0)
                 {
                     this.ChatList.ContextMenu.Items.Add(new Separator());
-                    foreach (ChatCommand command in viewModel.ContextMenuChatCommands)
+                    foreach (CommandModelBase command in viewModel.ContextMenuChatCommands)
                     {
                         MenuItem menuItem = new MenuItem();
                         menuItem.Header = command.Name;
@@ -181,25 +162,46 @@ namespace MixItUp.WPF.Controls.Chat
                     }
                     else if (tag.StartsWith(":"))
                     {
-                        List<MixerChatEmoteModel> emotes = MixerChatEmoteModel.FindMatchingEmoticons(tag).ToList();
-                        if (emotes.Count > 0)
+                        if (ChannelSession.Services.Chat.TwitchChatService != null)
                         {
-                            emotes = emotes.Take(5).Reverse().ToList();
-                            this.ShowIntellisense(tag, this.EmoticonIntellisense, this.EmoticonIntellisenseListBox, emotes);
+                            this.ShowIntellisense(tag, this.EmoticonIntellisense, this.EmoticonIntellisenseListBox, this.FindMatchingEmoticons<EmoteModel>(tag.Substring(1, tag.Length - 1), ChannelSession.Services.Chat.TwitchChatService.Emotes));
                         }
                     }
-                    else if (ChannelSession.Settings.ShowMixrElixrEmotes)
+                    else if (ChannelSession.Settings.ShowBetterTTVEmotes || ChannelSession.Settings.ShowFrankerFaceZEmotes)
                     {
-                        var emotes = ChannelSession.Services.Chat.MixrElixrEmotes.Where(e => e.Key.StartsWith(tag, StringComparison.InvariantCultureIgnoreCase));
-                        if (emotes.Count() > 0)
+                        if (ChannelSession.Services.Chat.TwitchChatService != null)
                         {
-                            emotes = emotes.Take(5).Reverse();
-                            this.ShowIntellisense(tag, this.EmoticonIntellisense, this.EmoticonIntellisenseListBox, emotes.Select(e => e.Value).ToList());
+                            Dictionary<string, object> emotes = new Dictionary<string, object>();
+                            if (ChannelSession.Settings.ShowBetterTTVEmotes)
+                            {
+                                foreach (var kvp in ChannelSession.Services.Chat.TwitchChatService.BetterTTVEmotes)
+                                {
+                                    emotes[kvp.Key] = kvp.Value;
+                                }
+                            }
+                            if (ChannelSession.Settings.ShowFrankerFaceZEmotes)
+                            {
+                                foreach (var kvp in ChannelSession.Services.Chat.TwitchChatService.FrankerFaceZEmotes)
+                                {
+                                    emotes[kvp.Key] = kvp.Value;
+                                }
+                            }
+                            this.ShowIntellisense(tag, this.EmoticonIntellisense, this.EmoticonIntellisenseListBox, this.FindMatchingEmoticons<object>(tag, emotes));
                         }
                     }
                 }
             }
             catch (Exception ex) { Logger.Log(ex); }
+        }
+
+        public IEnumerable<T> FindMatchingEmoticons<T>(string text, IDictionary<string, T> emoticons)
+        {
+            if (text.Length == 1 && char.IsLetterOrDigit(text[0]))
+            {
+                // Short circuit for very short searches that start with letters or digits
+                return new List<T>();
+            }
+            return emoticons.Where(v => v.Key.StartsWith(text, StringComparison.InvariantCultureIgnoreCase)).Select(v => v.Value).Distinct().Reverse().Take(5);
         }
 
         private void ChatMessageTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -356,52 +358,63 @@ namespace MixItUp.WPF.Controls.Chat
                     if (e.Source is MenuItem)
                     {
                         MenuItem menuItem = (MenuItem)e.Source;
-                        if (menuItem.DataContext != null && menuItem.DataContext is ChatCommand)
+                        if (menuItem.DataContext != null && menuItem.DataContext is CommandModelBase)
                         {
-                            ChatCommand command = (ChatCommand)menuItem.DataContext;
-                            await command.Perform(message.Platform, arguments: new List<string>() { message.User.Username });
+                            CommandModelBase command = (CommandModelBase)menuItem.DataContext;
+                            await command.Perform(new CommandParametersModel(platform: message.Platform, arguments: new List<string>() { message.User.Username }));
                         }
                     }
                 }
             }
         }
 
-        private void ShowIntellisense<T>(string text, PopupBox intellisense, ListBox listBox, List<T> items)
+        private void ShowIntellisense<T>(string text, PopupBox intellisense, ListBox listBox, IEnumerable<T> items)
         {
-            this.indexOfLastIntellisenseText = this.ChatMessageTextBox.Text.LastIndexOf(text);
-            listBox.ItemsSource = items;
-            listBox.SelectedIndex = items.Count - 1;
-
-            Rect positionOfCarat = this.ChatMessageTextBox.GetRectFromCharacterIndex(this.ChatMessageTextBox.CaretIndex, true);
-            Point topLeftOffset = this.ChatMessageTextBox.TransformToAncestor(this).Transform(new Point(positionOfCarat.Left, positionOfCarat.Top));
-
-            int itemHeight = items.Count * 40;
-            Canvas.SetLeft(intellisense, topLeftOffset.X + 10);
-            Canvas.SetTop(intellisense, topLeftOffset.Y - itemHeight - 40);
-            intellisense.UpdateLayout();
-
-            if (!intellisense.IsPopupOpen)
+            if (items.Count() > 0)
             {
-                intellisense.IsPopupOpen = true;
+                this.indexOfLastIntellisenseText = this.ChatMessageTextBox.Text.LastIndexOf(text);
+                listBox.ItemsSource = items;
+                listBox.SelectedIndex = items.Count() - 1;
+
+                Rect positionOfCarat = this.ChatMessageTextBox.GetRectFromCharacterIndex(this.ChatMessageTextBox.CaretIndex, true);
+                Point topLeftOffset = this.ChatMessageTextBox.TransformToAncestor(this).Transform(new Point(positionOfCarat.Left, positionOfCarat.Top));
+
+                int itemHeight = items.Count() * 40;
+                Canvas.SetLeft(intellisense, topLeftOffset.X + 10);
+                Canvas.SetTop(intellisense, topLeftOffset.Y - itemHeight - 40);
+                intellisense.UpdateLayout();
+
+                if (!intellisense.IsPopupOpen)
+                {
+                    intellisense.IsPopupOpen = true;
+                }
             }
         }
 
         private void SelectIntellisenseEmoticon()
         {
-            if (this.EmoticonIntellisenseListBox.SelectedItem is MixerChatEmoteModel)
+            if (this.EmoticonIntellisenseListBox.SelectedItem is EmoteModel)
             {
-                MixerChatEmoteModel emoticon = this.EmoticonIntellisenseListBox.SelectedItem as MixerChatEmoteModel;
-                if (emoticon != null)
-                {
-                    this.SelectIntellisenseItem(emoticon.Name);
-                }
-            }
-            else
-            {
-                MixrElixrEmoteModel emoticon = this.EmoticonIntellisenseListBox.SelectedItem as MixrElixrEmoteModel;
+                EmoteModel emoticon = this.EmoticonIntellisenseListBox.SelectedItem as EmoteModel;
                 if (emoticon != null)
                 {
                     this.SelectIntellisenseItem(emoticon.code);
+                }
+            }
+            else if (this.EmoticonIntellisenseListBox.SelectedItem is BetterTTVEmoteModel)
+            {
+                BetterTTVEmoteModel emoticon = this.EmoticonIntellisenseListBox.SelectedItem as BetterTTVEmoteModel;
+                if (emoticon != null)
+                {
+                    this.SelectIntellisenseItem(emoticon.code);
+                }
+            }
+            else if (this.EmoticonIntellisenseListBox.SelectedItem is FrankerFaceZEmoteModel)
+            {
+                FrankerFaceZEmoteModel emoticon = this.EmoticonIntellisenseListBox.SelectedItem as FrankerFaceZEmoteModel;
+                if (emoticon != null)
+                {
+                    this.SelectIntellisenseItem(emoticon.name);
                 }
             }
             this.HideIntellisense();

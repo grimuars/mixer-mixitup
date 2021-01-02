@@ -1,8 +1,8 @@
-﻿using Mixer.Base.Model.Leaderboards;
-using Mixer.Base.Model.User;
-using Mixer.Base.Util;
-using MixItUp.Base.Commands;
+﻿using MixItUp.Base.Commands;
+using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Model.Currency;
 using MixItUp.Base.Model.User;
+using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
@@ -13,6 +13,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
+using Twitch.Base.Models.NewAPI.Bits;
+using Twitch.Base.Models.V5.Users;
+using Twitch.Base.Services.NewAPI;
 
 namespace MixItUp.Base.Model.Overlay
 {
@@ -22,10 +25,14 @@ namespace MixItUp.Base.Model.Overlay
         Donations,
         [Name("Currency/Rank")]
         CurrencyRank,
+        [Obsolete]
         Sparks,
+        [Obsolete]
         Embers,
+        Bits,
     }
 
+    [Obsolete]
     public enum OverlayLeaderboardListItemDateRangeEnum
     {
         Weekly,
@@ -33,11 +40,33 @@ namespace MixItUp.Base.Model.Overlay
         Yearly,
         [Name("All Time")]
         AllTime,
+        Daily,
     }
 
     [DataContract]
     public class OverlayLeaderboardListItemModel : OverlayListItemModelBase
     {
+        private class OverlayLeaderboardItem
+        {
+            public string ID { get; set; }
+
+            public UserViewModel User { get; set; }
+
+            public string Hash { get; set; }
+
+            public OverlayLeaderboardItem(UserViewModel user, string hash)
+                : this(user.Username, hash)
+            {
+                this.User = user;
+            }
+
+            public OverlayLeaderboardItem(string id, string hash)
+            {
+                this.ID = id;
+                this.Hash = hash;
+            }
+        }
+
         public const string HTMLTemplate =
         @"<div style=""position: relative; border-style: solid; border-width: 5px; border-color: {BORDER_COLOR}; background-color: {BACKGROUND_COLOR}; width: {WIDTH}px; height: {HEIGHT}px"">
           <p style=""position: absolute; top: 35%; left: 5%; width: 50%; float: left; text-align: left; font-family: '{TEXT_FONT}'; font-size: {TOP_TEXT_HEIGHT}px; color: {TEXT_COLOR}; white-space: nowrap; font-weight: bold; margin: auto; transform: translate(0, -50%);"">{USERNAME}</p>
@@ -48,7 +77,7 @@ namespace MixItUp.Base.Model.Overlay
         public OverlayLeaderboardListItemTypeEnum LeaderboardType { get; set; }
 
         [DataMember]
-        public OverlayLeaderboardListItemDateRangeEnum LeaderboardDateRange { get; set; }
+        public BitsLeaderboardPeriodEnum BitsLeaderboardDateRange { get; set; }
 
         [DataMember]
         public Guid CurrencyID { get; set; }
@@ -59,14 +88,18 @@ namespace MixItUp.Base.Model.Overlay
         [DataMember]
         private List<OverlayListIndividualItemModel> lastItems { get; set; } = new List<OverlayListIndividualItemModel>();
 
-        private Dictionary<UserViewModel, DateTimeOffset> userSubDates = new Dictionary<UserViewModel, DateTimeOffset>();
-        private Dictionary<UserViewModel, UserDonationModel> userDonations = new Dictionary<UserViewModel, UserDonationModel>();
+        [JsonIgnore]
+        private Dictionary<Guid, DateTimeOffset> userSubDates = new Dictionary<Guid, DateTimeOffset>();
+        [JsonIgnore]
+        private Dictionary<Guid, UserDonationModel> userDonations = new Dictionary<Guid, UserDonationModel>();
+
+        private DateTimeOffset lastQuery = DateTimeOffset.MinValue;
 
         public OverlayLeaderboardListItemModel() : base() { }
 
         public OverlayLeaderboardListItemModel(string htmlText, OverlayLeaderboardListItemTypeEnum leaderboardType, int totalToShow, string textFont, int width, int height, string borderColor,
             string backgroundColor, string textColor, OverlayListItemAlignmentTypeEnum alignment, OverlayItemEffectEntranceAnimationTypeEnum addEventAnimation,
-            OverlayItemEffectExitAnimationTypeEnum removeEventAnimation, UserCurrencyModel currency, CustomCommand newLeaderCommand)
+            OverlayItemEffectExitAnimationTypeEnum removeEventAnimation, CurrencyModel currency, CustomCommand newLeaderCommand)
             : this(htmlText, leaderboardType, totalToShow, textFont, width, height, borderColor, backgroundColor, textColor, alignment, addEventAnimation, removeEventAnimation, newLeaderCommand)
         {
             this.CurrencyID = currency.ID;
@@ -74,10 +107,10 @@ namespace MixItUp.Base.Model.Overlay
 
         public OverlayLeaderboardListItemModel(string htmlText, OverlayLeaderboardListItemTypeEnum leaderboardType, int totalToShow, string textFont, int width, int height, string borderColor,
             string backgroundColor, string textColor, OverlayListItemAlignmentTypeEnum alignment, OverlayItemEffectEntranceAnimationTypeEnum addEventAnimation,
-            OverlayItemEffectExitAnimationTypeEnum removeEventAnimation, OverlayLeaderboardListItemDateRangeEnum dateRange, CustomCommand newLeaderCommand)
+            OverlayItemEffectExitAnimationTypeEnum removeEventAnimation, BitsLeaderboardPeriodEnum dateRange, CustomCommand newLeaderCommand)
             : this(htmlText, leaderboardType, totalToShow, textFont, width, height, borderColor, backgroundColor, textColor, alignment, addEventAnimation, removeEventAnimation, newLeaderCommand)
         {
-            this.LeaderboardDateRange = dateRange;
+            this.BitsLeaderboardDateRange = dateRange;
         }
 
         public OverlayLeaderboardListItemModel(string htmlText, OverlayLeaderboardListItemTypeEnum leaderboardType, int totalToShow, string textFont, int width, int height, string borderColor,
@@ -93,9 +126,7 @@ namespace MixItUp.Base.Model.Overlay
         {
             get
             {
-                return this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.CurrencyRank ||
-                    this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.Sparks ||
-                    this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.Embers;
+                return this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.CurrencyRank || this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.Bits;
             }
         }
 
@@ -109,6 +140,29 @@ namespace MixItUp.Base.Model.Overlay
         {
             if (this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.Subscribers)
             {
+                this.userSubDates.Clear();
+                IEnumerable<UserSubscriptionModel> subscribers = await ChannelSession.TwitchUserConnection.GetSubscribersV5(ChannelSession.TwitchChannelV5, int.MaxValue);
+
+                foreach (UserSubscriptionModel subscriber in subscribers)
+                {
+                    UserViewModel user = null;
+                    UserDataModel userData = ChannelSession.Settings.GetUserDataByTwitchID(subscriber.user.id);
+                    if (userData != null)
+                    {
+                        user = new UserViewModel(userData);
+                    }
+                    else
+                    {
+                        user = new UserViewModel(subscriber.user);
+                    }
+
+                    DateTimeOffset? subDate = TwitchPlatformService.GetTwitchDateTime(subscriber.created_at);
+                    if (subDate.HasValue && this.ShouldIncludeUser(user))
+                    {
+                        this.userSubDates[user.ID] = subDate.GetValueOrDefault();
+                    }
+                }
+
                 await this.UpdateSubscribers();
 
                 GlobalEvents.OnSubscribeOccurred += GlobalEvents_OnSubscribeOccurred;
@@ -135,114 +189,97 @@ namespace MixItUp.Base.Model.Overlay
             await base.Disable();
         }
 
-        public override async Task<JObject> GetProcessedItem(UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        public override async Task<JObject> GetProcessedItem(CommandParametersModel parameters)
         {
-            List<OverlayListIndividualItemModel> items = new List<OverlayListIndividualItemModel>();
+            List<OverlayLeaderboardItem> items = new List<OverlayLeaderboardItem>();
             if (this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.CurrencyRank)
             {
-                if (ChannelSession.Settings.Currencies.ContainsKey(this.CurrencyID))
+                if (ChannelSession.Settings.Currency.ContainsKey(this.CurrencyID))
                 {
-                    UserCurrencyModel currency = ChannelSession.Settings.Currencies[this.CurrencyID];
-                    Dictionary<Guid, int> currencyAmounts = currency.UserAmounts.ToDictionary();
-
-                    var orderedUsers = currencyAmounts.OrderByDescending(kvp => kvp.Value);
-                    for (int i = 0; i < this.TotalToShow && i < orderedUsers.Count(); i++)
+                    CurrencyModel currency = ChannelSession.Settings.Currency[this.CurrencyID];
+                    IEnumerable<UserDataModel> userDataList = SpecialIdentifierStringBuilder.GetUserOrderedCurrencyList(currency);
+                    for (int i = 0; i < userDataList.Count() && items.Count < this.TotalToShow; i++)
                     {
-                        var kvp = orderedUsers.ElementAt(i);
-                        UserDataModel userData = ChannelSession.Settings.GetUserData(kvp.Key);
-
-                        OverlayListIndividualItemModel item = OverlayListIndividualItemModel.CreateAddItem(userData.Username, new UserViewModel(userData), i + 1, this.HTML);
-                        item.Hash = kvp.Value.ToString();
-                        items.Add(item);
+                        UserDataModel userData = userDataList.ElementAt(i);
+                        if (!userData.IsCurrencyRankExempt)
+                        {
+                            items.Add(new OverlayLeaderboardItem(new UserViewModel(userData), currency.GetAmount(userData).ToString()));
+                        }
                     }
                 }
             }
-            else if (this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.Sparks)
+            else if (this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.Bits && this.lastQuery.TotalMinutesFromNow() > 1)
             {
-                IEnumerable<SparksLeaderboardModel> sparkLeaderboard = null;
-                switch (this.LeaderboardDateRange)
+                BitsLeaderboardModel bitsLeaderboard = null;
+                switch (this.BitsLeaderboardDateRange)
                 {
-                    case OverlayLeaderboardListItemDateRangeEnum.Weekly:
-                        sparkLeaderboard = await ChannelSession.MixerUserConnection.GetWeeklySparksLeaderboard(ChannelSession.MixerChannel, this.TotalToShow);
+                    case BitsLeaderboardPeriodEnum.Day:
+                        bitsLeaderboard = await ChannelSession.TwitchUserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Day, this.TotalToShow);
                         break;
-                    case OverlayLeaderboardListItemDateRangeEnum.Monthly:
-                        sparkLeaderboard = await ChannelSession.MixerUserConnection.GetMonthlySparksLeaderboard(ChannelSession.MixerChannel, this.TotalToShow);
+                    case BitsLeaderboardPeriodEnum.Week:
+                        bitsLeaderboard = await ChannelSession.TwitchUserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Week, this.TotalToShow);
                         break;
-                    case OverlayLeaderboardListItemDateRangeEnum.Yearly:
-                        sparkLeaderboard = await ChannelSession.MixerUserConnection.GetYearlySparksLeaderboard(ChannelSession.MixerChannel, this.TotalToShow);
+                    case BitsLeaderboardPeriodEnum.Month:
+                        bitsLeaderboard = await ChannelSession.TwitchUserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Month, this.TotalToShow);
                         break;
-                    case OverlayLeaderboardListItemDateRangeEnum.AllTime:
-                        sparkLeaderboard = await ChannelSession.MixerUserConnection.GetAllTimeSparksLeaderboard(ChannelSession.MixerChannel, this.TotalToShow);
+                    case BitsLeaderboardPeriodEnum.Year:
+                        bitsLeaderboard = await ChannelSession.TwitchUserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Year, this.TotalToShow);
+                        break;
+                    case BitsLeaderboardPeriodEnum.All:
+                        bitsLeaderboard = await ChannelSession.TwitchUserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.All, this.TotalToShow);
                         break;
                 }
+                this.lastQuery = DateTimeOffset.Now;
 
-                if (sparkLeaderboard != null)
+                if (bitsLeaderboard != null && bitsLeaderboard.users != null)
                 {
-                    for (int i = 0; i < this.TotalToShow && i < sparkLeaderboard.Count(); i++)
+                    foreach (BitsLeaderboardUserModel bitsUser in bitsLeaderboard.users.OrderBy(u => u.rank).Take(this.TotalToShow))
                     {
-                        var sl = sparkLeaderboard.ElementAt(i);
-
-                        OverlayListIndividualItemModel item = OverlayListIndividualItemModel.CreateAddItem(sl.username, null, i + 1, this.HTML);
-                        item.Hash = sl.statValue.ToString();
-                        items.Add(item);
-                    }
-                }
-            }
-            else if (this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.Embers)
-            {
-                IEnumerable<EmbersLeaderboardModel> emberLeaderboard = null;
-                switch (this.LeaderboardDateRange)
-                {
-                    case OverlayLeaderboardListItemDateRangeEnum.Weekly:
-                        emberLeaderboard = await ChannelSession.MixerUserConnection.GetWeeklyEmbersLeaderboard(ChannelSession.MixerChannel, this.TotalToShow);
-                        break;
-                    case OverlayLeaderboardListItemDateRangeEnum.Monthly:
-                        emberLeaderboard = await ChannelSession.MixerUserConnection.GetMonthlyEmbersLeaderboard(ChannelSession.MixerChannel, this.TotalToShow);
-                        break;
-                    case OverlayLeaderboardListItemDateRangeEnum.Yearly:
-                        emberLeaderboard = await ChannelSession.MixerUserConnection.GetYearlyEmbersLeaderboard(ChannelSession.MixerChannel, this.TotalToShow);
-                        break;
-                    case OverlayLeaderboardListItemDateRangeEnum.AllTime:
-                        emberLeaderboard = await ChannelSession.MixerUserConnection.GetAllTimeEmbersLeaderboard(ChannelSession.MixerChannel, this.TotalToShow);
-                        break;
-                }
-
-                if (emberLeaderboard != null)
-                {
-                    for (int i = 0; i < this.TotalToShow && i < emberLeaderboard.Count(); i++)
-                    {
-                        var sl = emberLeaderboard.ElementAt(i);
-
-                        OverlayListIndividualItemModel item = OverlayListIndividualItemModel.CreateAddItem(sl.username, null, i + 1, this.HTML);
-                        item.Hash = sl.statValue.ToString();
-                        items.Add(item);
+                        items.Add(new OverlayLeaderboardItem(bitsUser.user_name, bitsUser.score.ToString()));
                     }
                 }
             }
 
             if (items.Count > 0)
             {
-                await this.AddLeaderboardItems(items);
+                await this.ProcessLeaderboardItems(items);
             }
 
-            return await base.GetProcessedItem(user, arguments, extraSpecialIdentifiers);
+            return await base.GetProcessedItem(parameters);
         }
 
-        private void GlobalEvents_OnSubscribeOccurred(object sender, UserViewModel user)
+        private async void GlobalEvents_OnSubscribeOccurred(object sender, UserViewModel user)
         {
-            userSubDates[user] = DateTimeOffset.Now;
-            this.SendUpdateRequired();
+            userSubDates[user.ID] = DateTimeOffset.Now;
+            await this.UpdateSubscribers();
         }
 
         private async void GlobalEvents_OnResubscribeOccurred(object sender, Tuple<UserViewModel, int> user)
         {
             await this.UpdateSubscribers();
-            this.SendUpdateRequired();
         }
 
         private async void GlobalEvents_OnSubscriptionGiftedOccurred(object sender, Tuple<UserViewModel, UserViewModel> e)
         {
             await this.UpdateSubscribers();
+        }
+
+        private async Task UpdateSubscribers()
+        {
+            List<OverlayLeaderboardItem> items = new List<OverlayLeaderboardItem>();
+
+            var orderedUsers = this.userSubDates.OrderByDescending(kvp => kvp.Value.TotalDaysFromNow());
+            for (int i = 0; i < orderedUsers.Count() && items.Count() < this.TotalToShow; i++)
+            {
+                var kvp = orderedUsers.ElementAt(i);
+                UserDataModel userData = ChannelSession.Settings.GetUserData(kvp.Key);
+                if (userData != null)
+                {
+                    items.Add(new OverlayLeaderboardItem(new UserViewModel(userData), kvp.Value.GetAge()));
+                }
+            }
+
+            await this.ProcessLeaderboardItems(items);
             this.SendUpdateRequired();
         }
 
@@ -250,97 +287,95 @@ namespace MixItUp.Base.Model.Overlay
         {
             UserViewModel user = donation.User;
 
-            if (!this.userDonations.ContainsKey(user))
+            if (!this.userDonations.ContainsKey(user.ID))
             {
-                this.userDonations[user] = donation.Copy();
-                this.userDonations[user].Amount = 0.0;
+                this.userDonations[user.ID] = donation.Copy();
+                this.userDonations[user.ID].Amount = 0.0;
             }
-            this.userDonations[user].Amount += donation.Amount;
+            this.userDonations[user.ID].Amount += donation.Amount;
 
-            List<OverlayListIndividualItemModel> items = new List<OverlayListIndividualItemModel>();
+            List<OverlayLeaderboardItem> items = new List<OverlayLeaderboardItem>();
 
             var orderedUsers = this.userDonations.OrderByDescending(kvp => kvp.Value.Amount);
-            for (int i = 0; i < this.TotalToShow && i < orderedUsers.Count(); i++)
+            for (int i = 0; i < orderedUsers.Count() && items.Count() < this.TotalToShow; i++)
             {
                 var kvp = orderedUsers.ElementAt(i);
-
-                OverlayListIndividualItemModel item = OverlayListIndividualItemModel.CreateAddItem(kvp.Key.Username, kvp.Key, i + 1, this.HTML);
-                item.Hash = kvp.Value.AmountText;
-            }
-
-            await this.AddLeaderboardItems(items);
-            this.SendUpdateRequired();
-        }
-
-        private async Task UpdateSubscribers()
-        {
-            this.userSubDates.Clear();
-            await ChannelSession.MixerUserConnection.GetUsersWithRoles(ChannelSession.MixerChannel, UserRoleEnum.Subscriber, (collection) =>
-            {
-                foreach (UserWithGroupsModel userWithGroups in collection)
+                UserDataModel userData = ChannelSession.Settings.GetUserData(kvp.Key);
+                if (userData != null)
                 {
-                    DateTimeOffset? subDate = userWithGroups.GetSubscriberDate();
-                    if (subDate.HasValue)
-                    {
-                        this.userSubDates[new UserViewModel(userWithGroups)] = subDate.GetValueOrDefault();
-                    }
+                    items.Add(new OverlayLeaderboardItem(new UserViewModel(userData), kvp.Value.AmountText));
                 }
-                return Task.FromResult(0);
-            });
-
-            List<OverlayListIndividualItemModel> items = new List<OverlayListIndividualItemModel>();
-
-            var orderedUsers = this.userSubDates.OrderByDescending(kvp => kvp.Value.TotalDaysFromNow());
-            for (int i = 0; i < this.TotalToShow && i < orderedUsers.Count(); i++)
-            {
-                var kvp = orderedUsers.ElementAt(i);
-
-                OverlayListIndividualItemModel item = OverlayListIndividualItemModel.CreateAddItem(kvp.Key.Username, kvp.Key, i + 1, this.HTML);
-                item.Hash = kvp.Value.GetAge();
             }
 
-            await this.AddLeaderboardItems(items);
+            await this.ProcessLeaderboardItems(items);
             this.SendUpdateRequired();
         }
 
-        private async Task AddLeaderboardItems(IEnumerable<OverlayListIndividualItemModel> items)
+        private async Task ProcessLeaderboardItems(List<OverlayLeaderboardItem> items)
         {
             await this.listSemaphore.WaitAndRelease((Func<Task>)(async () =>
             {
-                foreach (OverlayListIndividualItemModel item in this.lastItems)
+                this.Items.Clear();
+
+                List<OverlayListIndividualItemModel> updatedList = new List<OverlayListIndividualItemModel>();
+
+                for (int i = 0; i < this.lastItems.Count(); i++)
                 {
-                    if (!items.Any(i => i.ID.Equals(item.ID)))
+                    if (!items.Any(x => string.Equals(x.ID, this.lastItems[i].ID)))
                     {
-                        this.Items.Add(OverlayListIndividualItemModel.CreateRemoveItem(item.ID));
+                        this.Items.Add(OverlayListIndividualItemModel.CreateRemoveItem(this.lastItems[i].ID));
                     }
                 }
 
                 for (int i = 0; i < items.Count() && i < this.TotalToShow; i++)
                 {
-                    OverlayListIndividualItemModel item = items.ElementAt(i);
+                    OverlayListIndividualItemModel newItem = OverlayListIndividualItemModel.CreateAddItem(items[i].ID, items[i].User, i + 1, this.HTML);
+                    newItem.Hash = items[i].Hash;
+                    newItem.TemplateReplacements.Add("USERNAME", newItem.ID);
+                    newItem.TemplateReplacements.Add("DETAILS", newItem.Hash);
+                    newItem.TemplateReplacements.Add("TOP_TEXT_HEIGHT", ((int)(0.4 * ((double)this.Height))).ToString());
+                    newItem.TemplateReplacements.Add("BOTTOM_TEXT_HEIGHT", ((int)(0.2 * ((double)this.Height))).ToString());
 
-                    OverlayListIndividualItemModel foundItem = this.lastItems.FirstOrDefault(oi => oi.ID.Equals(item.ID));
-                    if (foundItem == null || foundItem.Position != item.Position || !foundItem.Hash.Equals(item.Hash))
-                    {
-                        this.Items.Add(item);
-                        item.TemplateReplacements.Add("USERNAME", item.ID);
-                        item.TemplateReplacements.Add("DETAILS", item.Hash);
-                        item.TemplateReplacements.Add("TOP_TEXT_HEIGHT", ((int)(0.4 * ((double)this.Height))).ToString());
-                        item.TemplateReplacements.Add("BOTTOM_TEXT_HEIGHT", ((int)(0.2 * ((double)this.Height))).ToString());
-                    }
+                    updatedList.Add(newItem);
+                    this.Items.Add(newItem);
                 }
 
                 if (this.NewLeaderCommand != null)
                 {
                     // Detect if we had a list before, and we have a list now, and the top user changed, let's trigger the event
-                    if (this.lastItems.Count() > 0 && items.Count() > 0 && !this.lastItems.First().User.ID.Equals(items.First().User.ID))
+                    if (this.lastItems.Count() > 0 && updatedList.Count() > 0)
                     {
-                        await this.NewLeaderCommand.Perform(items.First().User, arguments: new string[] { this.lastItems.First().User.Username });
+                        UserViewModel previous = this.lastItems.First().GetUser();
+                        UserViewModel current = updatedList.First().GetUser();
+                        if (previous != null && current != null && !previous.ID.Equals(current.ID))
+                        {
+                            await this.NewLeaderCommand.Perform(current, arguments: new string[] { previous.Username });
+                        }
                     }
                 }
 
-                this.lastItems = new List<OverlayListIndividualItemModel>(items);
+                this.lastItems = new List<OverlayListIndividualItemModel>(updatedList);
             }));
+        }
+
+        private bool ShouldIncludeUser(UserViewModel user)
+        {
+            if (user == null)
+            {
+                return false;
+            }
+
+            if (user.ID.Equals(ChannelSession.GetCurrentUser()?.ID))
+            {
+                return false;
+            }
+
+            if (ChannelSession.TwitchBotConnection != null && string.Equals(user.TwitchID, ChannelSession.TwitchBotNewAPI?.id))
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }

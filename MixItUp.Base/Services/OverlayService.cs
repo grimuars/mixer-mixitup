@@ -67,24 +67,34 @@ namespace MixItUp.Base.Services
 
         public async Task<Result> Connect()
         {
-            this.IsConnected = false;
-            ChannelSession.Settings.EnableOverlay = false;
-
-            foreach (var kvp in this.AllOverlayNameAndPorts)
+            try
             {
-                if (!await this.AddOverlay(kvp.Key, kvp.Value))
+                this.IsConnected = false;
+                ChannelSession.Settings.EnableOverlay = false;
+
+                foreach (var kvp in this.AllOverlayNameAndPorts)
                 {
-                    await this.Disconnect();
-                    return new Result("Failed to add " + kvp.Key + " overlay");
+                    if (!await this.AddOverlay(kvp.Key, kvp.Value))
+                    {
+                        await this.Disconnect();
+                        return new Result("Failed to add " + kvp.Key + " overlay");
+                    }
                 }
+
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                AsyncRunner.RunAsyncBackground(this.WidgetsBackgroundUpdate, this.backgroundThreadCancellationTokenSource.Token, 1000);
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+
+                this.IsConnected = true;
+                ChannelSession.Settings.EnableOverlay = true;
+                ChannelSession.Services.Telemetry.TrackService("Overlay");
+                return new Result();
             }
-
-            AsyncRunner.RunBackgroundTask(this.backgroundThreadCancellationTokenSource.Token, 1000, this.WidgetsBackgroundUpdate);
-
-            this.IsConnected = true;
-            ChannelSession.Settings.EnableOverlay = true;
-
-            return new Result();
+            catch (Exception ex)
+            {
+                Logger.Log(ex);
+                return new Result(ex.ToString());
+            }
         }
 
         public async Task Disconnect()

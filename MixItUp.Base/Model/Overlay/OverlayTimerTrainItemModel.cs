@@ -1,4 +1,6 @@
-﻿using MixItUp.Base.Model.User;
+﻿using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Model.User;
+using MixItUp.Base.Model.User.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
@@ -32,13 +34,13 @@ namespace MixItUp.Base.Model.Overlay
         [DataMember]
         public double HostBonus { get; set; }
         [DataMember]
+        public double RaidBonus { get; set; }
+        [DataMember]
         public double SubscriberBonus { get; set; }
         [DataMember]
         public double DonationBonus { get; set; }
         [DataMember]
-        public double SparkBonus { get; set; }
-        [DataMember]
-        public double EmberBonus { get; set; }
+        public double BitsBonus { get; set; }
 
         [JsonIgnore]
         private int timeLeft;
@@ -53,6 +55,8 @@ namespace MixItUp.Base.Model.Overlay
         [JsonIgnore]
         private HashSet<Guid> hosts = new HashSet<Guid>();
         [JsonIgnore]
+        private HashSet<Guid> raids = new HashSet<Guid>();
+        [JsonIgnore]
         private HashSet<Guid> subs = new HashSet<Guid>();
 
         [JsonIgnore]
@@ -61,7 +65,7 @@ namespace MixItUp.Base.Model.Overlay
         public OverlayTimerTrainItemModel() : base() { }
 
         public OverlayTimerTrainItemModel(string htmlText, int minimumSecondsToShow, string textColor, string textFont, int textSize, double followBonus,
-            double hostBonus, double subscriberBonus, double donationBonus, double sparkBonus, double emberBonus)
+            double hostBonus, double raidBonus, double subscriberBonus, double donationBonus, double bitsBonus)
             : base(OverlayItemModelTypeEnum.TimerTrain, htmlText)
         {
             this.MinimumSecondsToShow = minimumSecondsToShow;
@@ -70,10 +74,10 @@ namespace MixItUp.Base.Model.Overlay
             this.TextSize = textSize;
             this.FollowBonus = followBonus;
             this.HostBonus = hostBonus;
+            this.RaidBonus = raidBonus;
             this.SubscriberBonus = subscriberBonus;
             this.DonationBonus = donationBonus;
-            this.SparkBonus = sparkBonus;
-            this.EmberBonus = emberBonus;
+            this.BitsBonus = bitsBonus;
         }
 
         [JsonIgnore]
@@ -89,6 +93,10 @@ namespace MixItUp.Base.Model.Overlay
             {
                 GlobalEvents.OnHostOccurred += GlobalEvents_OnHostOccurred;
             }
+            if (this.RaidBonus > 0.0)
+            {
+                GlobalEvents.OnRaidOccurred += GlobalEvents_OnRaidOccurred;
+            }
             if (this.SubscriberBonus > 0.0)
             {
                 GlobalEvents.OnSubscribeOccurred += GlobalEvents_OnSubscribeOccurred;
@@ -99,13 +107,9 @@ namespace MixItUp.Base.Model.Overlay
             {
                 GlobalEvents.OnDonationOccurred += GlobalEvents_OnDonationOccurred;
             }
-            if (this.SparkBonus > 0.0)
+            if (this.BitsBonus > 0.0)
             {
-                GlobalEvents.OnSparkUseOccurred += GlobalEvents_OnSparkUseOccurred;
-            }
-            if (this.EmberBonus > 0.0)
-            {
-                GlobalEvents.OnEmberUseOccurred += GlobalEvents_OnEmberUseOccurred;
+                GlobalEvents.OnBitsOccurred += GlobalEvents_OnBitsOccurred;
             }
 
             this.timeLeft = 0;
@@ -113,7 +117,9 @@ namespace MixItUp.Base.Model.Overlay
 
             this.backgroundThreadCancellationTokenSource = new CancellationTokenSource();
 
-            AsyncRunner.RunBackgroundTask(this.backgroundThreadCancellationTokenSource.Token, 1000, this.TimerBackground);
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+            AsyncRunner.RunAsyncBackground(this.TimerBackground, this.backgroundThreadCancellationTokenSource.Token, 1000);
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
             await base.Enable();
         }
@@ -122,12 +128,12 @@ namespace MixItUp.Base.Model.Overlay
         {
             GlobalEvents.OnFollowOccurred -= GlobalEvents_OnFollowOccurred;
             GlobalEvents.OnHostOccurred -= GlobalEvents_OnHostOccurred;
+            GlobalEvents.OnHostOccurred -= GlobalEvents_OnHostOccurred;
             GlobalEvents.OnSubscribeOccurred -= GlobalEvents_OnSubscribeOccurred;
             GlobalEvents.OnResubscribeOccurred -= GlobalEvents_OnResubscribeOccurred;
             GlobalEvents.OnSubscriptionGiftedOccurred -= GlobalEvents_OnSubscriptionGiftedOccurred;
             GlobalEvents.OnDonationOccurred -= GlobalEvents_OnDonationOccurred;
-            GlobalEvents.OnSparkUseOccurred -= GlobalEvents_OnSparkUseOccurred;
-            GlobalEvents.OnEmberUseOccurred -= GlobalEvents_OnEmberUseOccurred;
+            GlobalEvents.OnBitsOccurred -= GlobalEvents_OnBitsOccurred;
 
             this.timeLeft = 0;
             this.stackedTime = 0;
@@ -141,16 +147,16 @@ namespace MixItUp.Base.Model.Overlay
             await base.Disable();
         }
 
-        protected override async Task PerformReplacements(JObject jobj, UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        protected override async Task PerformReplacements(JObject jobj, CommandParametersModel parameters)
         {
-            await base.PerformReplacements(jobj, user, arguments, extraSpecialIdentifiers);
+            await base.PerformReplacements(jobj, parameters);
             if (this.timeLeft == 0)
             {
                 jobj["HTML"] = "";
             }
         }
 
-        protected override Task<Dictionary<string, string>> GetTemplateReplacements(UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        protected override Task<Dictionary<string, string>> GetTemplateReplacements(CommandParametersModel parameters)
         {
             Dictionary<string, string> replacementSets = new Dictionary<string, string>();
 
@@ -171,12 +177,21 @@ namespace MixItUp.Base.Model.Overlay
             }
         }
 
-        private async void GlobalEvents_OnHostOccurred(object sender, Tuple<UserViewModel, int> host)
+        private async void GlobalEvents_OnHostOccurred(object sender, UserViewModel host)
         {
-            if (!this.hosts.Contains(host.Item1.ID))
+            if (!this.hosts.Contains(host.ID))
             {
-                this.hosts.Add(host.Item1.ID);
-                await this.AddSeconds(Math.Max(host.Item2, 1) * this.HostBonus);
+                this.hosts.Add(host.ID);
+                await this.AddSeconds(this.HostBonus);
+            }
+        }
+
+        private async void GlobalEvents_OnRaidOccurred(object sender, Tuple<UserViewModel, int> raid)
+        {
+            if (!this.raids.Contains(raid.Item1.ID))
+            {
+                this.raids.Add(raid.Item1.ID);
+                await this.AddSeconds(Math.Max(raid.Item2, 1) * this.RaidBonus);
             }
         }
 
@@ -209,9 +224,7 @@ namespace MixItUp.Base.Model.Overlay
 
         private async void GlobalEvents_OnDonationOccurred(object sender, UserDonationModel donation) { await this.AddSeconds(donation.Amount * this.DonationBonus); }
 
-        private async void GlobalEvents_OnSparkUseOccurred(object sender, Tuple<UserViewModel, uint> sparkUsage) { await this.AddSeconds(sparkUsage.Item2 * this.SparkBonus); }
-
-        private async void GlobalEvents_OnEmberUseOccurred(object sender, UserEmberUsageModel emberUsage) { await this.AddSeconds(emberUsage.Amount * this.EmberBonus); }
+        private async void GlobalEvents_OnBitsOccurred(object sender, TwitchUserBitsCheeredModel e) { await this.AddSeconds(e.Amount * this.BitsBonus); }
 
         private async Task AddSeconds(double seconds)
         {

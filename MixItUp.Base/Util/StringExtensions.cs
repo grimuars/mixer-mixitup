@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace MixItUp.Base.Util
 {
     public static class StringExtensions
     {
+        private const char Comma = ',';
+        private const char Decimal = '.';
+
         public static string ToFilePathString(this string source)
         {
             string directory = null;
@@ -49,22 +52,42 @@ namespace MixItUp.Base.Util
 
         public static string AddNewLineEveryXCharacters(this string str, int lineLength)
         {
-            string newString = string.Empty;
-            int x = 0;
-            for (int i = 0; i < str.Length; i++)
+            List<string> newStringParts = new List<string>();
+            foreach (string split in str.Split(new string[] { Environment.NewLine }, StringSplitOptions.None))
             {
-                x++;
-                if (x >= lineLength && str[i] == ' ')
+                string newString = string.Empty;
+                int x = 0;
+                for (int i = 0; i < split.Length; i++)
                 {
-                    newString += Environment.NewLine;
-                    x = 0;
+                    x++;
+                    if (x >= lineLength && split[i] == ' ')
+                    {
+                        newString += Environment.NewLine;
+                        x = 0;
+                    }
+                    else
+                    {
+                        newString += split[i];
+                    }
                 }
-                else
-                {
-                    newString += str[i];
-                }
+                newStringParts.Add(newString);
             }
-            return newString;
+            return string.Join(Environment.NewLine, newStringParts);
+        }
+
+        public static bool Contains(this string source, string toCheck, StringComparison comp)
+        {
+            return source?.IndexOf(toCheck, comp) >= 0;
+        }
+
+        public static bool ParseCurrency(this string str, out double result)
+        {
+            // First try the current culture and then the invariant culture if that fails.
+            if (!double.TryParse(str, NumberStyles.Currency, NumberFormatInfo.CurrentInfo, out result))
+            {
+                return double.TryParse(str, NumberStyles.Currency, NumberFormatInfo.InvariantInfo, out result);
+            }
+            return true;
         }
     }
 }

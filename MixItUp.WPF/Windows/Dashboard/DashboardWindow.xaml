@@ -17,11 +17,10 @@
         TextElement.FontWeight="Medium"
         TextElement.FontSize="14"
         FontFamily="pack://application:,,,/MaterialDesignThemes.Wpf;component/Resources/Roboto/#Roboto"   
-                  
+                           
         Icon="./../../Logo.ico"
         Title="{x:Static resx:Resources.MixItUpDashboard}" Height="600" Width="800">
     <Windows:LoadingWindowBase.Resources>
-        <System:String x:Key="ColumnHeaderFormat">{0}:</System:String>
         <util:LocalizationConverter x:Key="LocalizationConverter"/>
         <ResourceDictionary x:Key="Themes">
             <ResourceDictionary.MergedDictionaries>
@@ -57,6 +56,8 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="20" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="20" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <ComboBox Grid.Column="0" ItemsSource="{Binding LayoutTypes}" SelectedItem="{Binding LayoutType}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Layout}" Style="{StaticResource MaterialDesignFloatingHintComboBox}" MinWidth="100">
@@ -67,7 +68,7 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
 
-                        <ComboBox Grid.Column="2" ItemsSource="{Binding ItemTypes}" SelectedItem="{Binding ItemTypeOne}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Item1}" Style="{StaticResource MaterialDesignFloatingHintComboBox}" MinWidth="120">
+                        <ComboBox Grid.Column="2" ItemsSource="{Binding ItemTypes}" SelectedItem="{Binding ItemTypeOne}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Item1}" Style="{StaticResource MaterialDesignFloatingHintComboBox}" MinWidth="130">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Converter={StaticResource LocalizationConverter}}"/>
@@ -75,7 +76,7 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
 
-                        <ComboBox Grid.Column="4" ItemsSource="{Binding ItemTypes}" SelectedItem="{Binding ItemTypeTwo}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Item2}" Style="{StaticResource MaterialDesignFloatingHintComboBox}" MinWidth="120">
+                        <ComboBox Grid.Column="4" ItemsSource="{Binding ItemTypes}" SelectedItem="{Binding ItemTypeTwo}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Item2}" Style="{StaticResource MaterialDesignFloatingHintComboBox}" MinWidth="130">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Converter={StaticResource LocalizationConverter}}"/>
@@ -83,7 +84,7 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
 
-                        <ComboBox Grid.Column="6" ItemsSource="{Binding ItemTypes}" SelectedItem="{Binding ItemTypeThree}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Item3}" Style="{StaticResource MaterialDesignFloatingHintComboBox}" MinWidth="120">
+                        <ComboBox Grid.Column="6" ItemsSource="{Binding ItemTypes}" SelectedItem="{Binding ItemTypeThree}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Item3}" Style="{StaticResource MaterialDesignFloatingHintComboBox}" MinWidth="130">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Converter={StaticResource LocalizationConverter}}"/>
@@ -91,13 +92,21 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
 
-                        <ComboBox Grid.Column="8" ItemsSource="{Binding ItemTypes}" SelectedItem="{Binding ItemTypeFour}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Item4}" Style="{StaticResource MaterialDesignFloatingHintComboBox}" MinWidth="120">
+                        <ComboBox Grid.Column="8" ItemsSource="{Binding ItemTypes}" SelectedItem="{Binding ItemTypeFour}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Item4}" Style="{StaticResource MaterialDesignFloatingHintComboBox}" MinWidth="130">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Converter={StaticResource LocalizationConverter}}"/>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
+
+                        <Button x:Name="UnpinButton" Click="TogglePin_Click" Visibility="{Binding IsPinned, Converter={StaticResource BooleanToVisibilityConverter}}" Grid.Column="10" ToolTip="Unpin">
+                            <MaterialDesign:PackIcon HorizontalAlignment="Center" VerticalAlignment="Center" Kind="Pin" Height="24" Width="24" Margin="-13,-10" Foreground="White" />
+                        </Button>
+
+                        <Button x:Name="PinButton" Click="TogglePin_Click" Visibility="{Binding IsNotPinned, Converter={StaticResource BooleanToVisibilityConverter}}" Grid.Column="10" ToolTip="Pin">
+                            <MaterialDesign:PackIcon Visibility="{Binding IsNotPinned, Converter={StaticResource BooleanToVisibilityConverter}}" Grid.Column="10" HorizontalAlignment="Center" VerticalAlignment="Center" Kind="PinOff" Height="24" Width="24" Margin="-13,-10" Foreground="White" />
+                        </Button>
                     </Grid>
                 </DockPanel>
             </MaterialDesign:ColorZone>

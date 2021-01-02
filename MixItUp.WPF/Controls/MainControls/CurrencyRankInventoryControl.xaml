@@ -25,16 +25,8 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="10" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <TextBlock Grid.Row="0" HorizontalAlignment="Center" Style="{StaticResource HeaderTextBlock}" Text="{x:Static resx:Resources.CurrenciesRanksInventories}"/>
-
             <Border BorderBrush="{StaticResource PrimaryHueMidBrush}" Grid.Row="2" BorderThickness="1">
-                <DataGrid x:Name="MainDataGrid" Style="{StaticResource StandardDataGrid}" CellStyle="{StaticResource StandardDataGridCell}" HorizontalContentAlignment="Stretch">
+                <DataGrid x:Name="MainDataGrid" ItemsSource="{Binding Items}" Style="{StaticResource StandardDataGrid}" CellStyle="{StaticResource StandardDataGridCell}" HorizontalContentAlignment="Stretch">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{x:Static resx:Resources.Name}" Binding="{Binding Name}" IsReadOnly="True" Width="*" />
                         <DataGridTextColumn Header="{x:Static resx:Resources.Type}" Binding="{Binding Type}" IsReadOnly="True" Width="125" />

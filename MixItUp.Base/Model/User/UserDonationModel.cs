@@ -1,11 +1,9 @@
-﻿using Mixer.Base.Util;
-using MixItUp.Base.Util;
+﻿using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.Serialization;
 
 namespace MixItUp.Base.Model.User
@@ -33,6 +31,8 @@ namespace MixItUp.Base.Model.User
         [DataMember]
         public string ID { get; set; }
         [DataMember]
+        public StreamingPlatformTypeEnum Platform { get; set; } = StreamingPlatformTypeEnum.All;
+        [DataMember]
         public string Username { get; set; }
         [DataMember]
         public string Type { get; set; }
@@ -59,11 +59,7 @@ namespace MixItUp.Base.Model.User
                 {
                     if (this.user == null)
                     {
-                        this.user = ChannelSession.Services.User.GetUserByUsername(this.Username);
-                        if (this.user == null)
-                        {
-                            this.user = new UserViewModel(this.Username);
-                        }
+                        this.user = ChannelSession.Services.User.GetUserFullSearch(this.Platform, null, this.Username);
                     }
                 }
                 return this.user;

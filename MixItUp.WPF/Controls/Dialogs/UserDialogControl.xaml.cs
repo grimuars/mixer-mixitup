@@ -1,7 +1,8 @@
-﻿using Mixer.Base.Model.Channel;
-using MixItUp.Base;
+﻿using MixItUp.Base;
+using MixItUp.Base.Model.User;
 using MixItUp.Base.ViewModel.User;
 using System.Windows.Controls;
+using Twitch.Base.Models.NewAPI.Users;
 
 namespace MixItUp.WPF.Controls.Dialogs
 {
@@ -17,7 +18,7 @@ namespace MixItUp.WPF.Controls.Dialogs
         Unfollow,
         PromoteToMod,
         DemoteFromMod,
-        MixerPage,
+        ChannelPage,
         EditUser,
     }
 
@@ -47,25 +48,8 @@ namespace MixItUp.WPF.Controls.Dialogs
 
                 this.PromoteToModButton.IsEnabled = this.DemoteFromModButton.IsEnabled = this.EditUserButton.IsEnabled = ChannelSession.IsStreamer;
 
-                bool follows = false;
-                if (this.user.MixerChannelID > 0)
-                {
-                    ExpandedChannelModel channelToCheck = await ChannelSession.MixerUserConnection.GetChannel(this.user.MixerChannelID);
-                    if (channelToCheck != null)
-                    {
-                        follows = (await ChannelSession.MixerUserConnection.CheckIfFollows(channelToCheck, ChannelSession.MixerUser)).HasValue;
-                        if (channelToCheck.online)
-                        {
-                            this.StreamStatusTextBlock.Text = $"{channelToCheck.viewersCurrent} Viewers";
-                        }
-                        else
-                        {
-                            this.StreamStatusTextBlock.Text = "Offline";
-                        }
-                    }
-                }
-
-                if (follows)
+                UserFollowModel follow = await ChannelSession.TwitchUserConnection.CheckIfFollowsNewAPI(this.user.GetTwitchNewAPIUserModel(), ChannelSession.TwitchUserNewAPI);
+                if (follow != null && !string.IsNullOrEmpty(follow.followed_at))
                 {
                     this.UnfollowButton.Visibility = System.Windows.Visibility.Visible;
                     this.FollowButton.Visibility = System.Windows.Visibility.Collapsed;

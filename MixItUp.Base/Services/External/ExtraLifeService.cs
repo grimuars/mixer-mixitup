@@ -1,8 +1,6 @@
-﻿using Mixer.Base.Model.User;
-using MixItUp.Base.Commands;
-using MixItUp.Base.Model.User;
+﻿using MixItUp.Base.Model.User;
 using MixItUp.Base.Util;
-using MixItUp.Base.ViewModel.User;
+using Newtonsoft.Json;
 using StreamingClient.Base.Model.OAuth;
 using StreamingClient.Base.Util;
 using System;
@@ -29,15 +27,11 @@ namespace MixItUp.Base.Services.External
         [DataMember]
         public string createdDateUTC { get; set; }
         [DataMember]
-        public int eventID { get; set; }
-        [DataMember]
         public double sumDonations { get; set; }
-        [DataMember]
-        public int teamID { get; set; }
         [DataMember]
         public string name { get; set; }
         [DataMember]
-        public int numDonations { get; set; }
+        public double numDonations { get; set; }
     }
 
     [DataContract]
@@ -52,23 +46,19 @@ namespace MixItUp.Base.Services.External
         [DataMember]
         public string createdDateUTC { get; set; }
         [DataMember]
-        public int eventID { get; set; }
-        [DataMember]
         public double sumDonations { get; set; }
         [DataMember]
-        public int participantID { get; set; }
+        public double participantID { get; set; }
         [DataMember]
         public string teamName { get; set; }
         [DataMember]
         public string avatarImageURL { get; set; }
         [DataMember]
-        public int teamID { get; set; }
-        [DataMember]
         public bool isTeamCaptain { get; set; }
         [DataMember]
         public double sumPledges { get; set; }
         [DataMember]
-        public int numDonations { get; set; }
+        public double numDonations { get; set; }
     }
 
     [DataContract]
@@ -76,12 +66,7 @@ namespace MixItUp.Base.Services.External
     {
         [DataMember]
         public string donationID { get; set; }
-        [DataMember]
-        public int teamID { get; set; }
 
-
-        [DataMember]
-        public int? participantID { get; set; }
         [DataMember]
         public string displayName { get; set; }
 
@@ -94,18 +79,26 @@ namespace MixItUp.Base.Services.External
         [DataMember]
         public string createdDateUTC { get; set; }
 
+        [JsonIgnore]
+        public DateTimeOffset CreatedDate
+        {
+            get
+            {
+                DateTimeOffset datetime = DateTimeOffset.Now;
+                if (!string.IsNullOrEmpty(this.createdDateUTC) && DateTimeOffset.TryParse(this.createdDateUTC, out datetime))
+                {
+                    datetime = datetime.ToCorrectLocalTime();
+                }
+                return datetime;
+            }
+        }
+
         public UserDonationModel ToGenericDonation()
         {
             double amount = 0.0;
             if (this.amount.HasValue)
             {
                 amount = this.amount.GetValueOrDefault();
-            }
-
-            DateTimeOffset datetime = DateTimeOffset.Now;
-            if (!string.IsNullOrEmpty(this.createdDateUTC) && DateTimeOffset.TryParse(this.createdDateUTC, out datetime))
-            {
-                datetime = datetime.ToLocalTime();
             }
 
             return new UserDonationModel()
@@ -118,7 +111,7 @@ namespace MixItUp.Base.Services.External
 
                 Amount = Math.Round(amount, 2),
 
-                DateTime = datetime,
+                DateTime = this.CreatedDate,
             };
         }
     }
@@ -143,6 +136,9 @@ namespace MixItUp.Base.Services.External
 
         private ExtraLifeTeam team;
         private ExtraLifeTeamParticipant participant;
+
+        private DateTimeOffset startTime = DateTimeOffset.Now;
+        private Dictionary<string, ExtraLifeDonation> donationsReceived = new Dictionary<string, ExtraLifeDonation>();
 
         public ExtraLifeService() : base(ExtraLifeService.BaseAddress) { }
 
@@ -243,10 +239,20 @@ namespace MixItUp.Base.Services.External
 
             if (this.team != null && this.participant != null)
             {
+                IEnumerable<ExtraLifeDonation> donations = (ChannelSession.Settings.ExtraLifeIncludeTeamDonations) ? await this.GetTeamDonations() : await this.GetParticipantDonations();
+                foreach (ExtraLifeDonation donation in donations)
+                {
+                    if (!string.IsNullOrEmpty(donation.donationID))
+                    {
+                        donationsReceived[donation.donationID] = donation;
+                    }
+                }
+
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                Task.Run(this.BackgroundDonationCheck, this.cancellationTokenSource.Token);
+                AsyncRunner.RunAsyncBackground(this.BackgroundDonationCheck, this.cancellationTokenSource.Token, 60000);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
+                this.TrackServiceTelemetry("ExtraLife");
                 return new Result();
             }
             return new Result("Could not get Team/Participant data");
@@ -257,37 +263,17 @@ namespace MixItUp.Base.Services.External
             this.cancellationTokenSource.Dispose();
         }
 
-        private async Task BackgroundDonationCheck()
+        private async Task BackgroundDonationCheck(CancellationToken token)
         {
-            Dictionary<string, ExtraLifeDonation> donationsReceived = new Dictionary<string, ExtraLifeDonation>();
-
             IEnumerable<ExtraLifeDonation> donations = (ChannelSession.Settings.ExtraLifeIncludeTeamDonations) ? await this.GetTeamDonations() : await this.GetParticipantDonations();
-            foreach (ExtraLifeDonation donation in donations)
+            foreach (ExtraLifeDonation elDonation in donations)
             {
-                if (!string.IsNullOrEmpty(donation.donationID))
+                if (!string.IsNullOrEmpty(elDonation.donationID) && !donationsReceived.ContainsKey(elDonation.donationID) && elDonation.CreatedDate > this.startTime)
                 {
-                    donationsReceived[donation.donationID] = donation;
+                    donationsReceived[elDonation.donationID] = elDonation;
+                    UserDonationModel donation = elDonation.ToGenericDonation();
+                    await EventService.ProcessDonationEvent(EventTypeEnum.ExtraLifeDonation, donation);
                 }
-            }
-
-            while (!this.cancellationTokenSource.Token.IsCancellationRequested)
-            {
-                try
-                {
-                    donations = (ChannelSession.Settings.ExtraLifeIncludeTeamDonations) ? await this.GetTeamDonations() : await this.GetParticipantDonations();
-                    foreach (ExtraLifeDonation elDonation in donations)
-                    {
-                        if (!string.IsNullOrEmpty(elDonation.donationID) && !donationsReceived.ContainsKey(elDonation.donationID))
-                        {
-                            donationsReceived[elDonation.donationID] = elDonation;
-                            UserDonationModel donation = elDonation.ToGenericDonation();
-                            await EventService.ProcessDonationEvent(EventTypeEnum.ExtraLifeDonation, donation);
-                        }
-                    }
-                }
-                catch (Exception ex) { Logger.Log(ex); }
-
-                await Task.Delay(20000);
             }
         }
     }

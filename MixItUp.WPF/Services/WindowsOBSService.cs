@@ -1,5 +1,5 @@
 ﻿using MixItUp.Base;
-using MixItUp.Base.Actions;
+using MixItUp.Base.Model.Actions;
 using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
 using OBSWebsocketDotNet;
@@ -14,6 +14,9 @@ namespace MixItUp.WPF.Services
 {
     public class WindowsOBSService : IStreamingSoftwareService
     {
+        private const int CommandTimeoutInMilliseconds = 2500;
+        private const int ConnectTimeoutInMilliseconds = 5000;
+
         public event EventHandler Connected = delegate { };
         public event EventHandler Disconnected = delegate { };
 
@@ -23,97 +26,140 @@ namespace MixItUp.WPF.Services
 
         public string Name { get { return "OBS Studio"; } }
 
+        public bool IsEnabled { get { return !string.IsNullOrEmpty(ChannelSession.Settings.OBSStudioServerIP); } }
+
         public bool IsConnected { get; private set; }
 
         public async Task<Result> Connect()
         {
             this.IsConnected = false;
 
-            try
+            await this.OBSCommandTimeoutWrapper((cancellationToken) =>
             {
                 this.OBSWebsocket.Connect(ChannelSession.Settings.OBSStudioServerIP, ChannelSession.Settings.OBSStudioServerPassword);
                 if (this.OBSWebsocket.IsConnected)
                 {
                     this.OBSWebsocket.Disconnected += OBSWebsocket_Disconnected;
                     this.IsConnected = true;
+                    return true;
                 }
-            }
-            catch (Exception ex) { Logger.Log(ex); }
+                return false;
+            }, ConnectTimeoutInMilliseconds);
 
             if (this.IsConnected)
             {
                 await this.StartReplayBuffer();
                 this.Connected(this, new EventArgs());
                 ChannelSession.ReconnectionOccurred("OBS");
+                ChannelSession.Services.Telemetry.TrackService("OBS Studio");
                 return new Result();
             }
             return new Result("Failed to connect to OBS Studio web socket.");
         }
 
-        public Task Disconnect()
+        public async Task Disconnect()
         {
-            this.IsConnected = false;
-            if (this.OBSWebsocket != null)
+            await this.OBSCommandTimeoutWrapper((cancellationToken) =>
             {
-                this.OBSWebsocket.Disconnected -= OBSWebsocket_Disconnected;
-                this.OBSWebsocket.Disconnect();
-                this.Disconnected(this, new EventArgs());
-                ChannelSession.DisconnectionOccurred("OBS");
-            }
-            return Task.FromResult(0);
+                this.IsConnected = false;
+                if (this.OBSWebsocket != null)
+                {
+                    this.OBSWebsocket.Disconnected -= OBSWebsocket_Disconnected;
+                    this.OBSWebsocket.Disconnect();
+                    this.Disconnected(this, new EventArgs());
+                    ChannelSession.DisconnectionOccurred("OBS");
+                }
+                return true;
+            }, ConnectTimeoutInMilliseconds);
         }
 
         public Task<bool> TestConnection() { return Task.FromResult(true); }
 
-        public Task ShowScene(string sceneName)
+        public async Task ShowScene(string sceneName)
         {
-            try
+            await this.OBSCommandTimeoutWrapper((cancellationToken) =>
             {
+                Logger.Log(LogLevel.Debug, "Showing OBS Scene - " + sceneName);
+
                 this.OBSWebsocket.SetCurrentScene(sceneName);
-            }
-            catch (Exception ex) { Logger.Log(ex); }
-            return Task.FromResult(0);
+
+                return true;
+            });
         }
 
-        public Task SetSourceVisibility(string sceneName, string sourceName, bool visibility)
+        public async Task<string> GetCurrentScene()
         {
-            try
+            return await this.OBSCommandTimeoutWrapper((cancellationToken) =>
             {
+                Logger.Log(LogLevel.Debug, "Getting Current OBS Scene");
+
+                var scene = this.OBSWebsocket.GetCurrentScene();
+                if (scene == null)
+                {
+                    return "Unknown";
+                }
+
+                return scene.Name;
+            });
+        }
+
+        public async Task SetSourceVisibility(string sceneName, string sourceName, bool visibility)
+        {
+            await this.OBSCommandTimeoutWrapper((cancellationToken) =>
+            {
+                Logger.Log(LogLevel.Debug, "Setting source visibility - " + sourceName);
+
                 this.OBSWebsocket.SetSourceRender(sourceName, visibility, sceneName);
-            }
-            catch (Exception ex) { Logger.Log(ex); }
-            return Task.FromResult(0);
+
+                return true;
+            });
         }
 
-        public Task SetWebBrowserSourceURL(string sceneName, string sourceName, string url)
+        public async Task SetSourceFilterVisibility(string sourceName, string filterName, bool visibility)
         {
-            try
+            await this.OBSCommandTimeoutWrapper((cancellationToken) =>
             {
-                this.SetSourceVisibility(sceneName, sourceName, visibility: false);
+                Logger.Log(LogLevel.Debug, "Setting source filter visibility - " + sourceName + " - " + filterName);
 
+                this.OBSWebsocket.SetSourceFilterVisibility(sourceName, filterName, visibility);
+
+                return true;
+            });
+        }
+
+        public async Task SetWebBrowserSourceURL(string sceneName, string sourceName, string url)
+        {
+            Logger.Log(LogLevel.Debug, "Setting web browser URL - " + sourceName);
+
+            await this.SetSourceVisibility(sceneName, sourceName, visibility: false);
+
+            await this.OBSCommandTimeoutWrapper((cancellationToken) =>
+            {
                 BrowserSourceProperties properties = this.OBSWebsocket.GetBrowserSourceProperties(sourceName, sceneName);
                 properties.IsLocalFile = false;
                 properties.URL = url;
                 this.OBSWebsocket.SetBrowserSourceProperties(sourceName, properties);
-            }
-            catch (Exception ex) { Logger.Log(ex); }
-            return Task.FromResult(0);
+
+                return true;
+            });
         }
 
-        public Task SetSourceDimensions(string sceneName, string sourceName, StreamingSourceDimensions dimensions)
+        public async Task SetSourceDimensions(string sceneName, string sourceName, StreamingSoftwareSourceDimensionsModel dimensions)
         {
-            try
+            await this.OBSCommandTimeoutWrapper((cancellationToken) =>
             {
+                Logger.Log(LogLevel.Debug, "Setting source dimensions - " + sourceName);
+
                 this.OBSWebsocket.SetSceneItemPosition(sourceName, dimensions.X, dimensions.Y, sceneName);
                 this.OBSWebsocket.SetSceneItemTransform(sourceName, dimensions.Rotation, dimensions.XScale, dimensions.YScale, sceneName);
-            }
-            catch (Exception ex) { Logger.Log(ex); }
-            return Task.FromResult(0);
+
+                return false;
+            });
         }
 
-        public Task<StreamingSourceDimensions> GetSourceDimensions(string sceneName, string sourceName)
+        public async Task<StreamingSoftwareSourceDimensionsModel> GetSourceDimensions(string sceneName, string sourceName)
         {
-            try
+            return await this.OBSCommandTimeoutWrapper((cancellationToken) =>
             {
                 OBSScene scene;
                 if (!string.IsNullOrEmpty(sceneName))
@@ -129,89 +175,107 @@ namespace MixItUp.WPF.Services
                 {
                     if (item.SourceName.Equals(sourceName))
                     {
-                        return Task.FromResult(new StreamingSourceDimensions() { X = (int)item.XPos, Y = (int)item.YPos, XScale = (item.Width / item.SourceWidth), YScale = (item.Height / item.SourceHeight) });
+                        return new StreamingSoftwareSourceDimensionsModel() { X = (int)item.XPos, Y = (int)item.YPos, XScale = (item.Width / item.SourceWidth), YScale = (item.Height / item.SourceHeight) };
                     }
                 }
-            }
-            catch (Exception ex) { Logger.Log(ex); }
-            return Task.FromResult<StreamingSourceDimensions>(null);
+                return null;
+            });
         }
 
-        public Task StartStopStream()
+        public async Task StartStopStream()
         {
-            try
+            await this.OBSCommandTimeoutWrapper((cancellationToken) =>
             {
-                OutputStatus status = this.OBSWebsocket.GetStreamingStatus();
-                if (status.IsStreaming)
-                {
-                    this.OBSWebsocket.StopStreaming();
-                }
-                else
-                {
-                    this.OBSWebsocket.StartStreaming();
-                }
-            }
-            catch (Exception ex) { Logger.Log(ex); }
-            return Task.FromResult(0);
+                this.OBSWebsocket.StartStopStreaming();
+                return true;
+            });
+        }
+
+        public async Task StartStopRecording()
+        {
+            await this.OBSCommandTimeoutWrapper((cancellationToken) =>
+            {
+                this.OBSWebsocket.StartStopRecording();
+                return true;
+            });
         }
 
         public async Task<bool> StartReplayBuffer()
         {
-            try
+            return await this.OBSCommandTimeoutWrapper((cancellationToken) =>
             {
-                CancellationTokenSource cancellationToken = new CancellationTokenSource();
-                Task t = Task.Run(() => { this.OBSWebsocket.StartReplayBuffer(); }, cancellationToken.Token);
-                await Task.Delay(2000);
-                if (!t.IsCompleted)
+                try
                 {
-                    cancellationToken.Cancel();
-                    return false;
+                    this.OBSWebsocket.StartReplayBuffer();
+                    return true;
                 }
-            }
-            catch (Exception ex)
-            {
-                if (!ex.Message.Equals("replay buffer already active"))
+                catch (Exception ex)
                 {
+                    if (ex.Message.Equals("replay buffer already active") || ex.Message.Equals("replay buffer disabled in settings"))
+                    {
+                        return true;
+                    }
                     Logger.Log(ex);
-                    return false;
                 }
-            }
-            return true;
+                return false;
+            });
         }
 
         public async Task SaveReplayBuffer()
         {
-            CancellationTokenSource cancellationToken = new CancellationTokenSource();
-            Task t = Task.Run(() => { this.OBSWebsocket.SaveReplayBuffer(); }, cancellationToken.Token);
-            await Task.Delay(2000);
-            if (!t.IsCompleted)
+            await this.OBSCommandTimeoutWrapper((cancellationToken) =>
             {
-                cancellationToken.Cancel();
-            }
+                this.OBSWebsocket.SaveReplayBuffer();
+                return true;
+            });
         }
 
-        public Task SetSceneCollection(string sceneCollectionName)
+        public async Task SetSceneCollection(string sceneCollectionName)
         {
-            try
+            await this.OBSCommandTimeoutWrapper((cancellationToken) =>
             {
                 this.OBSWebsocket.SetCurrentSceneCollection(sceneCollectionName);
-            }
-            catch (Exception ex) { Logger.Log(ex); }
-            return Task.FromResult(0);
+                return true;
+            });
         }
 
         private async void OBSWebsocket_Disconnected(object sender, EventArgs e)
         {
-            await this.Disconnect();
-
             Result result;
             do
             {
+                await this.Disconnect();
+
                 await Task.Delay(2500);
 
                 result = await this.Connect();
             }
             while (!result.Success);
+        }
+
+        private async Task<T> OBSCommandTimeoutWrapper<T>(Func<CancellationToken, T> function, int timeout = CommandTimeoutInMilliseconds)
+        {
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            Task<T> task = AsyncRunner.RunAsyncBackground(function, cancellationTokenSource.Token);
+            Task delay = Task.Delay(timeout);
+            await Task.WhenAny(new Task[] { task, delay });
+
+            if (task.IsCompleted)
+            {
+                return task.Result;
+            }
+            else
+            {
+                cancellationTokenSource.Cancel();
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                AsyncRunner.RunAsyncBackground((cancellationToken) =>
+                {
+                    this.OBSWebsocket_Disconnected(this, new EventArgs());
+                    return true;
+                }, new CancellationToken());
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                return default(T);
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 ﻿using MixItUp.Base.Services;
 using MixItUp.Base.Services.External;
-using MixItUp.Base.Services.Mixer;
+using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.WPF.Services.DeveloperAPI;
 using System.Threading.Tasks;
@@ -13,30 +13,30 @@ namespace MixItUp.WPF.Services
         {
             this.Secrets = new SecretsService();
             this.MixItUpService = new MixItUpService();
-            this.MixerStatus = new MixerStatusService();
 
             this.User = new UserService();
             this.Chat = new ChatService();
             this.Events = new EventService();
-            this.MixPlay = new MixerMixPlayService();
+            this.Alerts = new AlertsService();
 
             this.Settings = new SettingsService();
             this.Statistics = new StatisticsService();
             this.Database = new WindowsDatabaseService();
+            this.Moderation = new ModerationService();
             this.FileService = new WindowsFileService();
             this.InputService = new WindowsInputService();
-            this.TimerService = new TimerService();
+            this.Timers = new TimerService();
             this.GameQueueService = new GameQueueService();
             this.Image = new WindowsImageService();
             this.AudioService = new WindowsAudioService();
             this.GiveawayService = new GiveawayService();
-            this.TranslationService = new TranslationService();
+            this.Translation = new TranslationService();
             this.SerialService = new SerialService();
             this.RemoteService = new LocalStreamerRemoteService("https://mixitup-remote-server.azurewebsites.net/api/", "https://mixitup-remote-server.azurewebsites.net/RemoteHub");
             this.DeveloperAPI = new WindowsDeveloperAPIService();
             this.Telemetry = new WindowsTelemetryService();
 
-            this.Streamlabs = new StreamlabsService();
+            this.Streamlabs = new StreamlabsService(new WindowsSocketIOConnection());
             this.StreamElements = new StreamElementsService();
             this.StreamJar = new StreamJarService();
             this.TipeeeStream = new TipeeeStreamService(new WindowsSocketIOConnection());
@@ -51,11 +51,12 @@ namespace MixItUp.WPF.Services
             this.Twitter = new TwitterService();
             this.OvrStream = new WindowsOvrStreamService();
             this.Overlay = new OverlayService();
-            this.MixrElixr = new MixrElixrService();
 
             this.OBSStudio = new WindowsOBSService();
             this.StreamlabsOBS = new StreamlabsOBSService();
             this.XSplit = new XSplitService("http://localhost:8211/");
+
+            this.TwitchStatus = new TwitchStatusService();
 
             this.Settings.Initialize();
             FileSerializerHelper.Initialize(this.FileService);

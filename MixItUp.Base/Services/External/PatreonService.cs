@@ -1,4 +1,4 @@
-﻿using Mixer.Base;
+﻿using MixItUp.Base.Model;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
@@ -37,12 +37,47 @@ namespace MixItUp.Base.Services.External
         [JsonProperty("created")]
         public DateTimeOffset? Created { get; set; }
 
+        [JsonProperty("social_connections")]
+        public JObject SocialConnections { get; set; }
+
+        public PatreonUser() { }
+
         [JsonIgnore]
-        public string LookupName
+        public StreamingPlatformTypeEnum Platform
         {
             get
             {
-                if (!string.IsNullOrEmpty(this.Vanity))
+                if (!string.IsNullOrEmpty(this.TwitchUserID))
+                {
+                    return StreamingPlatformTypeEnum.Twitch;
+                }
+                return StreamingPlatformTypeEnum.All;
+            }
+        }
+
+        [JsonIgnore]
+        public string PlatformUserID
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(this.TwitchUserID))
+                {
+                    return this.TwitchUserID;
+                }
+                return null;
+            }
+        }
+
+        [JsonIgnore]
+        public string PlatformUsername
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(this.TwitchUsername))
+                {
+                    return this.TwitchUsername;
+                }
+                else if (!string.IsNullOrEmpty(this.Vanity))
                 {
                     return this.Vanity;
                 }
@@ -50,7 +85,46 @@ namespace MixItUp.Base.Services.External
             }
         }
 
-        public PatreonUser() { }
+        [JsonIgnore]
+        public string TwitchUserID
+        {
+            get
+            {
+                JObject twitchData = this.TwitchData;
+                if (twitchData != null && twitchData.ContainsKey("user_id"))
+                {
+                    return twitchData["user_id"].ToString();
+                }
+                return null;
+            }
+        }
+
+        [JsonIgnore]
+        public string TwitchUsername
+        {
+            get
+            {
+                JObject twitchData = this.TwitchData;
+                if (twitchData != null && twitchData.ContainsKey("url"))
+                {
+                    return twitchData["url"].ToString().Replace("https://twitch.tv/", "");
+                }
+                return null;
+            }
+        }
+
+        [JsonIgnore]
+        public JObject TwitchData
+        {
+            get
+            {
+                if (this.SocialConnections != null && this.SocialConnections.ContainsKey("twitch") && this.SocialConnections["twitch"] != null && this.SocialConnections["twitch"] is JObject)
+                {
+                    return (JObject)this.SocialConnections["twitch"];
+                }
+                return null;
+            }
+        }
 
         public override bool Equals(object obj)
         {
@@ -313,7 +387,7 @@ namespace MixItUp.Base.Services.External
         {
             try
             {
-                string authorizationCode = await this.ConnectViaOAuthRedirect(string.Format(PatreonService.AuthorizationUrl, PatreonService.ClientID, MixerConnection.DEFAULT_OAUTH_LOCALHOST_URL));
+                string authorizationCode = await this.ConnectViaOAuthRedirect(string.Format(PatreonService.AuthorizationUrl, PatreonService.ClientID, OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL));
                 if (!string.IsNullOrEmpty(authorizationCode))
                 {
                     var body = new List<KeyValuePair<string, string>>
@@ -321,7 +395,7 @@ namespace MixItUp.Base.Services.External
                         new KeyValuePair<string, string>("grant_type", "authorization_code"),
                         new KeyValuePair<string, string>("client_id", PatreonService.ClientID),
                         new KeyValuePair<string, string>("client_secret", ChannelSession.Services.Secrets.GetSecret("PatreonSecret")),
-                        new KeyValuePair<string, string>("redirect_uri", MixerConnection.DEFAULT_OAUTH_LOCALHOST_URL),
+                        new KeyValuePair<string, string>("redirect_uri", OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL),
                         new KeyValuePair<string, string>("code", authorizationCode),
                     };
 
@@ -353,7 +427,7 @@ namespace MixItUp.Base.Services.External
         {
             try
             {
-                JObject jobj = await this.GetJObjectAsync("identity?fields%5Buser%5D=created,first_name,full_name,last_name,url,vanity");
+                JObject jobj = await this.GetJObjectAsync("identity?fields%5Buser%5D=created,first_name,full_name,last_name,url,vanity,social_connections");
                 if (jobj != null && jobj.ContainsKey("data"))
                 {
                     JObject data = (JObject)jobj["data"];
@@ -443,7 +517,7 @@ namespace MixItUp.Base.Services.External
         public async Task<IEnumerable<PatreonCampaignMember>> GetCampaignMembers()
         {
             List<PatreonCampaignMember> results = new List<PatreonCampaignMember>();
-            string next = string.Format("campaigns/{0}/members?include=user,currently_entitled_tiers&fields%5Bmember%5D=patron_status,full_name,will_pay_amount_cents,currently_entitled_amount_cents,lifetime_support_cents&fields%5Buser%5D=created,first_name,full_name,last_name,url,vanity", this.Campaign.ID);
+            string next = string.Format("campaigns/{0}/members?include=user,currently_entitled_tiers&fields%5Bmember%5D=patron_status,full_name,will_pay_amount_cents,currently_entitled_amount_cents,lifetime_support_cents&fields%5Buser%5D=created,first_name,full_name,last_name,url,vanity,social_connections", this.Campaign.ID);
             try
             {
                 do
@@ -599,8 +673,11 @@ namespace MixItUp.Base.Services.External
                     }
                     catch (Exception ex) { Logger.Log(ex); }
 
-                    AsyncRunner.RunBackgroundTask(this.cancellationTokenSource.Token, 60000, this.BackgroundDonationCheck);
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                    AsyncRunner.RunAsyncBackground(this.BackgroundDonationCheck, this.cancellationTokenSource.Token, 60000);
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
+                    this.TrackServiceTelemetry("Patreon");
                     return new Result();
                 }
                 return new Result("Failed to get Campaign data");
@@ -611,7 +688,7 @@ namespace MixItUp.Base.Services.External
         private async Task BackgroundDonationCheck(CancellationToken token)
         {
             IEnumerable<PatreonCampaignMember> pledges = await this.GetCampaignMembers();
-            if (pledges.Count() > 0)
+            if (pledges != null && pledges.Count() > 0)
             {
                 this.members = pledges.ToList();
                 foreach (PatreonCampaignMember member in this.members)
@@ -623,14 +700,14 @@ namespace MixItUp.Base.Services.External
                         {
                             EventTrigger trigger = new EventTrigger(EventTypeEnum.PatreonSubscribed);
 
-                            trigger.User = ChannelSession.Services.User.GetUserByUsername(member.User.LookupName);
+                            trigger.User = ChannelSession.Services.User.GetUserFullSearch(member.User.Platform, member.User.PlatformUserID, member.User.PlatformUsername);
                             if (trigger.User != null)
                             {
                                 trigger.User.Data.PatreonUserID = member.UserID;
                             }
                             else
                             {
-                                trigger.User = new UserViewModel(member.User.LookupName);
+                                trigger.User = new UserViewModel(member.User.PlatformUsername);
                             }
 
                             trigger.SpecialIdentifiers[SpecialIdentifierStringBuilder.PatreonTierNameSpecialIdentifier] = tier.Title;

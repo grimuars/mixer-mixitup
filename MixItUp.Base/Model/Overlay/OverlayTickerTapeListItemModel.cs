@@ -1,6 +1,9 @@
-﻿using MixItUp.Base.Model.User;
+﻿using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Model.User;
+using MixItUp.Base.Model.User.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
+using Newtonsoft.Json;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
@@ -15,8 +18,12 @@ namespace MixItUp.Base.Model.Overlay
         Hosts,
         Subscribers,
         Donations,
+        [Obsolete]
         Sparks,
+        [Obsolete]
         Embers,
+        Bits,
+        Raids
     }
 
     [DataContract]
@@ -30,8 +37,13 @@ namespace MixItUp.Base.Model.Overlay
         [DataMember]
         public double MinimumAmountRequiredToShow { get; set; }
 
+        [JsonIgnore]
         private HashSet<Guid> follows = new HashSet<Guid>();
+        [JsonIgnore]
         private HashSet<Guid> hosts = new HashSet<Guid>();
+        [JsonIgnore]
+        private HashSet<Guid> raids = new HashSet<Guid>();
+        [JsonIgnore]
         private HashSet<Guid> subs = new HashSet<Guid>();
 
         public OverlayTickerTapeListItemModel() : base() { }
@@ -63,6 +75,10 @@ namespace MixItUp.Base.Model.Overlay
             {
                 GlobalEvents.OnHostOccurred += GlobalEvents_OnHostOccurred;
             }
+            if (this.TickerTapeType == OverlayTickerTapeItemTypeEnum.Raids)
+            {
+                GlobalEvents.OnRaidOccurred += GlobalEvents_OnRaidOccurred;
+            }
             if (this.TickerTapeType == OverlayTickerTapeItemTypeEnum.Subscribers)
             {
                 GlobalEvents.OnSubscribeOccurred += GlobalEvents_OnSubscribeOccurred;
@@ -73,13 +89,9 @@ namespace MixItUp.Base.Model.Overlay
             {
                 GlobalEvents.OnDonationOccurred += GlobalEvents_OnDonationOccurred;
             }
-            if (this.TickerTapeType == OverlayTickerTapeItemTypeEnum.Sparks)
+            if (this.TickerTapeType == OverlayTickerTapeItemTypeEnum.Bits)
             {
-                GlobalEvents.OnSparkUseOccurred += GlobalEvents_OnSparkUseOccurred;
-            }
-            if (this.TickerTapeType == OverlayTickerTapeItemTypeEnum.Embers)
-            {
-                GlobalEvents.OnEmberUseOccurred += GlobalEvents_OnEmberUseOccurred;
+                GlobalEvents.OnBitsOccurred += GlobalEvents_OnBitsOccurred;
             }
 
             await base.Enable();
@@ -89,18 +101,18 @@ namespace MixItUp.Base.Model.Overlay
         {
             GlobalEvents.OnFollowOccurred -= GlobalEvents_OnFollowOccurred;
             GlobalEvents.OnHostOccurred -= GlobalEvents_OnHostOccurred;
+            GlobalEvents.OnRaidOccurred -= GlobalEvents_OnRaidOccurred;
             GlobalEvents.OnSubscribeOccurred -= GlobalEvents_OnSubscribeOccurred;
             GlobalEvents.OnResubscribeOccurred -= GlobalEvents_OnResubscribeOccurred;
             GlobalEvents.OnDonationOccurred -= GlobalEvents_OnDonationOccurred;
-            GlobalEvents.OnSparkUseOccurred -= GlobalEvents_OnSparkUseOccurred;
-            GlobalEvents.OnEmberUseOccurred -= GlobalEvents_OnEmberUseOccurred;
+            GlobalEvents.OnBitsOccurred -= GlobalEvents_OnBitsOccurred;
 
             await base.Disable();
         }
 
-        protected override async Task<Dictionary<string, string>> GetTemplateReplacements(UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        protected override async Task<Dictionary<string, string>> GetTemplateReplacements(CommandParametersModel parameters)
         {
-            Dictionary<string, string> replacementSets = await base.GetTemplateReplacements(user, arguments, extraSpecialIdentifiers);
+            Dictionary<string, string> replacementSets = await base.GetTemplateReplacements(parameters);
 
             replacementSets["TEXT_COLOR"] = this.TextColor;
             replacementSets["TEXT_FONT"] = this.TextFont;
@@ -119,12 +131,21 @@ namespace MixItUp.Base.Model.Overlay
             }
         }
 
-        private async void GlobalEvents_OnHostOccurred(object sender, Tuple<UserViewModel, int> host)
+        private async void GlobalEvents_OnHostOccurred(object sender, UserViewModel host)
         {
-            if (!this.hosts.Contains(host.Item1.ID))
+            if (!this.hosts.Contains(host.ID))
             {
-                this.hosts.Add(host.Item1.ID);
-                await this.AddEvent(host.Item1.Username + " x" + host.Item2);
+                this.hosts.Add(host.ID);
+                await this.AddEvent(host.Username);
+            }
+        }
+
+        private async void GlobalEvents_OnRaidOccurred(object sender, Tuple<UserViewModel, int> raid)
+        {
+            if (!this.raids.Contains(raid.Item1.ID))
+            {
+                this.raids.Add(raid.Item1.ID);
+                await this.AddEvent(raid.Item1.Username + " x" + raid.Item2);
             }
         }
 
@@ -148,11 +169,7 @@ namespace MixItUp.Base.Model.Overlay
 
         private async void GlobalEvents_OnSubscriptionGiftedOccurred(object sender, Tuple<UserViewModel, UserViewModel> e)
         {
-            if (!this.subs.Contains(e.Item2.ID))
-            {
-                this.subs.Add(e.Item2.ID);
-                await this.AddEvent(e.Item2.Username);
-            }
+            await this.AddEvent(e.Item2.Username);
         }
 
         private async void GlobalEvents_OnDonationOccurred(object sender, UserDonationModel donation)
@@ -163,19 +180,11 @@ namespace MixItUp.Base.Model.Overlay
             }
         }
 
-        private async void GlobalEvents_OnSparkUseOccurred(object sender, Tuple<UserViewModel, uint> sparkUsage)
+        private async void GlobalEvents_OnBitsOccurred(object sender, TwitchUserBitsCheeredModel e)
         {
-            if (this.MinimumAmountRequiredToShow == 0.0 || sparkUsage.Item2 >= this.MinimumAmountRequiredToShow)
+            if (this.MinimumAmountRequiredToShow == 0.0 || e.Amount >= this.MinimumAmountRequiredToShow)
             {
-                await this.AddEvent(sparkUsage.Item1.Username + ": " + sparkUsage.Item2);
-            }
-        }
-
-        private async void GlobalEvents_OnEmberUseOccurred(object sender, UserEmberUsageModel emberUsage)
-        {
-            if (this.MinimumAmountRequiredToShow == 0.0 || emberUsage.Amount >= this.MinimumAmountRequiredToShow)
-            {
-                await this.AddEvent(emberUsage.User.Username + ": " + emberUsage.Amount);
+                await this.AddEvent(e.User.Username + ": " + e.Amount);
             }
         }
 

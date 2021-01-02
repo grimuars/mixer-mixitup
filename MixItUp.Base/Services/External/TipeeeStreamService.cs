@@ -1,4 +1,5 @@
 ﻿using MixItUp.Base.Commands;
+using MixItUp.Base.Model;
 using MixItUp.Base.Model.User;
 using MixItUp.Base.Util;
 using Newtonsoft.Json;
@@ -26,6 +27,19 @@ namespace MixItUp.Base.Services.External
     }
 
     [DataContract]
+    public class TipeeeStreamUserProvider
+    {
+        [JsonProperty("code")]
+        public string Platform { get; set; }
+
+        [JsonProperty("id")]
+        public string UserID { get; set; }
+
+        [JsonProperty("username")]
+        public string Username { get; set; }
+    }
+
+    [DataContract]
     public class TipeeeStreamUser
     {
         [JsonProperty("avatar")]
@@ -41,7 +55,7 @@ namespace MixItUp.Base.Services.External
         public string Country { get; set; }
 
         [JsonProperty("providers")]
-        public JArray Providers { get; set; }
+        public List<TipeeeStreamUserProvider> Providers { get; set; } = new List<TipeeeStreamUserProvider>();
 
         [JsonProperty("created_at")]
         public DateTimeOffset CreatedDate { get; set; }
@@ -63,28 +77,47 @@ namespace MixItUp.Base.Services.External
         public TipeeeStreamUser User { get; set; }
 
         [JsonProperty("parameters")]
-        public TipeeeStreamParameters Parameters { get; set; }
-
-        [JsonProperty("parameters.amount")]
-        public string Amount { get; set; }
+        public TipeeeStreamParameters Parameters { get; set; } = new TipeeeStreamParameters();
 
         [JsonProperty("formattedAmount")]
-        public string FormattedAmount { get; set; }
+        public string DisplayAmount { get; set; }
 
         [JsonProperty("created_at")]
         public string CreatedAt { get; set; }
 
+        [JsonIgnore]
+        public double Amount
+        {
+            get
+            {
+                double result = 0;
+
+                // Check for int value first
+                if (this.Parameters.Amount != null)
+                {
+                    double? doubleValue = this.Parameters.Amount.Value<double?>();
+                    if (doubleValue.HasValue)
+                    {
+                        return doubleValue.Value;
+                    }
+
+                    string stringValue = this.Parameters.Amount.Value<string>();
+                    if (!string.IsNullOrEmpty(stringValue) && stringValue.ParseCurrency(out result))
+                    {
+                        return result;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(this.DisplayAmount))
+                {
+                    this.DisplayAmount.ParseCurrency(out result);
+                }
+                return result;
+            }
+        }
+
         public UserDonationModel ToGenericDonation()
         {
-            if (!double.TryParse(this.Parameters.Amount, out double amount))
-            {
-                if (!double.TryParse(this.Amount, out amount))
-                {
-                    string textAmount = string.Concat(this.FormattedAmount.ToCharArray().Where(c => char.IsDigit(c) || c == '.'));
-                    double.TryParse(textAmount, out amount);
-                }
-            }
-
             return new UserDonationModel()
             {
                 Source = UserDonationSourceEnum.TipeeeStream,
@@ -93,7 +126,7 @@ namespace MixItUp.Base.Services.External
                 Username = this.Parameters.Username,
                 Message = this.Parameters.Message,
 
-                Amount = Math.Round(amount, 2),
+                Amount = Math.Round(this.Amount, 2),
 
                 DateTime = DateTimeOffset.Now,
             };
@@ -113,7 +146,7 @@ namespace MixItUp.Base.Services.External
         public string Currency { get; set; }
 
         [JsonProperty("amount")]
-        public string Amount { get; set; }
+        public JToken Amount { get; set; }
 
         [JsonProperty("fees")]
         public string Fees { get; set; }
@@ -139,7 +172,7 @@ namespace MixItUp.Base.Services.External
     {
         private const string BaseAddress = "https://api.tipeeestream.com/";
 
-        public const string ClientID = "9611_u5i668t3urk0wcksc84kcgsgckc04wk4ookw0so04kkwgw0cg";
+        public const string ClientID = "13420_3cfbu3ejsccgs4sg8s0sgos8cs0cwkg0k4wg80w4k08w4c08sk";
 
         public const string ListeningURL = "http://localhost:8919";
 
@@ -299,6 +332,7 @@ namespace MixItUp.Base.Services.External
                     {
                         if (await this.ConnectSocket())
                         {
+                            this.TrackServiceTelemetry("TipeeeStream");
                             return new Result();
                         }
                         return new Result("Failed to connect to socket");
@@ -313,7 +347,6 @@ namespace MixItUp.Base.Services.External
         private async Task<T> GetAsync<T>(string url)
         {
             HttpResponseMessage response = await this.GetAsync(url);
-            Logger.Log(LogLevel.Debug, string.Format("TipeeeStream Log: {0} - {1} - {2}", response.RequestMessage.ToString(), response.StatusCode, await response.Content.ReadAsStringAsync()));
             return await response.ProcessResponse<T>();
         }
 

@@ -1,10 +1,12 @@
 ﻿using MixItUp.Base;
+using MixItUp.Base.Model;
 using MixItUp.Base.Model.Settings;
 using MixItUp.Base.Util;
 using MixItUp.WPF.Services;
 using MixItUp.WPF.Util;
 using StreamingClient.Base.Util;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -26,6 +28,21 @@ namespace MixItUp.WPF
     {
         private bool crashObtained = false;
 
+        private static readonly Dictionary<LanguageOptions, string> LanguageMaps = new Dictionary<LanguageOptions, string>
+        {
+            { LanguageOptions.Default, "en-US" },
+
+            { LanguageOptions.Dutch, "nl-NL" },
+            { LanguageOptions.English, "en-US" },
+            { LanguageOptions.German, "de-DE" },
+            { LanguageOptions.Spanish, "es-ES" },
+            { LanguageOptions.Japanese, "ja-JP" },
+            { LanguageOptions.French, "fr-FR" },
+            { LanguageOptions.Portuguese, "pt-BR" },
+
+            { LanguageOptions.Pseudo, "qps-ploc" },
+        };
+
         public App()
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
@@ -40,20 +57,11 @@ namespace MixItUp.WPF
                 selectedLanguageTask.Wait();
 
                 var culture = System.Threading.Thread.CurrentThread.CurrentCulture;
-                switch (selectedLanguageTask.Result.LanguageOption)
+                if (LanguageMaps.TryGetValue(selectedLanguageTask.Result.LanguageOption, out string locale))
                 {
-                    case LanguageOptions.English:
-                        culture = new System.Globalization.CultureInfo("en-US");
-                        break;
-                    case LanguageOptions.German:
-                        culture = new System.Globalization.CultureInfo("de-DE");
-                        break;
-                    case LanguageOptions.Pseudo:
-                        culture = new System.Globalization.CultureInfo("qps-ploc");
-                        break;
+                    culture = new System.Globalization.CultureInfo(locale);
                 }
 
-                System.Threading.Thread.CurrentThread.CurrentCulture = culture;
                 System.Threading.Thread.CurrentThread.CurrentUICulture = culture;
             }
             catch { }
@@ -61,6 +69,7 @@ namespace MixItUp.WPF
 
         public void SwitchTheme(string colorScheme, string backgroundColorName, string fullThemeName)
         {
+            string baseTheme = null;
             colorScheme = colorScheme.Replace(" ", "");
 
             // Change Material Design Color Scheme
@@ -78,6 +87,20 @@ namespace MixItUp.WPF
                 newMDCResourceDictionary.Source = new Uri($"Themes/MixItUpTheme.{fullThemeName}.xaml", UriKind.Relative);
                 SolidColorBrush mainApplicationBackground = (SolidColorBrush)newMDCResourceDictionary["MainApplicationBackground"];
                 backgroundColorName = (mainApplicationBackground.ToString().Equals("#FFFFFFFF")) ? "Light" : "Dark";
+
+                bool containsBaseTheme = false;
+                foreach (string key in newMDCResourceDictionary.Keys)
+                {
+                    if (key.Equals("BaseTheme"))
+                    {
+                        containsBaseTheme = true;
+                    }
+                }
+
+                if (containsBaseTheme)
+                {
+                    baseTheme =(string)newMDCResourceDictionary["BaseTheme"];
+                }
             }
             else
             {
@@ -94,8 +117,12 @@ namespace MixItUp.WPF
             }
             Application.Current.Resources.MergedDictionaries.Remove(existingMDTResourceDictionary);
 
-            var themeSource = $"pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.{backgroundColorName}.xaml";
-            var newMDTResourceDictionary = new ResourceDictionary() { Source = new Uri(themeSource) };
+            var themeSource = new Uri($"pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.{backgroundColorName}.xaml");
+            if (!string.IsNullOrEmpty(baseTheme))
+            {
+                themeSource = new Uri($"Themes/MixItUpBaseTheme.{baseTheme}.xaml", UriKind.Relative);
+            }
+            var newMDTResourceDictionary = new ResourceDictionary() { Source = themeSource };
 
             Application.Current.Resources.MergedDictionaries.Add(newMDTResourceDictionary);
 
@@ -133,7 +160,7 @@ namespace MixItUp.WPF
             ChannelSession.IsElevated = id.Owner != id.User;
 
             Logger.ForceLog(LogLevel.Information, "Application Version: " + ChannelSession.Services.FileService.GetApplicationVersion());
-            if (ChannelSession.IsDebug())
+            if (ChannelSession.IsDebug() || ChannelSession.AppSettings.DiagnosticLogging)
             {
                 Logger.SetLogLevel(LogLevel.Debug);
             }
@@ -175,7 +202,7 @@ namespace MixItUp.WPF
                 }
                 catch (Exception) { }
 
-                ProcessHelper.LaunchProgram("MixItUp.Reporter.exe", string.Format("{0} {1}", (ChannelSession.MixerUser != null) ? ChannelSession.MixerUser.id : 0, FileLoggerHandler.CurrentLogFilePath));
+                ProcessHelper.LaunchProgram("MixItUp.Reporter.exe", string.Format("{0} {1} {2} {3}", FileLoggerHandler.CurrentLogFilePath, (int)StreamingPlatformTypeEnum.Twitch, ChannelSession.TwitchUserNewAPI?.id, ChannelSession.TwitchUserNewAPI?.login));
 
                 Task.Delay(3000).Wait();
             }

@@ -1,13 +1,11 @@
-﻿using Mixer.Base.Clients;
-using Mixer.Base.Model.Channel;
-using MixItUp.Base.Actions;
-using MixItUp.Base.Commands;
-using MixItUp.Base.Model.MixPlay;
+﻿using MixItUp.Base.Commands;
+using MixItUp.Base.Model;
+using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Model.Commands.Games;
 using MixItUp.Base.Model.Overlay;
+using MixItUp.Base.Model.Requirements;
 using MixItUp.Base.Model.Settings;
 using MixItUp.Base.Model.User;
-using MixItUp.Base.Remote.Models;
-using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json.Linq;
@@ -34,75 +32,78 @@ namespace MixItUp.Base.Services
     {
         void Initialize();
 
-        Task<IEnumerable<SettingsV2Model>> GetAllSettings();
+        Task<IEnumerable<SettingsV3Model>> GetAllSettings();
 
-        Task<SettingsV2Model> Create(ExpandedChannelModel channel, bool isStreamer);
+        Task<SettingsV3Model> Create(string name, bool isStreamer);
 
-        Task Initialize(SettingsV2Model settings);
+        Task Initialize(SettingsV3Model settings);
 
+#pragma warning disable CS0612 // Type or member is obsolete
         Task Save(SettingsV2Model settings);
+#pragma warning restore CS0612 // Type or member is obsolete
 
-        Task SaveLocalBackup(SettingsV2Model settings);
+        Task Save(SettingsV3Model settings);
 
-        Task SavePackagedBackup(SettingsV2Model settings, string filePath);
+        Task SaveLocalBackup(SettingsV3Model settings);
 
-        Task<Result<SettingsV2Model>> RestorePackagedBackup(string filePath);
+        Task SavePackagedBackup(SettingsV3Model settings, string filePath);
 
-        Task PerformAutomaticBackupIfApplicable(SettingsV2Model settings);
+        Task<Result<SettingsV3Model>> RestorePackagedBackup(string filePath);
+
+        Task PerformAutomaticBackupIfApplicable(SettingsV3Model settings);
     }
 
     public class SettingsService : ISettingsService
     {
         private static SemaphoreSlim semaphore = new SemaphoreSlim(1);
 
-        public void Initialize() { Directory.CreateDirectory(SettingsV2Model.SettingsDirectoryName); }
+        public void Initialize() { Directory.CreateDirectory(SettingsV3Model.SettingsDirectoryName); }
 
-        public async Task<IEnumerable<SettingsV2Model>> GetAllSettings()
+        public async Task<IEnumerable<SettingsV3Model>> GetAllSettings()
         {
-            // Check for old V1 settings
+            bool v2SettingsUpgradeNeeded = false;
+            bool backupSettingsLoaded = false;
+            bool settingsLoadFailure = false;
+
 #pragma warning disable CS0612 // Type or member is obsolete
-            List<SettingsV1Model> oldSettings = new List<SettingsV1Model>();
-
-            string[] filePaths = Directory.GetFiles(SettingsV2Model.SettingsDirectoryName);
-            if (filePaths.Any(filePath => filePath.EndsWith(SettingsV1Model.SettingsFileExtension)))
+            foreach (string filePath in Directory.GetFiles(SettingsV2Model.SettingsDirectoryName))
             {
-                await DialogHelper.ShowMessage("We've detected version 1 settings in your installation and will now upgrade them to version 2. This will take some time depending on how large your settings data is, particularly the number of individual users we have data for from your stream."
-                    + Environment.NewLine + Environment.NewLine + "If you have a large amount of user data, we suggest going to grab a cup of coffee and come back in a few minutes after dismissing this message. :)");
-
-                foreach (string filePath in filePaths)
+                if (filePath.EndsWith(SettingsV2Model.SettingsFileExtension))
                 {
-                    if (filePath.EndsWith(SettingsV1Model.SettingsFileExtension))
+                    if (!v2SettingsUpgradeNeeded)
                     {
-                        try
+                        if (!await DialogHelper.ShowConfirmation("We've detected an older version of your settings that needs to be upgraded to a newer format. Depending on the size, this could take some time to perform & is required to use Mix It Up." +
+                            Environment.NewLine + Environment.NewLine +
+                            "If you are ready to do this, please press Yes. Otherwise press No and close to the application to perform later"))
                         {
-                            SettingsV1Model setting = await SettingsV1Upgrader.UpgradeSettingsToLatest(filePath);
-
-                            string oldSettingsPath = Path.Combine(SettingsV2Model.SettingsDirectoryName, "Old");
-                            Directory.CreateDirectory(oldSettingsPath);
-
-                            await ChannelSession.Services.FileService.CopyFile(filePath, Path.Combine(oldSettingsPath, Path.GetFileName(filePath)));
-                            await ChannelSession.Services.FileService.CopyFile(setting.DatabaseFilePath, Path.Combine(oldSettingsPath, setting.DatabaseFileName));
-
-                            await ChannelSession.Services.FileService.DeleteFile(filePath);
-                            await ChannelSession.Services.FileService.DeleteFile(setting.DatabaseFilePath);
-                            await ChannelSession.Services.FileService.DeleteFile(filePath + ".backup");
-                            await ChannelSession.Services.FileService.DeleteFile(setting.DatabaseFilePath + ".backup");
+                            return new List<SettingsV3Model>();
                         }
-                        catch (Exception ex) { Logger.Log(ex); }
+                    }
+                    v2SettingsUpgradeNeeded = true;
+
+                    SettingsV2Model setting = null;
+                    try
+                    {
+                        setting = await SettingsV2Upgrader.UpgradeSettingsToLatest(filePath);
+                        if (setting != null)
+                        {
+                            await SettingsV3Upgrader.UpgradeV2ToV3(filePath);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log(ex);
                     }
                 }
             }
 #pragma warning restore CS0612 // Type or member is obsolete
 
-            bool backupSettingsLoaded = false;
-            bool settingsLoadFailure = false;
-
-            List<SettingsV2Model> allSettings = new List<SettingsV2Model>();
-            foreach (string filePath in Directory.GetFiles(SettingsV2Model.SettingsDirectoryName))
+            List<SettingsV3Model> allSettings = new List<SettingsV3Model>();
+            foreach (string filePath in Directory.GetFiles(SettingsV3Model.SettingsDirectoryName))
             {
-                if (filePath.EndsWith(SettingsV2Model.SettingsFileExtension))
+                if (filePath.EndsWith(SettingsV3Model.SettingsFileExtension))
                 {
-                    SettingsV2Model setting = null;
+                    SettingsV3Model setting = null;
                     try
                     {
                         setting = await this.LoadSettings(filePath);
@@ -118,7 +119,7 @@ namespace MixItUp.Base.Services
 
                     if (setting == null)
                     {
-                        string localBackupFilePath = string.Format($"{filePath}.{SettingsV2Model.SettingsLocalBackupFileExtension}");
+                        string localBackupFilePath = string.Format($"{filePath}.{SettingsV3Model.SettingsLocalBackupFileExtension}");
                         if (File.Exists(localBackupFilePath))
                         {
                             try
@@ -144,6 +145,43 @@ namespace MixItUp.Base.Services
                 }
             }
 
+            if (!string.IsNullOrEmpty(ChannelSession.AppSettings.BackupSettingsFilePath) && ChannelSession.AppSettings.BackupSettingsToReplace != Guid.Empty)
+            {
+                Logger.Log(LogLevel.Debug, "Restored settings file detected, starting restore process");
+
+                SettingsV3Model settings = allSettings.FirstOrDefault(s => s.ID.Equals(ChannelSession.AppSettings.BackupSettingsToReplace));
+                if (settings != null)
+                {
+                    File.Delete(settings.SettingsFilePath);
+                    File.Delete(settings.DatabaseFilePath);
+
+                    using (ZipArchive zipFile = ZipFile.Open(ChannelSession.AppSettings.BackupSettingsFilePath, ZipArchiveMode.Read))
+                    {
+                        zipFile.ExtractToDirectory(SettingsV3Model.SettingsDirectoryName);
+                    }
+
+                    ChannelSession.AppSettings.BackupSettingsFilePath = null;
+                    ChannelSession.AppSettings.BackupSettingsToReplace = Guid.Empty;
+
+                    return await this.GetAllSettings();
+                }
+            }
+            else if (ChannelSession.AppSettings.SettingsToDelete != Guid.Empty)
+            {
+                Logger.Log(LogLevel.Debug, "Settings deletion detected, starting deletion process");
+
+                SettingsV3Model settings = allSettings.FirstOrDefault(s => s.ID.Equals(ChannelSession.AppSettings.SettingsToDelete));
+                if (settings != null)
+                {
+                    File.Delete(settings.SettingsFilePath);
+                    File.Delete(settings.DatabaseFilePath);
+
+                    ChannelSession.AppSettings.SettingsToDelete = Guid.Empty;
+
+                    return await this.GetAllSettings();
+                }
+            }
+
             if (backupSettingsLoaded)
             {
                 await DialogHelper.ShowMessage("One or more of the settings file could not be loaded due to file corruption and the most recent local backup was loaded instead.");
@@ -156,20 +194,35 @@ namespace MixItUp.Base.Services
             return allSettings;
         }
 
-        public Task<SettingsV2Model> Create(ExpandedChannelModel channel, bool isStreamer)
+        public Task<SettingsV3Model> Create(string name, bool isStreamer)
         {
-            SettingsV2Model settings = new SettingsV2Model(channel, isStreamer);
-            return Task.FromResult(settings);
+            return Task.FromResult(new SettingsV3Model(name, isStreamer));
         }
 
-        public async Task Initialize(SettingsV2Model settings)
+        public async Task Initialize(SettingsV3Model settings)
         {
             await settings.Initialize();
         }
 
+#pragma warning disable CS0612 // Type or member is obsolete
         public async Task Save(SettingsV2Model settings)
         {
-            Logger.Log(LogLevel.Debug, "Starting settings save operation");
+            Logger.Log(LogLevel.Debug, "Settings save operation started");
+
+            await semaphore.WaitAndRelease(async () =>
+            {
+                settings.CopyLatestValues();
+                await FileSerializerHelper.SerializeToFile(settings.SettingsFilePath, settings);
+                await settings.SaveDatabaseData();
+            });
+
+            Logger.Log(LogLevel.Debug, "Settings save operation finished");
+        }
+#pragma warning restore CS0612 // Type or member is obsolete
+
+        public async Task Save(SettingsV3Model settings)
+        {
+            Logger.Log(LogLevel.Debug, "Settings save operation started");
 
             await semaphore.WaitAndRelease(async () =>
             {
@@ -181,9 +234,9 @@ namespace MixItUp.Base.Services
             Logger.Log(LogLevel.Debug, "Settings save operation finished");
         }
 
-        public async Task SaveLocalBackup(SettingsV2Model settings)
+        public async Task SaveLocalBackup(SettingsV3Model settings)
         {
-            Logger.Log(LogLevel.Debug, "Starting settings local backup save operation");
+            Logger.Log(LogLevel.Debug, "Settings local backup save operation started");
 
             await semaphore.WaitAndRelease(async () =>
             {
@@ -193,7 +246,7 @@ namespace MixItUp.Base.Services
             Logger.Log(LogLevel.Debug, "Settings local backup save operation finished");
         }
 
-        public async Task SavePackagedBackup(SettingsV2Model settings, string filePath)
+        public async Task SavePackagedBackup(SettingsV3Model settings, string filePath)
         {
             await this.Save(ChannelSession.Settings);
 
@@ -226,7 +279,7 @@ namespace MixItUp.Base.Services
             }
         }
 
-        public async Task<Result<SettingsV2Model>> RestorePackagedBackup(string filePath)
+        public async Task<Result<SettingsV3Model>> RestorePackagedBackup(string filePath)
         {
             try
             {
@@ -236,7 +289,6 @@ namespace MixItUp.Base.Services
                 string settingsFile = null;
                 string databaseFile = null;
 
-                bool oldBackup = false;
                 try
                 {
                     using (ZipArchive zipFile = ZipFile.Open(filePath, ZipArchiveMode.Read))
@@ -249,19 +301,13 @@ namespace MixItUp.Base.Services
                                 File.Delete(extractedFilePath);
                             }
 
-                            if (extractedFilePath.EndsWith(SettingsV2Model.SettingsFileExtension, StringComparison.InvariantCultureIgnoreCase))
+                            if (extractedFilePath.EndsWith(SettingsV3Model.SettingsFileExtension, StringComparison.InvariantCultureIgnoreCase))
                             {
                                 settingsFile = extractedFilePath;
                             }
-                            else if (extractedFilePath.EndsWith(SettingsV2Model.DatabaseFileExtension, StringComparison.InvariantCultureIgnoreCase))
+                            else if (extractedFilePath.EndsWith(SettingsV3Model.DatabaseFileExtension, StringComparison.InvariantCultureIgnoreCase))
                             {
                                 databaseFile = extractedFilePath;
-                            }
-#pragma warning disable CS0612 // Type or member is obsolete
-                            else if (extractedFilePath.EndsWith(SettingsV1Model.SettingsFileExtension, StringComparison.InvariantCultureIgnoreCase))
-#pragma warning restore CS0612 // Type or member is obsolete
-                            {
-                                oldBackup = true;
                             }
                         }
                         zipFile.ExtractToDirectory(tempFolder);
@@ -269,42 +315,35 @@ namespace MixItUp.Base.Services
                 }
                 catch (Exception ex) { Logger.Log(ex); }
 
-                if (oldBackup)
+                int currentVersion = -1;
+                if (!string.IsNullOrEmpty(settingsFile))
                 {
-                    return new Result<SettingsV2Model>("This backup is from an older version of Mix It Up and can not be imported directly. Please head to the Mix It Up Discord for assistance on how to import this backup.");
+                    currentVersion = await SettingsV2Upgrader.GetSettingsVersion(settingsFile);
                 }
-                else
+
+                if (currentVersion == -1)
                 {
-                    int currentVersion = -1;
-                    if (!string.IsNullOrEmpty(settingsFile))
-                    {
-                        currentVersion = await SettingsV2Upgrader.GetSettingsVersion(settingsFile);
-                    }
-
-                    if (currentVersion == -1)
-                    {
-                        return new Result<SettingsV2Model>("The backup file selected does not appear to contain Mix It Up settings.");
-                    }
-
-                    if (currentVersion > SettingsV2Model.LatestVersion)
-                    {
-                        return new Result<SettingsV2Model>("The backup file is valid, but is from a newer version of Mix It Up.  Be sure to upgrade to the latest version." +
-                            Environment.NewLine + Environment.NewLine + "NOTE: This may require you to opt-in to the Preview build from the General tab in Settings if this was made in a Preview build.");
-                    }
-
-                    return new Result<SettingsV2Model>(await FileSerializerHelper.DeserializeFromFile<SettingsV2Model>(settingsFile));
+                    return new Result<SettingsV3Model>("The backup file selected does not appear to contain Mix It Up settings.");
                 }
+
+                if (currentVersion > SettingsV3Model.LatestVersion)
+                {
+                    return new Result<SettingsV3Model>("The backup file is valid, but is from a newer version of Mix It Up.  Be sure to upgrade to the latest version." +
+                        Environment.NewLine + Environment.NewLine + "NOTE: This may require you to opt-in to the Preview build from the General tab in Settings if this was made in a Preview build.");
+                }
+
+                return new Result<SettingsV3Model>(await FileSerializerHelper.DeserializeFromFile<SettingsV3Model>(settingsFile));
             }
             catch (Exception ex)
             {
                 Logger.Log(ex);
-                return new Result<SettingsV2Model>(ex);
+                return new Result<SettingsV3Model>(ex);
             }
         }
 
-        public async Task PerformAutomaticBackupIfApplicable(SettingsV2Model settings)
+        public async Task PerformAutomaticBackupIfApplicable(SettingsV3Model settings)
         {
-            if (settings.SettingsBackupRate != SettingsBackupRateEnum.None && !string.IsNullOrEmpty(settings.SettingsBackupLocation))
+            if (settings.SettingsBackupRate != SettingsBackupRateEnum.None)
             {
                 Logger.Log(LogLevel.Debug, "Checking whether to perform automatic backup");
 
@@ -316,7 +355,27 @@ namespace MixItUp.Base.Services
 
                 if (newResetDate < DateTimeOffset.Now)
                 {
-                    string filePath = Path.Combine(settings.SettingsBackupLocation, settings.MixerChannelID + "-Backup-" + DateTimeOffset.Now.ToString("MM-dd-yyyy") + "." + SettingsV2Model.SettingsBackupFileExtension);
+                    string backupPath = Path.Combine(SettingsV3Model.SettingsDirectoryName, SettingsV3Model.DefaultAutomaticBackupSettingsDirectoryName);
+                    if (!string.IsNullOrEmpty(settings.SettingsBackupLocation))
+                    {
+                        backupPath = settings.SettingsBackupLocation;
+                    }
+
+                    if (!Directory.Exists(backupPath))
+                    {
+                        try
+                        {
+                            Directory.CreateDirectory(backupPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log(LogLevel.Error, "Failed to create automatic backup directory");
+                            Logger.Log(ex);
+                            return;
+                        }
+                    }
+
+                    string filePath = Path.Combine(backupPath, settings.Name + "-Backup-" + DateTimeOffset.Now.ToString("MM-dd-yyyy") + "." + SettingsV3Model.SettingsBackupFileExtension);
 
                     await this.SavePackagedBackup(settings, filePath);
 
@@ -325,12 +384,212 @@ namespace MixItUp.Base.Services
             }
         }
 
-        private async Task<SettingsV2Model> LoadSettings(string filePath)
+        private async Task<SettingsV3Model> LoadSettings(string filePath)
         {
-            return await SettingsV2Upgrader.UpgradeSettingsToLatest(filePath);
+            return await SettingsV3Upgrader.UpgradeSettingsToLatest(filePath);
         }
     }
 
+    public static class SettingsV3Upgrader
+    {
+#pragma warning disable CS0612 // Type or member is obsolete
+        public static async Task UpgradeV2ToV3(string filePath)
+        {
+            SettingsV2Model oldSettings = await FileSerializerHelper.DeserializeFromFile<SettingsV2Model>(filePath, ignoreErrors: true);
+            await oldSettings.Initialize();
+
+            if (oldSettings.IsStreamer)
+            {
+                string settingsText = await ChannelSession.Services.FileService.ReadFile(filePath);
+                settingsText = settingsText.Replace("MixItUp.Base.Model.Settings.SettingsV2Model, MixItUp.Base", "MixItUp.Base.Model.Settings.SettingsV3Model, MixItUp.Base");
+                settingsText = settingsText.Replace("MixItUp.Base.ViewModel.User.UserRoleEnum", "MixItUp.Base.Model.User.UserRoleEnum");
+                SettingsV3Model newSettings = JSONSerializerHelper.DeserializeFromString<SettingsV3Model>(settingsText, ignoreErrors: true);
+                await newSettings.Initialize();
+
+                newSettings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].UserOAuthToken = oldSettings.TwitchUserOAuthToken;
+                newSettings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].UserID = oldSettings.TwitchUserID;
+                newSettings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].ChannelID = oldSettings.TwitchChannelID;
+                newSettings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].BotID = (oldSettings.TwitchBotOAuthToken != null) ? string.Empty : null;
+                newSettings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].BotOAuthToken = oldSettings.TwitchBotOAuthToken;
+
+                foreach (var kvp in oldSettings.CooldownGroups)
+                {
+                    newSettings.CooldownGroupAmounts[kvp.Key] = kvp.Value;
+                }
+
+                foreach (var kvp in oldSettings.CommandGroups)
+                {
+                    newSettings.CommandGroups[kvp.Key] = new CommandGroupSettingsModel(kvp.Value);
+                }
+
+                foreach (ChatCommand command in oldSettings.ChatCommands)
+                {
+                    newSettings.SetCommand(new ChatCommandModel(command));
+                }
+
+                foreach (EventCommand command in oldSettings.EventCommands)
+                {
+                    newSettings.SetCommand(new EventCommandModel(command));
+                }
+
+                foreach (TimerCommand command in oldSettings.TimerCommands)
+                {
+                    newSettings.SetCommand(new TimerCommandModel(command));
+                }
+
+                foreach (ActionGroupCommand command in oldSettings.ActionGroupCommands)
+                {
+                    newSettings.SetCommand(new ActionGroupCommandModel(command));
+                }
+
+                foreach (TwitchChannelPointsCommand command in oldSettings.TwitchChannelPointsCommands)
+                {
+                    newSettings.SetCommand(new TwitchChannelPointsCommandModel(command));
+                }
+
+                foreach (CustomCommand command in oldSettings.CustomCommands.Values)
+                {
+                    newSettings.SetCommand(new CustomCommandModel(command));
+                }
+
+                foreach (GameCommandBase command in oldSettings.GameCommands)
+                {
+                    if (command.GetType() == typeof(BeachBallGameCommand)) { newSettings.SetCommand(new HotPotatoGameCommandModel((BeachBallGameCommand)command)); }
+                    else if (command.GetType() == typeof(BetGameCommand)) { newSettings.SetCommand(new BetGameCommandModel((BetGameCommand)command)); }
+                    else if (command.GetType() == typeof(BidGameCommand)) { newSettings.SetCommand(new BidGameCommandModel((BidGameCommand)command)); }
+                    else if (command.GetType() == typeof(CoinPusherGameCommand)) { newSettings.SetCommand(new CoinPusherGameCommandModel((CoinPusherGameCommand)command)); }
+                    else if (command.GetType() == typeof(DuelGameCommand)) { newSettings.SetCommand(new DuelGameCommandModel((DuelGameCommand)command)); }
+                    else if (command.GetType() == typeof(HangmanGameCommand)) { newSettings.SetCommand(new HangmanGameCommandModel((HangmanGameCommand)command)); }
+                    else if (command.GetType() == typeof(HeistGameCommand)) { newSettings.SetCommand(new HeistGameCommandModel((HeistGameCommand)command)); }
+                    else if (command.GetType() == typeof(HitmanGameCommand)) { newSettings.SetCommand(new HitmanGameCommandModel((HitmanGameCommand)command)); }
+                    else if (command.GetType() == typeof(HotPotatoGameCommand)) { newSettings.SetCommand(new HotPotatoGameCommandModel((HotPotatoGameCommand)command)); }
+                    else if (command.GetType() == typeof(LockBoxGameCommand)) { newSettings.SetCommand(new LockBoxGameCommandModel((LockBoxGameCommand)command)); }
+                    else if (command.GetType() == typeof(PickpocketGameCommand)) { newSettings.SetCommand(new StealGameCommandModel((PickpocketGameCommand)command)); }
+                    else if (command.GetType() == typeof(RouletteGameCommand)) { newSettings.SetCommand(new RouletteGameCommandModel((RouletteGameCommand)command)); }
+                    else if (command.GetType() == typeof(RussianRouletteGameCommand)) { newSettings.SetCommand(new RussianRouletteGameCommandModel((RussianRouletteGameCommand)command)); }
+                    else if (command.GetType() == typeof(SlotMachineGameCommand)) { newSettings.SetCommand(new SlotMachineGameCommandModel((SlotMachineGameCommand)command)); }
+                    else if (command.GetType() == typeof(SpinGameCommand)) { newSettings.SetCommand(new SpinGameCommandModel((SpinGameCommand)command)); }
+                    else if (command.GetType() == typeof(StealGameCommand)) { newSettings.SetCommand(new StealGameCommandModel((StealGameCommand)command)); }
+                    else if (command.GetType() == typeof(TreasureDefenseGameCommand)) { newSettings.SetCommand(new TreasureDefenseGameCommandModel((TreasureDefenseGameCommand)command)); }
+                    else if (command.GetType() == typeof(TriviaGameCommand)) { newSettings.SetCommand(new TriviaGameCommandModel((TriviaGameCommand)command)); }
+                    else if (command.GetType() == typeof(VendingMachineGameCommand)) { newSettings.SetCommand(new SpinGameCommandModel((VendingMachineGameCommand)command)); }
+                    else if (command.GetType() == typeof(VolcanoGameCommand)) { newSettings.SetCommand(new VolcanoGameCommandModel((VolcanoGameCommand)command)); }
+                    else if (command.GetType() == typeof(WordScrambleGameCommand)) { newSettings.SetCommand(new WordScrambleGameCommandModel((WordScrambleGameCommand)command)); }
+                }
+
+                newSettings.RemoveCommand(newSettings.GameQueueUserJoinedCommandID);
+                newSettings.GameQueueUserJoinedCommandID = SettingsV3Upgrader.ImportCustomCommand(newSettings, oldSettings.GameQueueUserJoinedCommand);
+
+                newSettings.RemoveCommand(newSettings.GameQueueUserSelectedCommandID);
+                newSettings.GameQueueUserSelectedCommandID = SettingsV3Upgrader.ImportCustomCommand(newSettings, oldSettings.GameQueueUserSelectedCommand);
+
+                newSettings.RemoveCommand(newSettings.GiveawayStartedReminderCommandID);
+                newSettings.GiveawayStartedReminderCommandID = SettingsV3Upgrader.ImportCustomCommand(newSettings, oldSettings.GiveawayStartedReminderCommand);
+
+                newSettings.RemoveCommand(newSettings.GiveawayUserJoinedCommandID);
+                newSettings.GiveawayUserJoinedCommandID = SettingsV3Upgrader.ImportCustomCommand(newSettings, oldSettings.GiveawayUserJoinedCommand);
+
+                newSettings.RemoveCommand(newSettings.GiveawayWinnerSelectedCommandID);
+                newSettings.GiveawayWinnerSelectedCommandID = SettingsV3Upgrader.ImportCustomCommand(newSettings, oldSettings.GiveawayWinnerSelectedCommand);
+
+                newSettings.RemoveCommand(newSettings.ModerationStrike1CommandID);
+                newSettings.ModerationStrike1CommandID = SettingsV3Upgrader.ImportCustomCommand(newSettings, oldSettings.ModerationStrike1Command);
+
+                newSettings.RemoveCommand(newSettings.ModerationStrike2CommandID);
+                newSettings.ModerationStrike2CommandID = SettingsV3Upgrader.ImportCustomCommand(newSettings, oldSettings.ModerationStrike2Command);
+
+                newSettings.RemoveCommand(newSettings.ModerationStrike3CommandID);
+                newSettings.ModerationStrike3CommandID = SettingsV3Upgrader.ImportCustomCommand(newSettings, oldSettings.ModerationStrike3Command);
+
+                foreach (UserQuoteViewModel quote in oldSettings.Quotes)
+                {
+                    newSettings.Quotes.Add(quote.Model);
+                }
+
+                foreach (var kvp in oldSettings.UserData)
+                {
+                    newSettings.UserData[kvp.Key] = kvp.Value;
+                    if (kvp.Value.EntranceCommand != null)
+                    {
+                        CustomCommandModel entranceCommand = new CustomCommandModel(kvp.Value.EntranceCommand);
+                        newSettings.SetCommand(entranceCommand);
+                        kvp.Value.EntranceCommandID = entranceCommand.ID;
+                        kvp.Value.EntranceCommand = null;
+                    }
+
+                    foreach (ChatCommand command in kvp.Value.CustomCommands)
+                    {
+                        UserOnlyChatCommandModel userCommand = new UserOnlyChatCommandModel(command, kvp.Key);
+                        newSettings.SetCommand(userCommand);
+                        kvp.Value.CustomCommandIDs.Add(userCommand.ID);
+                    }
+                    kvp.Value.CustomCommands.Clear();
+                }
+
+                newSettings.GiveawayRequirementsSet = new RequirementsSetModel(oldSettings.GiveawayRequirements);
+
+                foreach (OverlayWidgetModel widget in newSettings.OverlayWidgets.ToList())
+                {
+                    if (widget.Item is OverlayClipPlaybackItemModel)
+                    {
+                        newSettings.OverlayWidgets.Remove(widget);
+                    }
+                }
+
+                await ChannelSession.Services.Settings.Save(newSettings);
+            }
+            await ChannelSession.Services.FileService.CopyFile(oldSettings.SettingsFilePath, Path.Combine(SettingsV2Model.SettingsDirectoryName, "Old", oldSettings.SettingsFileName));
+            await ChannelSession.Services.FileService.CopyFile(oldSettings.SettingsLocalBackupFilePath, Path.Combine(SettingsV2Model.SettingsDirectoryName, "Old", oldSettings.SettingsLocalBackupFileName));
+            await ChannelSession.Services.FileService.CopyFile(oldSettings.DatabaseFilePath, Path.Combine(SettingsV2Model.SettingsDirectoryName, "Old", oldSettings.DatabaseFileName));
+
+            await ChannelSession.Services.FileService.DeleteFile(oldSettings.SettingsFilePath);
+            await ChannelSession.Services.FileService.DeleteFile(oldSettings.SettingsLocalBackupFilePath);
+            await ChannelSession.Services.FileService.DeleteFile(oldSettings.DatabaseFilePath);
+        }
+#pragma warning restore CS0612 // Type or member is obsolete
+
+        public static async Task<SettingsV3Model> UpgradeSettingsToLatest(string filePath)
+        {
+            int currentVersion = await GetSettingsVersion(filePath);
+            if (currentVersion < 0)
+            {
+                // Settings file is invalid, we can't use this
+                return null;
+            }
+            else if (currentVersion > SettingsV3Model.LatestVersion)
+            {
+                // Future build, like a preview build, we can't load this
+                return null;
+            }
+            else if (currentVersion < SettingsV3Model.LatestVersion)
+            {
+                // Perform upgrade of settings
+            }
+            SettingsV3Model settings = await FileSerializerHelper.DeserializeFromFile<SettingsV3Model>(filePath, ignoreErrors: true);
+            settings.Version = SettingsV3Model.LatestVersion;
+            return settings;
+        }
+
+        public static async Task<int> GetSettingsVersion(string filePath)
+        {
+            string fileData = await ChannelSession.Services.FileService.ReadFile(filePath);
+            if (string.IsNullOrEmpty(fileData))
+            {
+                return -1;
+            }
+            JObject settingsJObj = JObject.Parse(fileData);
+            return (int)settingsJObj["Version"];
+        }
+
+        private static Guid ImportCustomCommand(SettingsV3Model settings, CustomCommand oldCommand)
+        {
+            CustomCommandModel newCommand = new CustomCommandModel(oldCommand);
+            settings.SetCommand(newCommand);
+            return newCommand.ID;
+        }
+    }
+
+#pragma warning disable CS0612 // Type or member is obsolete
     public static class SettingsV2Upgrader
     {
         public static async Task<SettingsV2Model> UpgradeSettingsToLatest(string filePath)
@@ -348,7 +607,14 @@ namespace MixItUp.Base.Services
             }
             else if (currentVersion < SettingsV2Model.LatestVersion)
             {
-                // Perform upgrade of settings
+                if (currentVersion < 43)
+                {
+                    await SettingsV2Upgrader.Version43Upgrade(filePath);
+                }
+                if (currentVersion < 44)
+                {
+                    await SettingsV2Upgrader.Version44Upgrade(filePath);
+                }
             }
             SettingsV2Model settings = await FileSerializerHelper.DeserializeFromFile<SettingsV2Model>(filePath, ignoreErrors: true);
             settings.Version = SettingsV2Model.LatestVersion;
@@ -365,228 +631,104 @@ namespace MixItUp.Base.Services
             JObject settingsJObj = JObject.Parse(fileData);
             return (int)settingsJObj["Version"];
         }
-    }
 
-    #region Settings V1 Upgrader
-
-#pragma warning disable CS0612 // Type or member is obsolete
-    internal static class SettingsV1Upgrader
-    {
-        internal static async Task<SettingsV1Model> UpgradeSettingsToLatest(string filePath)
+        public static async Task Version44Upgrade(string filePath)
         {
-            await SettingsV1Upgrader.Version39Upgrade(filePath);
+            SettingsV2Model settings = await FileSerializerHelper.DeserializeFromFile<SettingsV2Model>(filePath, ignoreErrors: true);
+            await settings.Initialize();
 
-            SettingsV1Model settings = await FileSerializerHelper.DeserializeFromFile<SettingsV1Model>(filePath, ignoreErrors: true);
-            settings.Version = SettingsV1Model.LatestVersion;
-            await FileSerializerHelper.SerializeToFile<SettingsV1Model>(filePath, settings);
+            if (settings.ChatShowUserJoinLeave)
+            {
+                settings.AlertUserJoinLeaveColor = settings.ChatUserJoinLeaveColorScheme;
+            }
 
-            return settings;
+            if (settings.ChatShowEventAlerts)
+            {
+                settings.AlertBitsCheeredColor = settings.ChatEventAlertsColorScheme;
+                settings.AlertChannelPointsColor = settings.ChatEventAlertsColorScheme;
+                settings.AlertFollowColor = settings.ChatEventAlertsColorScheme;
+                settings.AlertGiftedSubColor = settings.ChatEventAlertsColorScheme;
+                settings.AlertHostColor = settings.ChatEventAlertsColorScheme;
+                settings.AlertMassGiftedSubColor = settings.ChatEventAlertsColorScheme;
+                settings.AlertModerationColor = settings.ChatEventAlertsColorScheme;
+                settings.AlertRaidColor = settings.ChatEventAlertsColorScheme;
+                settings.AlertSubColor = settings.ChatEventAlertsColorScheme;
+            }
+
+            await ChannelSession.Services.Settings.Save(settings);
         }
 
-        public static async Task Version39Upgrade(string filePath)
+        public static async Task Version43Upgrade(string filePath)
         {
-            SettingsV1Model oldSettings = await FileSerializerHelper.DeserializeFromFile<SettingsV1Model>(filePath, ignoreErrors: true);
-            await oldSettings.LoadUserData();
+            SettingsV2Model settings = await FileSerializerHelper.DeserializeFromFile<SettingsV2Model>(filePath, ignoreErrors: true);
+            await settings.Initialize();
 
-            SettingsV2Model newSettings = await FileSerializerHelper.DeserializeFromFile<SettingsV2Model>(filePath, ignoreErrors: true);
-            if (newSettings == null)
+            if (settings.IsStreamer)
             {
-                string fileContents = await ChannelSession.Services.FileService.ReadFile(filePath);
-                fileContents = fileContents.Replace("MixItUp.Base.Model.Settings.SettingsV1Model, MixItUp.Base", "MixItUp.Base.Model.Settings.SettingsV2Model, MixItUp.Base");
-                newSettings = JSONSerializerHelper.DeserializeFromString<SettingsV2Model>(fileContents, ignoreErrors: true);
-            }
-            await ChannelSession.Services.Settings.Initialize(newSettings);
-
-            newSettings.MixerUserOAuthToken = oldSettings.OAuthToken;
-            newSettings.MixerBotOAuthToken = oldSettings.BotOAuthToken;
-            if (oldSettings.Channel != null)
-            {
-                newSettings.Name = oldSettings.Channel.token;
-                newSettings.MixerChannelID = oldSettings.Channel.id;
-            }
-            newSettings.TelemetryUserID = oldSettings.TelemetryUserId;
-
-            newSettings.RemoteProfileBoards = new Dictionary<Guid, RemoteProfileBoardsModel>(oldSettings.remoteProfileBoardsInternal);
-            newSettings.FilteredWords = new List<string>(oldSettings.filteredWordsInternal);
-            newSettings.BannedWords = new List<string>(oldSettings.bannedWordsInternal);
-            newSettings.MixPlayUserGroups = new Dictionary<uint, List<MixPlayUserGroupModel>>(oldSettings.mixPlayUserGroupsInternal);
-            newSettings.OverlayWidgets = new List<OverlayWidgetModel>(oldSettings.overlayWidgetModelsInternal);
-            newSettings.Currencies = oldSettings.currenciesInternal;
-            newSettings.Inventories = oldSettings.inventoriesInternal;
-            newSettings.CooldownGroups = new Dictionary<string, int>(oldSettings.cooldownGroupsInternal);
-            newSettings.PreMadeChatCommandSettings = new List<PreMadeChatCommandSettings>(oldSettings.preMadeChatCommandSettingsInternal);
-
-            newSettings.ChatCommands.AddRange(oldSettings.chatCommandsInternal);
-            newSettings.EventCommands.AddRange(oldSettings.eventCommandsInternal);
-            newSettings.MixPlayCommands.AddRange(oldSettings.mixPlayCmmandsInternal);
-            newSettings.TimerCommands.AddRange(oldSettings.timerCommandsInternal);
-            newSettings.ActionGroupCommands.AddRange(oldSettings.actionGroupCommandsInternal);
-            newSettings.GameCommands.AddRange(oldSettings.gameCommandsInternal);
-            newSettings.Quotes.AddRange(oldSettings.userQuotesInternal);
-
-            foreach (UserDataModel data in oldSettings.UserData.Values)
-            {
-                newSettings.UserData[data.ID] = data;
-            }
-
-            int quoteID = 1;
-            foreach (UserQuoteViewModel quote in oldSettings.userQuotesInternal)
-            {
-                newSettings.Quotes.Add(quote);
-                quote.ID = quoteID;
-                quoteID++;
-            }
-
-            foreach (EventCommand command in newSettings.EventCommands)
-            {
-                if (command.OtherEventType != OtherEventTypeEnum.None)
+                List<EventCommand> eventCommandsToAdd = new List<EventCommand>();
+                List<EventCommand> eventCommandsToRemove = new List<EventCommand>();
+                foreach (EventCommand command in settings.EventCommands)
                 {
-                    switch (command.OtherEventType)
+                    EventCommand newCommand = null;
+                    switch (command.EventCommandType)
                     {
-                        case OtherEventTypeEnum.MixerChannelStreamStart:
-                            command.EventCommandType = EventTypeEnum.MixerChannelStreamStart;
+                        case EventTypeEnum.MixerChannelEmbersUsed:
+                            newCommand = new EventCommand(EventTypeEnum.TwitchChannelBitsCheered);
                             break;
-                        case OtherEventTypeEnum.MixerChannelStreamStop:
-                            command.EventCommandType = EventTypeEnum.MixerChannelStreamStop;
+                        case EventTypeEnum.MixerChannelFollowed:
+                            newCommand = new EventCommand(EventTypeEnum.TwitchChannelFollowed);
                             break;
-                        case OtherEventTypeEnum.ChatUserUnfollow:
-                            command.EventCommandType = EventTypeEnum.MixerChannelUnfollowed;
+                        case EventTypeEnum.MixerChannelHosted:
+                            newCommand = new EventCommand(EventTypeEnum.TwitchChannelRaided);
                             break;
-                        case OtherEventTypeEnum.MixerSparksUsed:
-                            command.EventCommandType = EventTypeEnum.MixerChannelSparksUsed;
+                        case EventTypeEnum.MixerChannelResubscribed:
+                            newCommand = new EventCommand(EventTypeEnum.TwitchChannelResubscribed);
                             break;
-                        case OtherEventTypeEnum.MixerEmbersUsed:
-                            command.EventCommandType = EventTypeEnum.MixerChannelEmbersUsed;
+                        case EventTypeEnum.MixerChannelStreamStart:
+                            newCommand = new EventCommand(EventTypeEnum.TwitchChannelStreamStart);
                             break;
-                        case OtherEventTypeEnum.MixerSkillUsed:
-                            command.EventCommandType = EventTypeEnum.MixerChannelSkillUsed;
+                        case EventTypeEnum.MixerChannelStreamStop:
+                            newCommand = new EventCommand(EventTypeEnum.TwitchChannelStreamStop);
                             break;
-                        case OtherEventTypeEnum.ChatUserFirstJoin:
-                            command.EventCommandType = EventTypeEnum.ChatUserFirstJoin;
+                        case EventTypeEnum.MixerChannelSubscribed:
+                            newCommand = new EventCommand(EventTypeEnum.TwitchChannelSubscribed);
                             break;
-                        case OtherEventTypeEnum.ChatUserJoined:
-                            command.EventCommandType = EventTypeEnum.ChatUserJoined;
+                        case EventTypeEnum.MixerChannelSubscriptionGifted:
+                            newCommand = new EventCommand(EventTypeEnum.TwitchChannelSubscriptionGifted);
                             break;
-                        case OtherEventTypeEnum.ChatUserLeft:
-                            command.EventCommandType = EventTypeEnum.ChatUserLeft;
+                        case EventTypeEnum.MixerChannelUnfollowed:
+                            newCommand = new EventCommand(EventTypeEnum.TwitchChannelUnfollowed);
                             break;
-                        case OtherEventTypeEnum.ChatUserPurge:
-                            command.EventCommandType = EventTypeEnum.ChatUserPurge;
-                            break;
-                        case OtherEventTypeEnum.ChatUserBan:
-                            command.EventCommandType = EventTypeEnum.ChatUserBan;
-                            break;
-                        case OtherEventTypeEnum.ChatMessageReceived:
-                            command.EventCommandType = EventTypeEnum.ChatMessageReceived;
-                            break;
-                        case OtherEventTypeEnum.ChatMessageDeleted:
-                            command.EventCommandType = EventTypeEnum.ChatMessageDeleted;
-                            break;
-                        case OtherEventTypeEnum.StreamlabsDonation:
-                            command.EventCommandType = EventTypeEnum.StreamlabsDonation;
-                            break;
-                        case OtherEventTypeEnum.TipeeeStreamDonation:
-                            command.EventCommandType = EventTypeEnum.TipeeeStreamDonation;
-                            break;
-                        case OtherEventTypeEnum.TreatStreamDonation:
-                            command.EventCommandType = EventTypeEnum.TreatStreamDonation;
-                            break;
-                        case OtherEventTypeEnum.StreamJarDonation:
-                            command.EventCommandType = EventTypeEnum.StreamJarDonation;
-                            break;
-                        case OtherEventTypeEnum.TiltifyDonation:
-                            command.EventCommandType = EventTypeEnum.TiltifyDonation;
-                            break;
-                        case OtherEventTypeEnum.ExtraLifeDonation:
-                            command.EventCommandType = EventTypeEnum.ExtraLifeDonation;
-                            break;
-                        case OtherEventTypeEnum.JustGivingDonation:
-                            command.EventCommandType = EventTypeEnum.JustGivingDonation;
-                            break;
-                        case OtherEventTypeEnum.PatreonSubscribed:
-                            command.EventCommandType = EventTypeEnum.PatreonSubscribed;
-                            break;
-                        case OtherEventTypeEnum.StreamlootsCardRedeemed:
-                            command.EventCommandType = EventTypeEnum.StreamlootsCardRedeemed;
-                            break;
-                        case OtherEventTypeEnum.StreamlootsPackPurchased:
-                            command.EventCommandType = EventTypeEnum.StreamlootsPackPurchased;
-                            break;
-                        case OtherEventTypeEnum.StreamlootsPackGifted:
-                            command.EventCommandType = EventTypeEnum.StreamlootsPackGifted;
-                            break;
+                    }
+
+                    if (newCommand != null)
+                    {
+                        eventCommandsToAdd.Add(newCommand);
+                        eventCommandsToRemove.Add(command);
+
+                        newCommand.Actions.AddRange(command.Actions);
+                        newCommand.Unlocked = command.Unlocked;
+                        newCommand.IsEnabled = command.IsEnabled;
                     }
                 }
-                else
+
+                foreach (EventCommand command in eventCommandsToRemove)
                 {
-                    switch (command.EventType)
-                    {
-                        case ConstellationEventTypeEnum.channel__id__followed:
-                            command.EventCommandType = EventTypeEnum.MixerChannelFollowed;
-                            break;
-                        case ConstellationEventTypeEnum.channel__id__hosted:
-                            command.EventCommandType = EventTypeEnum.MixerChannelHosted;
-                            break;
-                        case ConstellationEventTypeEnum.channel__id__subscribed:
-                            command.EventCommandType = EventTypeEnum.MixerChannelSubscribed;
-                            break;
-                        case ConstellationEventTypeEnum.channel__id__resubscribed:
-                            command.EventCommandType = EventTypeEnum.MixerChannelResubscribed;
-                            break;
-                        case ConstellationEventTypeEnum.channel__id__subscriptionGifted:
-                            command.EventCommandType = EventTypeEnum.MixerChannelSubscriptionGifted;
-                            break;
-                        case ConstellationEventTypeEnum.progression__id__levelup:
-                            command.EventCommandType = EventTypeEnum.MixerChannelFanProgressionLevelUp;
-                            break;
-                    }
+                    settings.EventCommands.Remove(command);
                 }
-            }
-
-            await ChannelSession.Services.Settings.Save(newSettings);
-
-            newSettings = await FileSerializerHelper.DeserializeFromFile<SettingsV2Model>(newSettings.SettingsFilePath, ignoreErrors: true);
-            await ChannelSession.Services.Settings.Initialize(newSettings);
-
-            foreach (CommandBase command in GetAllCommands(newSettings))
-            {
-                foreach (ActionBase action in command.Actions)
+                foreach (EventCommand command in eventCommandsToAdd)
                 {
-                    if (action is InteractiveAction)
-                    {
-                        InteractiveAction iaction = (InteractiveAction)action;
-                        iaction.CooldownAmountString = iaction.CooldownAmount.ToString();
-                    }
-                    else if (action is CounterAction)
-                    {
-                        CounterAction cAction = (CounterAction)action;
-                        newSettings.Counters[cAction.CounterName] = new CounterModel(cAction.CounterName);
-                        newSettings.Counters[cAction.CounterName].SaveToFile = cAction.SaveToFile;
-                        newSettings.Counters[cAction.CounterName].ResetOnLoad = cAction.ResetOnLoad;
-                        if (File.Exists(newSettings.Counters[cAction.CounterName].GetCounterFilePath()))
-                        {
-                            string data = await ChannelSession.Services.FileService.ReadFile(newSettings.Counters[cAction.CounterName].GetCounterFilePath());
-                            if (double.TryParse(data, out double amount))
-                            {
-                                newSettings.Counters[cAction.CounterName].Amount = amount;
-                            }
-                        }
-                    }
+                    settings.EventCommands.Add(command);
                 }
-            }
-        }
 
-        private static UserRoleEnum ConvertLegacyRoles(UserRoleEnum legacyRole)
-        {
-            int legacyRoleID = (int)legacyRole;
-            if ((int)UserRoleEnum.Custom == legacyRoleID)
-            {
-                return UserRoleEnum.Custom;
+                settings.StreamElementsOAuthToken = null;
+                settings.StreamJarOAuthToken = null;
+                settings.StreamlabsOAuthToken = null;
+                settings.TipeeeStreamOAuthToken = null;
+                settings.TreatStreamOAuthToken = null;
             }
-            else
-            {
-                return (UserRoleEnum)(legacyRoleID * 10);
-            }
+
+            await ChannelSession.Services.Settings.Save(settings);
         }
 
         private static IEnumerable<CommandBase> GetAllCommands(SettingsV2Model settings)
@@ -595,10 +737,11 @@ namespace MixItUp.Base.Services
 
             commands.AddRange(settings.ChatCommands);
             commands.AddRange(settings.EventCommands);
-            commands.AddRange(settings.MixPlayCommands);
             commands.AddRange(settings.TimerCommands);
             commands.AddRange(settings.ActionGroupCommands);
             commands.AddRange(settings.GameCommands);
+            commands.AddRange(settings.TwitchChannelPointsCommands);
+            commands.AddRange(settings.CustomCommands.Values);
 
             foreach (UserDataModel userData in settings.UserData.Values)
             {
@@ -612,20 +755,6 @@ namespace MixItUp.Base.Services
             foreach (GameCommandBase gameCommand in settings.GameCommands)
             {
                 commands.AddRange(gameCommand.GetAllInnerCommands());
-            }
-
-            foreach (UserCurrencyModel currency in settings.Currencies.Values)
-            {
-                if (currency.RankChangedCommand != null)
-                {
-                    commands.Add(currency.RankChangedCommand);
-                }
-            }
-
-            foreach (UserInventoryModel inventory in settings.Inventories.Values)
-            {
-                commands.Add(inventory.ItemsBoughtCommand);
-                commands.Add(inventory.ItemsSoldCommand);
             }
 
             foreach (OverlayWidgetModel widget in settings.OverlayWidgets)
@@ -667,17 +796,6 @@ namespace MixItUp.Base.Services
 
             return commands.Where(c => c != null);
         }
-
-        private static T GetOptionValue<T>(JObject jobj, string key)
-        {
-            if (jobj[key] != null)
-            {
-                return jobj[key].ToObject<T>();
-            }
-            return default(T);
-        }
     }
 #pragma warning restore CS0612 // Type or member is obsolete
-
-    #endregion Settings V1 Upgrader
 }

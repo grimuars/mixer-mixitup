@@ -1,6 +1,4 @@
-﻿using Mixer.Base;
-using MixItUp.Base.Commands;
-using MixItUp.Base.Model.User;
+﻿using MixItUp.Base.Model.User;
 using MixItUp.Base.Util;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -121,14 +119,14 @@ namespace MixItUp.Base.Services.External
         {
             try
             { 
-                string authorizationCode = await this.ConnectViaOAuthRedirect(string.Format(StreamJarService.AuthorizationUrl, StreamJarService.ClientID, MixerConnection.DEFAULT_OAUTH_LOCALHOST_URL));
+                string authorizationCode = await this.ConnectViaOAuthRedirect(string.Format(StreamJarService.AuthorizationUrl, StreamJarService.ClientID, OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL));
                 if (!string.IsNullOrEmpty(authorizationCode))
                 {
                     JObject payload = new JObject();
                     payload["grant_type"] = "authorization_code";
                     payload["client_id"] = StreamJarService.ClientID;
                     payload["code"] = authorizationCode;
-                    payload["redirect_uri"] = MixerConnection.DEFAULT_OAUTH_LOCALHOST_URL;
+                    payload["redirect_uri"] = OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL;
 
                     this.token = await this.PostAsync<OAuthTokenModel>(StreamJarService.TokenUrl, AdvancedHttpClient.CreateContentFromObject(payload), autoRefreshToken: false);
                     if (this.token != null)
@@ -185,7 +183,7 @@ namespace MixItUp.Base.Services.External
                 payload["grant_type"] = "refresh_token";
                 payload["client_id"] = StreamJarService.ClientID;
                 payload["refresh_token"] = this.token.refreshToken;
-                payload["redirect_uri"] = MixerConnection.DEFAULT_OAUTH_LOCALHOST_URL;
+                payload["redirect_uri"] = OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL;
 
                 this.token = await this.PostAsync<OAuthTokenModel>(StreamJarService.TokenUrl, AdvancedHttpClient.CreateContentFromObject(payload), autoRefreshToken: false);
             }
@@ -203,8 +201,11 @@ namespace MixItUp.Base.Services.External
                     donationsReceived[donation.ID] = donation;
                 }
 
-                AsyncRunner.RunBackgroundTask(this.cancellationTokenSource.Token, 30000, this.BackgroundDonationCheck);
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                AsyncRunner.RunAsyncBackground(this.BackgroundDonationCheck, this.cancellationTokenSource.Token, 60000);
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
+                this.TrackServiceTelemetry("StreamJar");
                 return new Result();
             }
             return new Result("Failed to get channel data");

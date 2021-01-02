@@ -1,5 +1,5 @@
 ﻿using MixItUp.Base.Model.Overlay;
-using MixItUp.Base.ViewModel.Controls.Overlay;
+using MixItUp.Base.ViewModel.Overlay;
 using System.Threading.Tasks;
 
 namespace MixItUp.WPF.Controls.Overlay
@@ -42,7 +42,14 @@ namespace MixItUp.WPF.Controls.Overlay
 
         protected override async Task OnLoaded()
         {
-            this.DataContext = this.viewModel;
+            if (this.DataContext is OverlayWebPageItemViewModel)
+            {
+                this.viewModel = (OverlayWebPageItemViewModel)this.DataContext;
+            }
+            else
+            {
+                this.DataContext = this.viewModel;
+            }
             await this.viewModel.OnLoaded();
         }
     }

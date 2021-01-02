@@ -12,28 +12,9 @@ namespace MixItUp.Base.Model.Settings
     {
         private const string ApplicationSettingsFileName = "ApplicationSettings.json";
 
-        private const string OldApplicationSettingsFileName = "ApplicationSettings.xml";
-
         public static async Task<ApplicationSettingsV2Model> Load()
         {
             ApplicationSettingsV2Model settings = new ApplicationSettingsV2Model();
-            if (ChannelSession.Services.FileService.FileExists(OldApplicationSettingsFileName))
-            {
-                try
-                {
-                    ApplicationSettingsV2Model oldSettings = await FileSerializerHelper.DeserializeFromFile<ApplicationSettingsV2Model>(OldApplicationSettingsFileName);
-                    if (oldSettings != null)
-                    {
-                        await oldSettings.Save();
-                    }
-                    await ChannelSession.Services.FileService.DeleteFile(OldApplicationSettingsFileName);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log(ex);
-                }
-            }
-
             if (ChannelSession.Services.FileService.FileExists(ApplicationSettingsFileName))
             {
                 try
@@ -45,6 +26,13 @@ namespace MixItUp.Base.Model.Settings
                     Logger.Log(ex);
                 }
             }
+
+            //if (settings.ForceResetPreviewProgram)
+            //{
+            //    settings.ForceResetPreviewProgram = false;
+            //    settings.PreviewProgram = false;
+            //}
+
             return settings;
         }
 
@@ -52,7 +40,12 @@ namespace MixItUp.Base.Model.Settings
         public bool SettingsChangeRestartRequired { get; set; }
 
         [DataMember]
+        public bool DiagnosticLogging { get; set; } = false;
+
+        [DataMember]
         public bool PreviewProgram { get; set; } = false;
+        //[DataMember]
+        //public bool ForceResetPreviewProgram { get; set; } = true;
 
         [DataMember]
         public bool TestBuild { get; set; } = false;
@@ -86,6 +79,14 @@ namespace MixItUp.Base.Model.Settings
 
         [DataMember]
         public LanguageOptions LanguageOption { get; set; }
+
+        [DataMember]
+        public string BackupSettingsFilePath { get; set; }
+        [DataMember]
+        public Guid BackupSettingsToReplace { get; set; }
+
+        [DataMember]
+        public Guid SettingsToDelete { get; set; }
 
         [JsonIgnore]
         public bool IsDarkBackground { get { return this.BackgroundColor.Equals("Dark"); } }

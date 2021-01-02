@@ -1,7 +1,8 @@
-﻿using MixItUp.Base.Commands;
-using MixItUp.Base.Model;
+﻿using MixItUp.Base.Model;
+using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Model.Currency;
 using MixItUp.Base.Model.User;
-using MixItUp.Base.Services.Mixer;
+using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using StreamingClient.Base.Util;
@@ -50,25 +51,37 @@ namespace MixItUp.Base.Services
         ChatUserLeft = 55,
         [Name("Chat Message Deleted")]
         ChatMessageDeleted = 56,
+        [Name("Chat User Timeout")]
+        ChatUserTimeout = 57,
+        [Name("Chat Whisper Received")]
+        ChatWhisperReceived = 58,
 
         // Mixer = 100
 
+        [Obsolete]
         [Name("Mixer Channel Stream Start")]
         MixerChannelStreamStart = 100,
+        [Obsolete]
         [Name("Mixer Channel Stream Stop")]
         MixerChannelStreamStop = 101,
+        [Obsolete]
         [Name("Mixer Channel Hosted")]
         MixerChannelHosted = 102,
 
+        [Obsolete]
         [Name("Mixer Channel Followed")]
         MixerChannelFollowed = 110,
+        [Obsolete]
         [Name("Mixer Channel Unfollowed")]
         MixerChannelUnfollowed = 111,
 
+        [Obsolete]
         [Name("Mixer Channel Subscribed")]
         MixerChannelSubscribed = 120,
+        [Obsolete]
         [Name("Mixer Channel Resubscribed")]
         MixerChannelResubscribed = 121,
+        [Obsolete]
         [Name("Mixer Channel Subscription Gifted")]
         MixerChannelSubscriptionGifted = 122,
 
@@ -86,19 +99,69 @@ namespace MixItUp.Base.Services
         //MixerChatUserLeft = 155,
         //[Name("Mixer Chat Message Deleted")]
         //MixerChatMessageDeleted = 156,
+        //[Name("Mixer Chat User Timeout")]
+        //MixerChatUserTimeout = 156,
 
+        [Obsolete]
         [Name("Mixer Channel Sparks Spent")]
         MixerChannelSparksUsed = 170,
+        [Obsolete]
         [Name("Mixer Channel Embers Spent")]
         MixerChannelEmbersUsed = 171,
+        [Obsolete]
         [Name("Mixer Channel Skill Used")]
         MixerChannelSkillUsed = 172,
+        [Obsolete]
         [Name("Mixer Channel Milestone Reached")]
         MixerChannelMilestoneReached = 173,
+        [Obsolete]
         [Name("Mixer Channel Fan Progression Level-Up")]
         MixerChannelFanProgressionLevelUp = 174,
 
-        // 200
+        // Twitch = 200
+
+        [Name("Twitch Channel Stream Start (1 Minute Delay)")]
+        TwitchChannelStreamStart = 200,
+        [Name("Twitch Channel Stream Stop")]
+        TwitchChannelStreamStop = 201,
+        [Name("Twitch Channel Hosted")]
+        TwitchChannelHosted = 202,
+        [Name("Twitch Channel Raided")]
+        TwitchChannelRaided = 203,
+
+        [Name("Twitch Channel Followed (1 Minute Delay)")]
+        TwitchChannelFollowed = 210,
+        [Name("Twitch Channel Unfollowed")]
+        TwitchChannelUnfollowed = 211,
+
+        [Name("Twitch Channel Subscribed")]
+        TwitchChannelSubscribed = 220,
+        [Name("Twitch Channel Resubscribed")]
+        TwitchChannelResubscribed = 221,
+        [Name("Twitch Channel Subscription Gifted")]
+        TwitchChannelSubscriptionGifted = 222,
+        [Name("Twitch Channel Mass Subscriptions Gifted")]
+        TwitchChannelMassSubscriptionsGifted = 223,
+
+        //[Name("Twitch Chat New User Joined")]
+        //TwitchChatUserFirstJoin = 250,
+        //[Name("Twitch Chat User Purged")]
+        //TwitchChatUserPurge = 251,
+        //[Name("Twitch Chat User Banned")]
+        //TwitchChatUserBan = 252,
+        //[Name("Twitch Chat Message Received")]
+        //TwitchChatMessageReceived = 253,
+        //[Name("Twitch Chat User Joined")]
+        //TwitchChatUserJoined = 254,
+        //[Name("Twitch Chat User Left")]
+        //TwitchChatUserLeft = 255,
+        //[Name("Twitch Chat Message Deleted")]
+        //TwitchChatMessageDeleted = 256,
+
+        [Name("Twitch Channel Bits Cheered")]
+        TwitchChannelBitsCheered = 270,
+        [Name("Twitch Channel Points Redeemed")]
+        TwitchChannelPointsRedeemed = 271,
 
         // 300
 
@@ -106,21 +169,19 @@ namespace MixItUp.Base.Services
 
         [Name("Streamlabs Donation")]
         StreamlabsDonation = 1000,
-        [Name("GawkBox Donation")]
-        GawkBoxDonation = 1010,
-        [Name("Tiltify Donation")]
+        [Name("Tiltify Donation (1 Minute Delay)")]
         TiltifyDonation = 1020,
-        [Name("Extra Life Donation")]
+        [Name("Extra Life Donation (1 Minute Delay)")]
         ExtraLifeDonation = 1030,
         [Name("TipeeeStream Donation")]
         TipeeeStreamDonation = 1040,
         [Name("TreatStream Donation")]
         TreatStreamDonation = 1050,
-        [Name("Patreon Subscribed")]
+        [Name("Patreon Subscribed (1 Minute Delay)")]
         PatreonSubscribed = 1060,
-        [Name("StreamJar Donation")]
+        [Name("StreamJar Donation (1 Minute Delay)")]
         StreamJarDonation = 1070,
-        [Name("JustGiving Donation")]
+        [Name("JustGiving Donation (1 Minute Delay)")]
         JustGivingDonation = 1080,
         [Name("Streamloots Card Redeemed")]
         StreamlootsCardRedeemed = 1090,
@@ -128,7 +189,7 @@ namespace MixItUp.Base.Services
         StreamlootsPackPurchased = 1091,
         [Name("Streamloots Pack Gifted")]
         StreamlootsPackGifted = 1092,
-        [Name("StreamElements Donation")]
+        [Name("StreamElements Donation (1 Minute Delay)")]
         StreamElementsDonation = 1100,
     }
 
@@ -168,11 +229,11 @@ namespace MixItUp.Base.Services
 
     public interface IEventService
     {
-        IMixerEventService MixerEventService { get; }
+        ITwitchEventService TwitchEventService { get; }
 
-        Task Initialize(IMixerEventService mixerEventService);
+        Task Initialize(ITwitchEventService twitchEventService);
 
-        EventCommand GetEventCommand(EventTypeEnum type);
+        EventCommandModel GetEventCommand(EventTypeEnum type);
 
         bool CanPerformEvent(EventTrigger trigger);
 
@@ -185,7 +246,7 @@ namespace MixItUp.Base.Services
         {
             EventTypeEnum.ChatUserFirstJoin, EventTypeEnum.ChatUserJoined, EventTypeEnum.ChatUserLeft,
 
-            EventTypeEnum.MixerChannelStreamStart, EventTypeEnum.MixerChannelStreamStop, EventTypeEnum.MixerChannelFollowed, EventTypeEnum.MixerChannelUnfollowed, EventTypeEnum.MixerChannelHosted, EventTypeEnum.MixerChannelSubscribed, EventTypeEnum.MixerChannelResubscribed,
+            EventTypeEnum.TwitchChannelStreamStart, EventTypeEnum.TwitchChannelStreamStop, EventTypeEnum.TwitchChannelFollowed, EventTypeEnum.TwitchChannelUnfollowed, EventTypeEnum.TwitchChannelHosted, EventTypeEnum.TwitchChannelRaided, EventTypeEnum.TwitchChannelSubscribed, EventTypeEnum.TwitchChannelResubscribed,
         };
 
         private LockedDictionary<EventTypeEnum, HashSet<Guid>> userEventTracking = new LockedDictionary<EventTypeEnum, HashSet<Guid>>();
@@ -203,7 +264,7 @@ namespace MixItUp.Base.Services
             EventTrigger trigger = new EventTrigger(type, donation.User);
             trigger.User.Data.TotalAmountDonated += donation.Amount;
 
-            ChannelSession.Settings.LatestSpecialIdentifiersData[SpecialIdentifierStringBuilder.LatestDonationUserData] = trigger.User.Data;
+            ChannelSession.Settings.LatestSpecialIdentifiersData[SpecialIdentifierStringBuilder.LatestDonationUserData] = trigger.User.ID;
             ChannelSession.Settings.LatestSpecialIdentifiersData[SpecialIdentifierStringBuilder.LatestDonationAmountData] = donation.AmountText;
 
             trigger.SpecialIdentifiers = donation.GetSpecialIdentifiers();
@@ -217,6 +278,14 @@ namespace MixItUp.Base.Services
 
             await ChannelSession.Services.Events.PerformEvent(trigger);
 
+            foreach (StreamPassModel streamPass in ChannelSession.Settings.StreamPass.Values)
+            {
+                if (trigger.User.HasPermissionsTo(streamPass.Permission))
+                {
+                    streamPass.AddAmount(donation.User.Data, (int)Math.Ceiling(streamPass.DonationBonus * donation.Amount));
+                }
+            }
+
             try
             {
                 GlobalEvents.DonationOccurred(donation);
@@ -227,19 +296,19 @@ namespace MixItUp.Base.Services
             }
         }
 
-        public IMixerEventService MixerEventService { get; private set; }
+        public ITwitchEventService TwitchEventService { get; private set; }
 
-        public Task Initialize(IMixerEventService mixerEventService)
+        public Task Initialize(ITwitchEventService twitchEventService)
         {
-            this.MixerEventService = mixerEventService;
+            this.TwitchEventService = twitchEventService;
             return Task.FromResult(0);
         }
 
-        public EventCommand GetEventCommand(EventTypeEnum type)
+        public EventCommandModel GetEventCommand(EventTypeEnum type)
         {
-            foreach (EventCommand command in ChannelSession.Settings.EventCommands)
+            foreach (EventCommandModel command in ChannelSession.EventCommands)
             {
-                if (command.EventCommandType == type)
+                if (command.EventType == type)
                 {
                     return command;
                 }
@@ -261,23 +330,23 @@ namespace MixItUp.Base.Services
         {
             if (this.CanPerformEvent(trigger))
             {
-                EventCommand command = this.GetEventCommand(trigger.Type);
+                UserViewModel user = trigger.User;
+                if (user == null)
+                {
+                    user = ChannelSession.GetCurrentUser();
+                }
+
+                if (this.userEventTracking.ContainsKey(trigger.Type))
+                {
+                    this.userEventTracking[trigger.Type].Add(user.ID);
+                }
+
+                EventCommandModel command = this.GetEventCommand(trigger.Type);
                 if (command != null)
                 {
                     Logger.Log(LogLevel.Debug, $"Performing event trigger: {trigger.Type}");
 
-                    UserViewModel user = trigger.User;
-                    if (user == null)
-                    {
-                        user = ChannelSession.GetCurrentUser();
-                    }
-
-                    if (this.userEventTracking.ContainsKey(trigger.Type))
-                    {
-                        this.userEventTracking[trigger.Type].Add(user.ID);
-                    }
-
-                    await command.Perform(user, platform: trigger.Platform, arguments: trigger.Arguments, extraSpecialIdentifiers: trigger.SpecialIdentifiers);
+                    await command.Perform(new CommandParametersModel(user, platform: trigger.Platform, arguments: trigger.Arguments, specialIdentifiers: trigger.SpecialIdentifiers));
                 }
             }
         }

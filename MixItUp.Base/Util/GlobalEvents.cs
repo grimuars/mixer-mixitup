@@ -1,10 +1,6 @@
-﻿using Mixer.Base.Model.Clips;
-using Mixer.Base.Model.MixPlay;
-using Mixer.Base.Model.Patronage;
-using MixItUp.Base.Model.MixPlay;
-using MixItUp.Base.Model.User;
+﻿using MixItUp.Base.Model.User;
+using MixItUp.Base.Model.User.Twitch;
 using MixItUp.Base.ViewModel.Chat;
-using MixItUp.Base.ViewModel.Chat.Mixer;
 using MixItUp.Base.ViewModel.User;
 using System;
 
@@ -12,6 +8,24 @@ namespace MixItUp.Base.Util
 {
     public static class GlobalEvents
     {
+        public static event EventHandler OnRestartRequested;
+        public static void RestartRequested()
+        {
+            if (GlobalEvents.OnRestartRequested != null)
+            {
+                GlobalEvents.OnRestartRequested(null, new EventArgs());
+            }
+        }
+
+        public static event EventHandler<bool> OnMainMenuStateChanged;
+        public static void MainMenuStateChained(bool state)
+        {
+            if (GlobalEvents.OnMainMenuStateChanged != null)
+            {
+                GlobalEvents.OnMainMenuStateChanged(null, state);
+            }
+        }
+
         public static event EventHandler<string> OnShowMessageBox;
         public static void ShowMessageBox(string message)
         {
@@ -39,12 +53,12 @@ namespace MixItUp.Base.Util
             }
         }
 
-        public static event EventHandler OnChatFontSizeChanged;
-        public static void ChatFontSizeChanged()
+        public static event EventHandler OnChatVisualSettingsChanged;
+        public static void ChatVisualSettingsChanged()
         {
-            if (GlobalEvents.OnChatFontSizeChanged != null)
+            if (GlobalEvents.OnChatVisualSettingsChanged != null)
             {
-                GlobalEvents.OnChatFontSizeChanged(null, new EventArgs());
+                GlobalEvents.OnChatVisualSettingsChanged(null, new EventArgs());
             }
         }
 
@@ -66,42 +80,6 @@ namespace MixItUp.Base.Util
             }
         }
 
-        public static event EventHandler<AlertChatMessageViewModel> OnAlertMessageReceived;
-        public static void AlertMessageReceived(AlertChatMessageViewModel alertMessage)
-        {
-            if (GlobalEvents.OnAlertMessageReceived != null)
-            {
-                GlobalEvents.OnAlertMessageReceived(null, alertMessage);
-            }
-        }
-
-        public static event EventHandler<MixPlaySharedProjectModel> OnInteractiveSharedProjectAdded;
-        public static void InteractiveSharedProjectAdded(MixPlaySharedProjectModel sharedProject)
-        {
-            if (GlobalEvents.OnInteractiveSharedProjectAdded != null)
-            {
-                GlobalEvents.OnInteractiveSharedProjectAdded(null, sharedProject);
-            }
-        }
-
-        public static event EventHandler<MixPlayGameModel> OnInteractiveConnected;
-        public static void InteractiveConnected(MixPlayGameModel game)
-        {
-            if (GlobalEvents.OnInteractiveConnected != null)
-            {
-                GlobalEvents.OnInteractiveConnected(null, game);
-            }
-        }
-
-        public static event EventHandler OnInteractiveDisconnected;
-        public static void InteractiveDisconnected()
-        {
-            if (GlobalEvents.OnInteractiveDisconnected != null)
-            {
-                GlobalEvents.OnInteractiveDisconnected(null, new EventArgs());
-            }
-        }
-
         public static event EventHandler OnGameQueueUpdated;
         public static void GameQueueUpdated()
         {
@@ -111,17 +89,8 @@ namespace MixItUp.Base.Util
             }
         }
 
-        public static event EventHandler<UserCurrencyDataViewModel> OnRankChanged;
-        public static void RankChanged(UserCurrencyDataViewModel currency)
-        {
-            if (GlobalEvents.OnRankChanged != null)
-            {
-                GlobalEvents.OnRankChanged(null, currency);
-            }
-        }
-
-        public static event EventHandler<UserQuoteViewModel> OnQuoteAdded;
-        public static void QuoteAdded(UserQuoteViewModel quote)
+        public static event EventHandler<UserQuoteModel> OnQuoteAdded;
+        public static void QuoteAdded(UserQuoteModel quote)
         {
             if (GlobalEvents.OnQuoteAdded != null)
             {
@@ -135,15 +104,6 @@ namespace MixItUp.Base.Util
             if (GlobalEvents.OnFollowOccurred != null)
             {
                 GlobalEvents.OnFollowOccurred(null, user);
-            }
-        }
-
-        public static event EventHandler<UserViewModel> OnUnfollowOccurred;
-        public static void UnfollowOccurred(UserViewModel user)
-        {
-            if (GlobalEvents.OnUnfollowOccurred != null)
-            {
-                GlobalEvents.OnUnfollowOccurred(null, user);
             }
         }
 
@@ -174,21 +134,21 @@ namespace MixItUp.Base.Util
             }
         }
 
-        public static event EventHandler<UserViewModel> OnProgressionLevelUpOccurred;
-        public static void ProgressionLevelUpOccurred(UserViewModel user)
-        {
-            if (GlobalEvents.OnProgressionLevelUpOccurred != null)
-            {
-                GlobalEvents.OnProgressionLevelUpOccurred(null, user);
-            }
-        }
-
-        public static event EventHandler<Tuple<UserViewModel, int>> OnHostOccurred;
-        public static void HostOccurred(Tuple<UserViewModel, int> user)
+        public static event EventHandler<UserViewModel> OnHostOccurred;
+        public static void HostOccurred(UserViewModel user)
         {
             if (GlobalEvents.OnHostOccurred != null)
             {
                 GlobalEvents.OnHostOccurred(null, user);
+            }
+        }
+
+        public static event EventHandler<Tuple<UserViewModel, int>> OnRaidOccurred;
+        public static void RaidOccurred(UserViewModel user, int viewers)
+        {
+            if (GlobalEvents.OnRaidOccurred != null)
+            {
+                GlobalEvents.OnRaidOccurred(null, new Tuple<UserViewModel, int>(user, viewers));
             }
         }
 
@@ -201,21 +161,21 @@ namespace MixItUp.Base.Util
             }
         }
 
+        public static event EventHandler<TwitchUserBitsCheeredModel> OnBitsOccurred;
+        public static void BitsOccurred(TwitchUserBitsCheeredModel bitsCheer)
+        {
+            if (GlobalEvents.OnBitsOccurred != null)
+            {
+                GlobalEvents.OnBitsOccurred(null, bitsCheer);
+            }
+        }
+
         public static event EventHandler<Tuple<UserViewModel, int>> OnStreamlootsPurchaseOccurred;
         public static void StreamlootsPurchaseOccurred(Tuple<UserViewModel, int> purchase)
         {
             if (GlobalEvents.OnStreamlootsPurchaseOccurred != null)
             {
                 GlobalEvents.OnStreamlootsPurchaseOccurred(null, purchase);
-            }
-        }
-
-        public static event EventHandler OnSongRequestsChangedOccurred;
-        public static void SongRequestsChangedOccurred()
-        {
-            if (GlobalEvents.OnSongRequestsChangedOccurred != null)
-            {
-                GlobalEvents.OnSongRequestsChangedOccurred(null, new EventArgs());
             }
         }
 
@@ -228,57 +188,21 @@ namespace MixItUp.Base.Util
             }
         }
 
-        public static event EventHandler<Tuple<UserViewModel, uint>> OnSparkUseOccurred;
-        public static void SparkUseOccurred(Tuple<UserViewModel, uint> spark)
+        public static event EventHandler OnRedemptionStorePurchasesUpdated;
+        public static void RedemptionStorePurchasesUpdated()
         {
-            if (GlobalEvents.OnSparkUseOccurred != null)
+            if (GlobalEvents.OnRedemptionStorePurchasesUpdated != null)
             {
-                GlobalEvents.OnSparkUseOccurred(null, spark);
+                GlobalEvents.OnRedemptionStorePurchasesUpdated(null, new EventArgs());
             }
         }
 
-        public static event EventHandler<UserEmberUsageModel> OnEmberUseOccurred;
-        public static void EmberUseOccurred(UserEmberUsageModel ember)
+        public static event EventHandler<Twitch.Base.Models.NewAPI.Clips.ClipModel> OnTwitchClipCreated;
+        public static void TwitchClipCreated(Twitch.Base.Models.NewAPI.Clips.ClipModel clip)
         {
-            if (GlobalEvents.OnEmberUseOccurred != null)
+            if (GlobalEvents.OnTwitchClipCreated != null)
             {
-                GlobalEvents.OnEmberUseOccurred(null, ember);
-            }
-        }
-
-        public static event EventHandler<MixerSkillChatMessageViewModel> OnSkillUseOccurred;
-        public static void SkillUseOccurred(MixerSkillChatMessageViewModel skill)
-        {
-            if (GlobalEvents.OnSkillUseOccurred != null)
-            {
-                GlobalEvents.OnSkillUseOccurred(null, skill);
-            }
-        }
-
-        public static event EventHandler<PatronageStatusModel> OnPatronageUpdateOccurred;
-        public static void PatronageUpdateOccurred(PatronageStatusModel patronageStatus)
-        {
-            if (GlobalEvents.OnPatronageUpdateOccurred != null)
-            {
-                GlobalEvents.OnPatronageUpdateOccurred(null, patronageStatus);
-            }
-        }
-
-        public static event EventHandler<PatronageMilestoneModel> OnPatronageMilestoneReachedOccurred;
-        public static void PatronageMilestoneReachedOccurred(PatronageMilestoneModel patronageMilestone)
-        {
-            if (GlobalEvents.OnPatronageMilestoneReachedOccurred != null)
-            {
-                GlobalEvents.OnPatronageMilestoneReachedOccurred(null, patronageMilestone);
-            }
-        }
-
-        public static event EventHandler<ClipModel> OnMixerClipCreated;
-        public static void MixerClipCreated(ClipModel clip)
-        {
-            if (GlobalEvents.OnMixerClipCreated != null)
-            {
-                GlobalEvents.OnMixerClipCreated(null, clip);
+                GlobalEvents.OnTwitchClipCreated(null, clip);
             }
         }
     }

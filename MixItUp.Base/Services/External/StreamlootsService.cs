@@ -1,9 +1,6 @@
-﻿using Mixer.Base.Model.User;
-using MixItUp.Base.Commands;
-using MixItUp.Base.Util;
+﻿using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json.Linq;
-using StreamingClient.Base.Model.OAuth;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
@@ -146,7 +143,7 @@ namespace MixItUp.Base.Services.External
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             Task.Run(this.BackgroundCheck, this.cancellationTokenSource.Token);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-
+            this.TrackServiceTelemetry("Streamloots");
             return Task.FromResult(new Result());
         }
 

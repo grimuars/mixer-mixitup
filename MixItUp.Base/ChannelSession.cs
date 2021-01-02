@@ -1,14 +1,13 @@
-﻿using Mixer.Base.Model.Channel;
-using Mixer.Base.Model.MixPlay;
-using Mixer.Base.Model.User;
-using MixItUp.Base.Commands;
-using MixItUp.Base.Model.API;
-using MixItUp.Base.Model.Chat.Mixer;
+﻿using MixItUp.Base.Commands;
+using MixItUp.Base.Model;
+using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Model.Commands.Games;
+using MixItUp.Base.Model.Currency;
 using MixItUp.Base.Model.Settings;
 using MixItUp.Base.Model.User;
 using MixItUp.Base.Services;
 using MixItUp.Base.Services.External;
-using MixItUp.Base.Services.Mixer;
+using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using StreamingClient.Base.Model.OAuth;
@@ -19,24 +18,28 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using TwitchNewAPI = Twitch.Base.Models.NewAPI;
+using TwitchV5API = Twitch.Base.Models.V5;
 
 namespace MixItUp.Base
 {
     public static class ChannelSession
     {
-        public static MixerConnectionService MixerUserConnection { get; private set; }
-        public static MixerConnectionService MixerBotConnection { get; private set; }
-
-        public static PrivatePopulatedUserModel MixerUser { get; private set; }
-        public static PrivatePopulatedUserModel MixerBot { get; private set; }
-        public static ExpandedChannelModel MixerChannel { get; private set; }
+        public static TwitchPlatformService TwitchUserConnection { get; private set; }
+        public static TwitchPlatformService TwitchBotConnection { get; private set; }
+        public static TwitchV5API.Users.UserModel TwitchUserV5 { get; private set; }
+        public static TwitchV5API.Channel.ChannelModel TwitchChannelV5 { get; private set; }
+        public static TwitchV5API.Streams.StreamModel TwitchStreamV5 { get; private set; }
+        public static HashSet<string> TwitchChannelEditorsV5 { get; private set; } = new HashSet<string>();
+        public static TwitchNewAPI.Users.UserModel TwitchUserNewAPI { get; set; }
+        public static TwitchNewAPI.Users.UserModel TwitchBotNewAPI { get; set; }
+        public static TwitchNewAPI.Streams.StreamModel TwitchStreamNewAPI { get; set; }
+        public static bool TwitchStreamIsLive { get { return ChannelSession.TwitchStreamV5 != null && ChannelSession.TwitchStreamV5.IsLive; } }
 
         public static ApplicationSettingsV2Model AppSettings { get; private set; }
-        public static SettingsV2Model Settings { get; private set; }
+        public static SettingsV3Model Settings { get; private set; }
 
         public static ServicesManagerBase Services { get; private set; }
-
-        public static List<PreMadeChatCommand> PreMadeChatCommands { get; private set; }
 
         private static CancellationTokenSource sessionBackgroundCancellationTokenSource = new CancellationTokenSource();
         private static int sessionBackgroundTimer = 0;
@@ -52,59 +55,47 @@ namespace MixItUp.Base
 
         public static bool IsElevated { get; set; }
 
-        public static IEnumerable<PermissionsCommandBase> AllEnabledChatCommands
-        {
-            get
-            {
-                return ChannelSession.AllChatCommands.Where(c => c.IsEnabled);
-            }
-        }
+        public static List<PreMadeChatCommandModelBase> PreMadeChatCommands { get; private set; } = new List<PreMadeChatCommandModelBase>();
 
-        public static IEnumerable<PermissionsCommandBase> AllChatCommands
+        public static List<ChatCommandModel> ChatCommands { get; set; } = new List<ChatCommandModel>();
+
+        public static List<EventCommandModel> EventCommands { get; set; } = new List<EventCommandModel>();
+
+        public static List<TimerCommandModel> TimerCommands { get; set; } = new List<TimerCommandModel>();
+
+        public static List<ActionGroupCommandModel> ActionGroupCommands { get; set; } = new List<ActionGroupCommandModel>();
+
+        public static List<GameCommandModelBase> GameCommands { get; set; } = new List<GameCommandModelBase>();
+
+        public static List<TwitchChannelPointsCommandModel> TwitchChannelPointsCommands { get; set; } = new List<TwitchChannelPointsCommandModel>();
+
+        public static IEnumerable<CommandModelBase> AllChatAccessibleCommands
         {
             get
             {
-                List<PermissionsCommandBase> commands = new List<PermissionsCommandBase>();
-                commands.AddRange(ChannelSession.PreMadeChatCommands);
-                commands.AddRange(ChannelSession.Settings.ChatCommands);
-                commands.AddRange(ChannelSession.Settings.GameCommands);
+                List<CommandModelBase> commands = new List<CommandModelBase>();
+                commands.AddRange(ChannelSession.PreMadeChatCommands.Where(c => c.IsEnabled));
+                commands.AddRange(ChannelSession.ChatCommands.Where(c => c.IsEnabled));
+                commands.AddRange(ChannelSession.GameCommands.Where(c => c.IsEnabled));
                 return commands;
             }
         }
 
-        public static IEnumerable<CommandBase> AllEnabledCommands
+        public static IEnumerable<CommandModelBase> AllCommands
         {
             get
             {
-                return ChannelSession.AllCommands.Where(c => c.IsEnabled);
-            }
-        }
-
-        public static IEnumerable<CommandBase> AllCommands
-        {
-            get
-            {
-                List<CommandBase> commands = new List<CommandBase>();
-                commands.AddRange(ChannelSession.AllChatCommands);
-                commands.AddRange(ChannelSession.Settings.EventCommands);
-                commands.AddRange(ChannelSession.Settings.MixPlayCommands);
-                commands.AddRange(ChannelSession.Settings.TimerCommands);
-                commands.AddRange(ChannelSession.Settings.ActionGroupCommands);
+                List<CommandModelBase> commands = new List<CommandModelBase>();
+                commands.AddRange(ChannelSession.AllChatAccessibleCommands);
+                commands.AddRange(ChannelSession.EventCommands.Where(c => c.IsEnabled));
+                commands.AddRange(ChannelSession.TimerCommands.Where(c => c.IsEnabled));
+                commands.AddRange(ChannelSession.ActionGroupCommands.Where(c => c.IsEnabled));
+                commands.AddRange(ChannelSession.TwitchChannelPointsCommands.Where(c => c.IsEnabled));
                 return commands;
             }
         }
 
-        public static bool IsStreamer
-        {
-            get
-            {
-                if (ChannelSession.MixerUser != null && ChannelSession.MixerChannel != null)
-                {
-                    return ChannelSession.MixerUser.id == ChannelSession.MixerChannel.user.id;
-                }
-                return false;
-            }
-        }
+        public static bool IsStreamer { get { return ChannelSession.Settings.IsStreamer; } }
 
         public static async Task Initialize(ServicesManagerBase serviceHandler)
         {
@@ -120,104 +111,134 @@ namespace MixItUp.Base
             }
             catch (Exception ex) { Logger.Log(ex); }
 
-            ChannelSession.PreMadeChatCommands = new List<PreMadeChatCommand>();
-
             ChannelSession.AppSettings = await ApplicationSettingsV2Model.Load();
         }
 
-        public static async Task<Result> ConnectMixerUser(bool isStreamer)
+        public static async Task<Result> ConnectTwitchUser(bool isStreamer)
         {
-            Result<MixerConnectionService> result = await MixerConnectionService.ConnectUser(isStreamer);
+            Result<TwitchPlatformService> result = await TwitchPlatformService.ConnectUser(isStreamer);
             if (result.Success)
             {
-                ChannelSession.MixerUserConnection = result.Value;
-                ChannelSession.MixerUser = await ChannelSession.MixerUserConnection.GetCurrentUser();
-                if (ChannelSession.MixerUser == null)
+                ChannelSession.TwitchUserConnection = result.Value;
+                ChannelSession.TwitchUserNewAPI = await ChannelSession.TwitchUserConnection.GetNewAPICurrentUser();
+                if (ChannelSession.TwitchUserNewAPI == null)
                 {
-                    return new Result("Failed to get Mixer user data");
+                    return new Result("Failed to get New API Twitch user data");
+                }
+
+                ChannelSession.TwitchUserV5 = await ChannelSession.TwitchUserConnection.GetV5APIUserByLogin(ChannelSession.TwitchUserNewAPI.login);
+                if (ChannelSession.TwitchUserV5 == null)
+                {
+                    return new Result("Failed to get V5 API Twitch user data");
                 }
             }
             return result;
         }
 
-        public static async Task<Result> ConnectMixerBot()
+        public static async Task<Result> ConnectTwitchBot()
         {
-            Result<MixerConnectionService> result = await MixerConnectionService.ConnectBot();
+            Result<TwitchPlatformService> result = await TwitchPlatformService.ConnectBot();
             if (result.Success)
             {
-                ChannelSession.MixerBotConnection = result.Value;
-                ChannelSession.MixerBot = await ChannelSession.MixerBotConnection.GetCurrentUser();
-                if (ChannelSession.MixerBot == null)
+                ChannelSession.TwitchBotConnection = result.Value;
+                ChannelSession.TwitchBotNewAPI = await ChannelSession.TwitchBotConnection.GetNewAPICurrentUser();
+                if (ChannelSession.TwitchBotNewAPI == null)
                 {
-                    return new Result("Failed to get Mixer bot data");
+                    return new Result("Failed to get Twitch bot data");
+                }
+
+                if (ChannelSession.Services.Chat.TwitchChatService != null && ChannelSession.Services.Chat.TwitchChatService.IsUserConnected)
+                {
+                    return await ChannelSession.Services.Chat.TwitchChatService.ConnectBot();
                 }
             }
             return result;
         }
 
-        public static async Task<Result> ConnectUser(SettingsV2Model settings)
+        public static async Task<Result> ConnectUser(SettingsV3Model settings)
         {
             Result userResult = null;
             ChannelSession.Settings = settings;
 
-            Result<MixerConnectionService> result = await MixerConnectionService.Connect(ChannelSession.Settings.MixerUserOAuthToken);
-            if (result.Success)
+            // Twitch connection
+            if (!ChannelSession.Settings.StreamingPlatformAuthentications.ContainsKey(StreamingPlatformTypeEnum.Twitch))
             {
-                ChannelSession.MixerUserConnection = result.Value;
-                userResult = result;
+                ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch] = new StreamingPlatformAuthenticationSettingsModel(StreamingPlatformTypeEnum.Twitch);
+            }
+
+            Result<TwitchPlatformService> twitchResult = twitchResult = await TwitchPlatformService.Connect(ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].UserOAuthToken);
+            if (twitchResult.Success)
+            {
+                ChannelSession.TwitchUserConnection = twitchResult.Value;
+                userResult = twitchResult;
             }
             else
             {
-                userResult = await ChannelSession.ConnectMixerUser(ChannelSession.Settings.IsStreamer);
+                userResult = await ChannelSession.ConnectTwitchUser(ChannelSession.Settings.IsStreamer);
             }
 
             if (userResult.Success)
             {
-                ChannelSession.MixerUser = await ChannelSession.MixerUserConnection.GetCurrentUser();
-                if (ChannelSession.MixerUser == null)
+                ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].IsEnabled = true;
+
+                ChannelSession.TwitchUserNewAPI = await ChannelSession.TwitchUserConnection.GetNewAPICurrentUser();
+                if (ChannelSession.TwitchUserNewAPI == null)
                 {
-                    return new Result("Failed to get Mixer user data");
+                    return new Result("Failed to get Twitch user data");
                 }
 
-                if (settings.MixerBotOAuthToken != null)
+                ChannelSession.TwitchUserV5 = await ChannelSession.TwitchUserConnection.GetV5APIUserByLogin(ChannelSession.TwitchUserNewAPI.login);
+                if (ChannelSession.TwitchUserV5 == null)
                 {
-                    result = await MixerConnectionService.Connect(settings.MixerBotOAuthToken);
-                    if (result.Success)
+                    return new Result("Failed to get V5 API Twitch user data");
+                }
+
+                if (ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].BotOAuthToken != null)
+                {
+                    twitchResult = await TwitchPlatformService.Connect(ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].BotOAuthToken);
+                    if (twitchResult.Success)
                     {
-                        ChannelSession.MixerBotConnection = result.Value;
-                        ChannelSession.MixerBot = await ChannelSession.MixerBotConnection.GetCurrentUser();
-                        if (ChannelSession.MixerBot == null)
+                        ChannelSession.TwitchBotConnection = twitchResult.Value;
+                        ChannelSession.TwitchBotNewAPI = await ChannelSession.TwitchBotConnection.GetNewAPICurrentUser();
+                        if (ChannelSession.TwitchBotNewAPI == null)
                         {
-                            return new Result("Failed to get Mixer bot data");
+                            return new Result("Failed to get Twitch bot data");
                         }
                     }
                     else
                     {
-                        settings.MixerBotOAuthToken = null;
-                        return new Result(success: true, message: "Failed to connect Mixer bot account, please manually reconnect");
+                        ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].BotOAuthToken = null;
+                        return new Result(success: true, message: "Failed to connect Twitch bot account, please manually reconnect");
                     }
                 }
             }
-            return new Result();
+            else
+            {
+                ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch] = null;
+                return userResult;
+            }
+
+            return userResult;
         }
 
-        public static async Task DisconnectMixerBot()
+        public static async Task DisconnectTwitchBot()
         {
-            ChannelSession.MixerBotConnection = null;
-            if (ChannelSession.Services.Chat.MixerChatService != null)
+            ChannelSession.TwitchBotConnection = null;
+            if (ChannelSession.Services.Chat.TwitchChatService != null)
             {
-                await ChannelSession.Services.Chat.MixerChatService.DisconnectBot();
+                await ChannelSession.Services.Chat.TwitchChatService.DisconnectBot();
             }
         }
 
         public static async Task Close()
         {
             await ChannelSession.Services.Close();
-            if (ChannelSession.Services.Chat.MixerChatService != null)
+
+            if (ChannelSession.Services.Chat.TwitchChatService != null)
             {
-                await ChannelSession.Services.Chat.MixerChatService.DisconnectUser();
+                await ChannelSession.Services.Chat.TwitchChatService.DisconnectUser();
             }
-            await ChannelSession.DisconnectMixerBot();
+            await ChannelSession.DisconnectTwitchBot();
         }
 
         public static async Task SaveSettings()
@@ -227,35 +248,55 @@ namespace MixItUp.Base
 
         public static async Task RefreshUser()
         {
-            if (ChannelSession.MixerUser != null)
+            if (ChannelSession.TwitchUserNewAPI != null)
             {
-                PrivatePopulatedUserModel user = await ChannelSession.MixerUserConnection.GetCurrentUser();
-                if (user != null)
+                TwitchNewAPI.Users.UserModel twitchUserNewAPI = await ChannelSession.TwitchUserConnection.GetNewAPICurrentUser();
+                if (twitchUserNewAPI != null)
                 {
-                    ChannelSession.MixerUser = user;
+                    ChannelSession.TwitchUserNewAPI = twitchUserNewAPI;
+
+                    TwitchV5API.Users.UserModel twitchUserV5 = await ChannelSession.TwitchUserConnection.GetV5APIUserByLogin(ChannelSession.TwitchUserNewAPI.login);
+                    if (twitchUserV5 != null)
+                    {
+                        ChannelSession.TwitchUserV5 = twitchUserV5;
+                    }
                 }
             }
         }
 
         public static async Task RefreshChannel()
         {
-            if (ChannelSession.MixerChannel != null)
+            if (ChannelSession.TwitchChannelV5 != null)
             {
-                ExpandedChannelModel channel = await ChannelSession.MixerUserConnection.GetChannel(ChannelSession.MixerChannel.id);
-                if (channel != null)
+                TwitchV5API.Channel.ChannelModel twitchChannel = await ChannelSession.TwitchUserConnection.GetV5APIChannel(ChannelSession.TwitchChannelV5.id);
+                if (twitchChannel != null)
                 {
-                    ChannelSession.MixerChannel = channel;
+                    ChannelSession.TwitchChannelV5 = twitchChannel;
+                    ChannelSession.TwitchStreamV5 = await ChannelSession.TwitchUserConnection.GetV5LiveStream(ChannelSession.TwitchChannelV5);
                 }
+            }
+
+            if (ChannelSession.TwitchUserNewAPI != null)
+            {
+                ChannelSession.TwitchStreamNewAPI = await ChannelSession.TwitchUserConnection.GetStream(ChannelSession.TwitchUserNewAPI);
             }
         }
 
         public static UserViewModel GetCurrentUser()
         {
-            UserViewModel user = ChannelSession.Services.User.GetUserByMixerID(ChannelSession.MixerUser.id);
-            if (user == null)
+            // TO-DO: Update UserViewModel so that all platform accounts are combined into the same UserViewModel
+
+            UserViewModel user = null;
+
+            if (ChannelSession.TwitchUserNewAPI != null)
             {
-                user = new UserViewModel(ChannelSession.MixerUser);
+                user = ChannelSession.Services.User.GetUserByTwitchID(ChannelSession.TwitchUserNewAPI.id);
+                if (user == null)
+                {
+                    user = new UserViewModel(ChannelSession.TwitchUserNewAPI);
+                }
             }
+
             return user;
         }
 
@@ -271,287 +312,341 @@ namespace MixItUp.Base
             GlobalEvents.ServiceReconnect(serviceName);
         }
 
-        public static async Task<bool> InitializeSession(string modChannelName = null)
+        public static async Task<bool> InitializeSession()
         {
             try
             {
-                ExpandedChannelModel mixerChannel = null;
-                if (modChannelName == null)
+                TwitchNewAPI.Users.UserModel twitchChannelNew = await ChannelSession.TwitchUserConnection.GetNewAPICurrentUser();
+                TwitchV5API.Channel.ChannelModel twitchChannelv5 = await ChannelSession.TwitchUserConnection.GetCurrentV5APIChannel();
+                if (twitchChannelNew != null && twitchChannelv5 != null)
                 {
-                    mixerChannel = await ChannelSession.MixerUserConnection.GetChannel(ChannelSession.MixerUser.channel.id);
-                }
-                else
-                {
-                    mixerChannel = await ChannelSession.MixerUserConnection.GetChannel(modChannelName);
-                }
-
-                if (mixerChannel != null)
-                {
-                    ChannelSession.MixerChannel = mixerChannel;
-
-                    if (ChannelSession.Settings == null)
+                    try
                     {
-                        ChannelSession.Settings = await ChannelSession.Services.Settings.Create(mixerChannel, modChannelName == null);
+                        ChannelSession.TwitchUserNewAPI = twitchChannelNew;
+                        ChannelSession.TwitchChannelV5 = twitchChannelv5;
+                        ChannelSession.TwitchStreamNewAPI = await ChannelSession.TwitchUserConnection.GetStream(ChannelSession.TwitchUserNewAPI);
+                        ChannelSession.TwitchStreamV5 = await ChannelSession.TwitchUserConnection.GetV5LiveStream(ChannelSession.TwitchChannelV5);
+
+                        IEnumerable<TwitchV5API.Users.UserModel> channelEditors = await ChannelSession.TwitchUserConnection.GetV5APIChannelEditors(ChannelSession.TwitchChannelV5);
+                        if (channelEditors != null)
+                        {
+                            foreach (TwitchV5API.Users.UserModel channelEditor in channelEditors)
+                            {
+                                ChannelSession.TwitchChannelEditorsV5.Add(channelEditor.id);
+                            }
+                        }
+
+                        if (ChannelSession.Settings == null)
+                        {
+                            IEnumerable<SettingsV3Model> currentSettings = await ChannelSession.Services.Settings.GetAllSettings();
+
+                            if (currentSettings.Any(s => !string.IsNullOrEmpty(s.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].ChannelID) && string.Equals(s.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].ChannelID, twitchChannelNew.id)))
+                            {
+                                GlobalEvents.ShowMessageBox($"There already exists settings for the account {twitchChannelNew.display_name}. Please sign in with a different account or re-launch Mix It Up to select those settings from the drop-down.");
+                                return false;
+                            }
+
+                            ChannelSession.Settings = await ChannelSession.Services.Settings.Create(twitchChannelNew.display_name, isStreamer: true);
+                        }
+                        await ChannelSession.Services.Settings.Initialize(ChannelSession.Settings);
+
+                        if (!string.IsNullOrEmpty(ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].UserID) && !string.Equals(ChannelSession.TwitchUserNewAPI.id, ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].UserID))
+                        {
+                            Logger.Log(LogLevel.Error, $"Signed in account does not match settings account: {ChannelSession.TwitchUserNewAPI.display_name} - {ChannelSession.TwitchUserNewAPI.id} - {ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].UserID}");
+                            GlobalEvents.ShowMessageBox("The account you are logged in as on Twitch does not match the account for this settings. Please log in as the correct account on Twitch.");
+                            ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].UserOAuthToken.accessToken = string.Empty;
+                            ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].UserOAuthToken.refreshToken = string.Empty;
+                            ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].UserOAuthToken.expiresIn = 0;
+                            return false;
+                        }
+
+                        ChannelSession.Settings.Name = ChannelSession.TwitchUserNewAPI.display_name;
+
+                        ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].UserID = ChannelSession.TwitchUserNewAPI.id;
+                        ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].ChannelID = ChannelSession.TwitchUserNewAPI.id;
+                        if (ChannelSession.TwitchBotNewAPI != null)
+                        {
+                            ChannelSession.Settings.StreamingPlatformAuthentications[StreamingPlatformTypeEnum.Twitch].BotID = ChannelSession.TwitchBotNewAPI.id;
+                        }
                     }
-                    await ChannelSession.Services.Settings.Initialize(ChannelSession.Settings);
-
-                    if (ChannelSession.Settings.DiagnosticLogging)
+                    catch (Exception ex)
                     {
-                        Logger.SetLogLevel(LogLevel.Debug);
-                    }
-                    else
-                    {
-                        Logger.SetLogLevel(LogLevel.Error);
-                    }
-
-                    if (modChannelName == null && ChannelSession.Settings.MixerChannelID > 0 && ChannelSession.MixerUser.channel.id != ChannelSession.Settings.MixerChannelID)
-                    {
-                        GlobalEvents.ShowMessageBox("The account you are logged in as on Mixer does not match the account for this settings. Please log in as the correct account on Mixer.");
-                        ChannelSession.Settings.MixerUserOAuthToken.accessToken = string.Empty;
-                        ChannelSession.Settings.MixerUserOAuthToken.refreshToken = string.Empty;
-                        ChannelSession.Settings.MixerUserOAuthToken.expiresIn = 0;
+                        Logger.Log(ex);
+                        Logger.Log(LogLevel.Error, "Initialize Settings - " + JSONSerializerHelper.SerializeToString(ex));
+                        await DialogHelper.ShowMessage("Failed to initialize settings. If this continues, please visit the Mix It Up Discord for assistance." +
+                            Environment.NewLine + Environment.NewLine + "Error Details: " + ex.Message);
                         return false;
                     }
 
-                    ChannelSession.Settings.MixerChannelID = mixerChannel.id;
-
-                    await ChannelSession.Services.Telemetry.Connect();
-                    ChannelSession.Services.Telemetry.SetUserID(ChannelSession.Settings.TelemetryUserID);
-
-                    MixerChatService mixerChatService = new MixerChatService();
-                    MixerEventService mixerEventService = new MixerEventService();
-
-                    List<Task<Result>> mixerConnections = new List<Task<Result>>();
-                    mixerConnections.Add(mixerChatService.ConnectUser());
-
-                    Task<Result> mixerEventServiceResult = mixerEventService.Connect();
-                    mixerConnections.Add(mixerEventServiceResult);
-
-                    await Task.WhenAll(mixerConnections);
-
-                    if (mixerConnections.Any(c => !c.Result.Success))
+                    try
                     {
-                        string errors = string.Join(Environment.NewLine, mixerConnections.Where(c => !c.Result.Success).Select(c => c.Result.Message));
-                        string message = "Failed to connect to Mixer services:" + Environment.NewLine + Environment.NewLine + errors + Environment.NewLine + Environment.NewLine + "This may be due to a Mixer server outage, please check Mixer's status page for more information: https://status.mixer.com/";
+                        await ChannelSession.Services.Telemetry.Connect();
+                        ChannelSession.Services.Telemetry.SetUserID(ChannelSession.Settings.TelemetryUserID);
 
-                        if (mixerConnections.All(c => c.Result.Success || c == mixerEventServiceResult))
+                        TwitchChatService twitchChatService = new TwitchChatService();
+                        TwitchEventService twitchEventService = new TwitchEventService();
+
+                        List<Task<Result>> twitchPlatformServiceTasks = new List<Task<Result>>();
+                        twitchPlatformServiceTasks.Add(twitchChatService.ConnectUser());
+                        twitchPlatformServiceTasks.Add(twitchEventService.Connect());
+
+                        await Task.WhenAll(twitchPlatformServiceTasks);
+
+                        if (twitchPlatformServiceTasks.Any(c => !c.Result.Success))
                         {
-                            if (!await DialogHelper.ShowConfirmation(message + Environment.NewLine + Environment.NewLine +
-                                    "We have determined this to be a non-blocking error, which means we can attempt to log you in and ignore this. However, some features may not work as a result and you may run into some bugs."
-                                    + Environment.NewLine + Environment.NewLine + "Would you like to ignore this and log in?"))
-                            {
-                                return false;
-                            }
-                        }
-                        else
-                        {
-                            GlobalEvents.ShowMessageBox(message);
+                            string errors = string.Join(Environment.NewLine, twitchPlatformServiceTasks.Where(c => !c.Result.Success).Select(c => c.Result.Message));
+                            GlobalEvents.ShowMessageBox("Failed to connect to Twitch services:" + Environment.NewLine + Environment.NewLine + errors);
                             return false;
                         }
+
+                        await ChannelSession.Services.Chat.Initialize(twitchChatService);
+                        await ChannelSession.Services.Events.Initialize(twitchEventService);
                     }
-
-                    await ChannelSession.Services.Chat.Initialize(mixerChatService);
-                    await ChannelSession.Services.Events.Initialize(mixerEventService);
-
-                    await MixerChatEmoteModel.InitializeEmoteCache();
+                    catch (Exception ex)
+                    {
+                        Logger.Log(ex);
+                        Logger.Log(LogLevel.Error, "Twitch Services - " + JSONSerializerHelper.SerializeToString(ex));
+                        await DialogHelper.ShowMessage("Failed to connect to Twitch services. If this continues, please visit the Mix It Up Discord for assistance." +
+                            Environment.NewLine + Environment.NewLine + "Error Details: " + ex.Message);
+                        return false;
+                    }
 
                     if (ChannelSession.IsStreamer)
                     {
-                        if (!await ChannelSession.InitializeBotInternal())
+                        Result result = await ChannelSession.InitializeBotInternal();
+                        if (!result.Success)
                         {
                             await DialogHelper.ShowMessage("Failed to initialize Bot account");
                             return false;
                         }
 
-                        // Connect External Services
-                        Dictionary<IExternalService, OAuthTokenModel> externalServiceToConnect = new Dictionary<IExternalService, OAuthTokenModel>();
-                        if (ChannelSession.Settings.StreamlabsOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Streamlabs] = ChannelSession.Settings.StreamlabsOAuthToken; }
-                        if (ChannelSession.Settings.StreamElementsOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.StreamElements] = ChannelSession.Settings.StreamElementsOAuthToken; }
-                        if (ChannelSession.Settings.StreamJarOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.StreamJar] = ChannelSession.Settings.StreamJarOAuthToken; }
-                        if (ChannelSession.Settings.TipeeeStreamOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.TipeeeStream] = ChannelSession.Settings.TipeeeStreamOAuthToken; }
-                        if (ChannelSession.Settings.TreatStreamOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.TreatStream] = ChannelSession.Settings.TreatStreamOAuthToken; }
-                        if (ChannelSession.Settings.StreamlootsOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Streamloots] = ChannelSession.Settings.StreamlootsOAuthToken; }
-                        if (ChannelSession.Settings.TiltifyOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Tiltify] = ChannelSession.Settings.TiltifyOAuthToken; }
-                        if (ChannelSession.Settings.JustGivingOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.JustGiving] = ChannelSession.Settings.JustGivingOAuthToken; }
-                        if (ChannelSession.Settings.IFTTTOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.IFTTT] = ChannelSession.Settings.IFTTTOAuthToken; }
-                        if (ChannelSession.Settings.ExtraLifeTeamID > 0) { externalServiceToConnect[ChannelSession.Services.ExtraLife] = new OAuthTokenModel(); }
-                        if (ChannelSession.Settings.PatreonOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Patreon] = ChannelSession.Settings.PatreonOAuthToken; }
-                        if (ChannelSession.Settings.DiscordOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Discord] = ChannelSession.Settings.DiscordOAuthToken; }
-                        if (ChannelSession.Settings.TwitterOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Twitter] = ChannelSession.Settings.TwitterOAuthToken; }
-                        if (!string.IsNullOrEmpty(ChannelSession.Settings.OBSStudioServerIP)) { externalServiceToConnect[ChannelSession.Services.OBSStudio] = null; }
-                        if (ChannelSession.Settings.EnableStreamlabsOBSConnection) { externalServiceToConnect[ChannelSession.Services.StreamlabsOBS] = null; }
-                        if (ChannelSession.Settings.EnableXSplitConnection) { externalServiceToConnect[ChannelSession.Services.XSplit] = null; }
-                        if (!string.IsNullOrEmpty(ChannelSession.Settings.OvrStreamServerIP)) { externalServiceToConnect[ChannelSession.Services.OvrStream] = null; }
-                        if (ChannelSession.Settings.EnableOverlay) { externalServiceToConnect[ChannelSession.Services.Overlay] = null; }
-                        if (ChannelSession.Settings.EnableDeveloperAPI) { externalServiceToConnect[ChannelSession.Services.DeveloperAPI] = null; }
-
-                        if (externalServiceToConnect.Count > 0)
+                        try
                         {
-                            Dictionary<IExternalService, Task<Result>> externalServiceTasks = new Dictionary<IExternalService, Task<Result>>();
-                            foreach (var kvp in externalServiceToConnect)
-                            {
-                                Logger.Log(LogLevel.Debug, "Trying automatic OAuth service connection: " + kvp.Key.Name);
+                            // Connect External Services
+                            Dictionary<IExternalService, OAuthTokenModel> externalServiceToConnect = new Dictionary<IExternalService, OAuthTokenModel>();
+                            if (ChannelSession.Settings.StreamlabsOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Streamlabs] = ChannelSession.Settings.StreamlabsOAuthToken; }
+                            if (ChannelSession.Settings.StreamElementsOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.StreamElements] = ChannelSession.Settings.StreamElementsOAuthToken; }
+                            if (ChannelSession.Settings.StreamJarOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.StreamJar] = ChannelSession.Settings.StreamJarOAuthToken; }
+                            if (ChannelSession.Settings.TipeeeStreamOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.TipeeeStream] = ChannelSession.Settings.TipeeeStreamOAuthToken; }
+                            if (ChannelSession.Settings.TreatStreamOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.TreatStream] = ChannelSession.Settings.TreatStreamOAuthToken; }
+                            if (ChannelSession.Settings.StreamlootsOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Streamloots] = ChannelSession.Settings.StreamlootsOAuthToken; }
+                            if (ChannelSession.Settings.TiltifyOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Tiltify] = ChannelSession.Settings.TiltifyOAuthToken; }
+                            if (ChannelSession.Settings.JustGivingOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.JustGiving] = ChannelSession.Settings.JustGivingOAuthToken; }
+                            if (ChannelSession.Settings.IFTTTOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.IFTTT] = ChannelSession.Settings.IFTTTOAuthToken; }
+                            if (ChannelSession.Settings.ExtraLifeTeamID > 0) { externalServiceToConnect[ChannelSession.Services.ExtraLife] = new OAuthTokenModel(); }
+                            if (ChannelSession.Settings.PatreonOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Patreon] = ChannelSession.Settings.PatreonOAuthToken; }
+                            if (ChannelSession.Settings.DiscordOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Discord] = ChannelSession.Settings.DiscordOAuthToken; }
+                            if (ChannelSession.Settings.TwitterOAuthToken != null) { externalServiceToConnect[ChannelSession.Services.Twitter] = ChannelSession.Settings.TwitterOAuthToken; }
+                            if (ChannelSession.Services.OBSStudio.IsEnabled) { externalServiceToConnect[ChannelSession.Services.OBSStudio] = null; }
+                            if (ChannelSession.Services.StreamlabsOBS.IsEnabled) { externalServiceToConnect[ChannelSession.Services.StreamlabsOBS] = null; }
+                            if (ChannelSession.Services.XSplit.IsEnabled) { externalServiceToConnect[ChannelSession.Services.XSplit] = null; }
+                            if (!string.IsNullOrEmpty(ChannelSession.Settings.OvrStreamServerIP)) { externalServiceToConnect[ChannelSession.Services.OvrStream] = null; }
+                            if (ChannelSession.Settings.EnableOverlay) { externalServiceToConnect[ChannelSession.Services.Overlay] = null; }
+                            if (ChannelSession.Settings.EnableDeveloperAPI) { externalServiceToConnect[ChannelSession.Services.DeveloperAPI] = null; }
 
-                                if (kvp.Key is IOAuthExternalService && kvp.Value != null)
+                            if (externalServiceToConnect.Count > 0)
+                            {
+                                Dictionary<IExternalService, Task<Result>> externalServiceTasks = new Dictionary<IExternalService, Task<Result>>();
+                                foreach (var kvp in externalServiceToConnect)
                                 {
-                                    externalServiceTasks[kvp.Key] = ((IOAuthExternalService)kvp.Key).Connect(kvp.Value);
+                                    Logger.Log(LogLevel.Debug, "Trying automatic OAuth service connection: " + kvp.Key.Name);
+
+                                    try
+                                    {
+                                        if (kvp.Key is IOAuthExternalService && kvp.Value != null)
+                                        {
+                                            externalServiceTasks[kvp.Key] = ((IOAuthExternalService)kvp.Key).Connect(kvp.Value);
+                                        }
+                                        else
+                                        {
+                                            externalServiceTasks[kvp.Key] = kvp.Key.Connect();
+                                        }
+                                    }
+                                    catch (Exception sex)
+                                    {
+                                        Logger.Log(LogLevel.Error, "Error in external service initial connection: " + kvp.Key.Name);
+                                        Logger.Log(sex);
+                                    }
                                 }
-                                else
+
+                                try
                                 {
-                                    externalServiceTasks[kvp.Key] = kvp.Key.Connect();
+                                    await Task.WhenAll(externalServiceTasks.Values);
+                                }
+                                catch (Exception sex)
+                                {
+                                    Logger.Log(LogLevel.Error, "Error in batch external service connection");
+                                    Logger.Log(sex);
+                                }
+
+                                List<IExternalService> failedServices = new List<IExternalService>();
+                                foreach (var kvp in externalServiceTasks)
+                                {
+                                    try
+                                    {
+                                        if (kvp.Value.Result != null && !kvp.Value.Result.Success && kvp.Key is IOAuthExternalService)
+                                        {
+                                            Logger.Log(LogLevel.Debug, "Automatic OAuth token connection failed, trying manual connection: " + kvp.Key.Name);
+                                            result = await kvp.Key.Connect();
+                                            if (!result.Success)
+                                            {
+                                                failedServices.Add(kvp.Key);
+                                            }
+                                        }
+                                    }
+                                    catch (Exception sex)
+                                    {
+                                        Logger.Log(LogLevel.Error, "Error in external service failed re-connection: " + kvp.Key.Name);
+                                        Logger.Log(sex);
+                                        failedServices.Add(kvp.Key);
+                                    }
+                                }
+
+                                if (failedServices.Count > 0)
+                                {
+                                    Logger.Log(LogLevel.Debug, "Connection failed for services: " + string.Join(", ", failedServices.Select(s => s.Name)));
+
+                                    StringBuilder message = new StringBuilder();
+                                    message.AppendLine("The following services could not be connected:");
+                                    message.AppendLine();
+                                    foreach (IExternalService service in failedServices)
+                                    {
+                                        message.AppendLine(" - " + service.Name);
+                                    }
+                                    message.AppendLine();
+                                    message.Append("Please go to the Services page to reconnect them manually.");
+                                    await DialogHelper.ShowMessage(message.ToString());
                                 }
                             }
-                            await Task.WhenAll(externalServiceTasks.Values);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log(ex);
+                            Logger.Log(LogLevel.Error, "External Services - " + JSONSerializerHelper.SerializeToString(ex));
+                            await DialogHelper.ShowMessage("Failed to initialize external services. If this continues, please visit the Mix It Up Discord for assistance." +
+                                Environment.NewLine + Environment.NewLine + "Error Details: " + ex.Message);
+                            return false;
+                        }
 
-                            List<IExternalService> failedServices = new List<IExternalService>();
-                            foreach (var kvp in externalServiceTasks)
+                        try
+                        {
+                            //if (ChannelSession.Settings.RemoteHostConnection != null)
+                            //{
+                            //    await ChannelSession.Services.RemoteService.InitializeConnection(ChannelSession.Settings.RemoteHostConnection);
+                            //}
+
+                            foreach (CurrencyModel currency in ChannelSession.Settings.Currency.Values)
                             {
-                                if (!kvp.Value.Result.Success && kvp.Key is IOAuthExternalService)
+                                if (currency.ShouldBeReset())
                                 {
-                                    Logger.Log(LogLevel.Debug, "Automatic OAuth token connection failed, trying manual connection: " + kvp.Key.Name);
+                                    await currency.Reset();
+                                }
+                            }
 
-                                    Result result = await kvp.Key.Connect();
-                                    if (!result.Success)
+                            if (ChannelSession.Settings.ModerationResetStrikesOnLaunch)
+                            {
+                                foreach (UserDataModel userData in ChannelSession.Settings.UserData.Values)
+                                {
+                                    if (userData.ModerationStrikes > 0)
                                     {
-                                        failedServices.Add(kvp.Key);
+                                        userData.ModerationStrikes = 0;
+                                        ChannelSession.Settings.UserData.ManualValueChanged(userData.ID);
                                     }
                                 }
                             }
 
-                            if (failedServices.Count > 0)
-                            {
-                                Logger.Log(LogLevel.Debug, "Connection failed for services: " + string.Join(", ", failedServices.Select(s => s.Name)));
-
-                                StringBuilder message = new StringBuilder();
-                                message.AppendLine("The following services could not be connected:");
-                                message.AppendLine();
-                                foreach (IExternalService service in failedServices)
-                                {
-                                    message.AppendLine(" - " + service.Name);
-                                }
-                                message.AppendLine();
-                                message.Append("Please go to the Services page to reconnect them manually.");
-                                await DialogHelper.ShowMessage(message.ToString());
-                            }
-                        }
-
-                        if (ChannelSession.Settings.RemoteHostConnection != null)
-                        {
-                            await ChannelSession.Services.RemoteService.InitializeConnection(ChannelSession.Settings.RemoteHostConnection);
-                        }
-
-                        if (ChannelSession.Settings.DefaultMixPlayGame > 0)
-                        {
-                            IEnumerable<MixPlayGameListingModel> games = await ChannelSession.MixerUserConnection.GetOwnedMixPlayGames(ChannelSession.MixerChannel);
-                            MixPlayGameListingModel game = games.FirstOrDefault(g => g.id.Equals(ChannelSession.Settings.DefaultMixPlayGame));
-                            if (game != null)
-                            {
-                                await ChannelSession.Services.MixPlay.SetGame(game);
-                                Result result = await ChannelSession.Services.MixPlay.Connect();
-                                if (!result.Success)
-                                {
-                                    await ChannelSession.Services.MixPlay.Disconnect();
-                                }
-                            }
-                            else
-                            {
-                                ChannelSession.Settings.DefaultMixPlayGame = 0;
-                            }
-                        }
-
-                        foreach (UserCurrencyModel currency in ChannelSession.Settings.Currencies.Values)
-                        {
-                            if (currency.ShouldBeReset())
-                            {
-                                await currency.Reset();
-                            }
-                        }
-
-                        if (ChannelSession.Settings.ModerationResetStrikesOnLaunch)
-                        {
-                            foreach (UserDataModel userData in ChannelSession.Settings.UserData.Values)
-                            {
-                                if (userData.ModerationStrikes > 0)
-                                {
-                                    userData.ModerationStrikes = 0;
-                                    ChannelSession.Settings.UserData.ManualValueChanged(userData.ID);
-                                }
-                            }
-                        }
-
-                        ChannelSession.PreMadeChatCommands.Clear();
-                        foreach (PreMadeChatCommand command in ReflectionHelper.CreateInstancesOfImplementingType<PreMadeChatCommand>())
-                        {
-#pragma warning disable CS0612 // Type or member is obsolete
-                            if (!(command is ObsoletePreMadeCommand))
+                            ChannelSession.PreMadeChatCommands.Clear();
+                            foreach (PreMadeChatCommandModelBase command in ReflectionHelper.CreateInstancesOfImplementingType<PreMadeChatCommandModelBase>())
                             {
                                 ChannelSession.PreMadeChatCommands.Add(command);
                             }
-#pragma warning restore CS0612 // Type or member is obsolete
+
+                            foreach (PreMadeChatCommandSettingsModel commandSetting in ChannelSession.Settings.PreMadeChatCommandSettings)
+                            {
+                                PreMadeChatCommandModelBase command = ChannelSession.PreMadeChatCommands.FirstOrDefault(c => c.Name.Equals(commandSetting.Name));
+                                if (command != null)
+                                {
+                                    command.UpdateFromSettings(commandSetting);
+                                }
+                            }
+                            ChannelSession.Services.Chat.RebuildCommandTriggers();
+
+                            await ChannelSession.Services.Timers.Initialize();
+                            await ChannelSession.Services.Moderation.Initialize();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log(ex);
+                            Logger.Log(LogLevel.Error, "Streamer Services - " + JSONSerializerHelper.SerializeToString(ex));
+                            await DialogHelper.ShowMessage("Failed to initialize streamer-based services. If this continues, please visit the Mix It Up Discord for assistance." +
+                                Environment.NewLine + Environment.NewLine + "Error Details: " + ex.Message);
+                            return false;
+                        }
+                    }
+
+                    try
+                    {
+                        ChannelSession.Services.Statistics.Initialize();
+
+                        ChannelSession.Services.InputService.HotKeyPressed += InputService_HotKeyPressed;
+
+                        foreach (RedemptionStoreProductModel product in ChannelSession.Settings.RedemptionStoreProducts.Values)
+                        {
+                            product.ReplenishAmount();
                         }
 
-                        foreach (PreMadeChatCommandSettings commandSetting in ChannelSession.Settings.PreMadeChatCommandSettings)
+                        foreach (RedemptionStorePurchaseModel purchase in ChannelSession.Settings.RedemptionStorePurchases.ToList())
                         {
-                            PreMadeChatCommand command = ChannelSession.PreMadeChatCommands.FirstOrDefault(c => c.Name.Equals(commandSetting.Name));
-                            if (command != null)
+                            if (purchase.State != RedemptionStorePurchaseRedemptionState.ManualRedeemNeeded)
                             {
-                                command.UpdateFromSettings(commandSetting);
+                                ChannelSession.Settings.RedemptionStorePurchases.Remove(purchase);
                             }
                         }
-                        ChannelSession.Services.Chat.RebuildCommandTriggers();
 
-                        ChannelSession.Services.TimerService.Initialize();
-                        await ModerationHelper.Initialize();
-                    }
+                        ChannelSession.Services.Telemetry.TrackLogin(ChannelSession.Settings.TelemetryUserID, ChannelSession.TwitchUserNewAPI?.broadcaster_type);
 
-                    ChannelSession.Services.Statistics.Initialize();
+                        await ChannelSession.SaveSettings();
+                        await ChannelSession.Services.Settings.SaveLocalBackup(ChannelSession.Settings);
+                        await ChannelSession.Services.Settings.PerformAutomaticBackupIfApplicable(ChannelSession.Settings);
 
-                    ChannelSession.Services.InputService.HotKeyPressed += InputService_HotKeyPressed;
-
-                    await ChannelSession.SaveSettings();
-                    await ChannelSession.Services.Settings.SaveLocalBackup(ChannelSession.Settings);
-                    await ChannelSession.Services.Settings.PerformAutomaticBackupIfApplicable(ChannelSession.Settings);
-
-                    ChannelSession.Services.Telemetry.TrackLogin(ChannelSession.MixerUser.id.ToString(), ChannelSession.IsStreamer, ChannelSession.MixerChannel.partnered);
-                    if (ChannelSession.Settings.IsStreamer)
-                    {
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                        Task.Run(async () => { await ChannelSession.Services.MixItUpService.SendUserFeatureEvent(new UserFeatureEvent(ChannelSession.MixerUser.id)); });
+                        AsyncRunner.RunAsyncBackground(SessionBackgroundTask, sessionBackgroundCancellationTokenSource.Token, 60000);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                     }
-
-                    GlobalEvents.OnRankChanged += GlobalEvents_OnRankChanged;
-
-                    AsyncRunner.RunBackgroundTask(sessionBackgroundCancellationTokenSource.Token, 60000, SessionBackgroundTask);
+                    catch (Exception ex)
+                    {
+                        Logger.Log(ex);
+                        Logger.Log(LogLevel.Error, "Finalize Initialization - " + JSONSerializerHelper.SerializeToString(ex));
+                        await DialogHelper.ShowMessage("Failed to finalize initialization. If this continues, please visit the Mix It Up Discord for assistance." +
+                            Environment.NewLine + Environment.NewLine + "Error Details: " + ex.Message);
+                        return false;
+                    }
 
                     return true;
                 }
             }
             catch (Exception ex)
             {
-                await DialogHelper.ShowMessage("An error occurred while trying to initialize your session. If this continues, please visit the Mix It Up Discord for assistance." +
-                    Environment.NewLine + Environment.NewLine + "Error Details: " + ex.Message);
-
                 Logger.Log(ex);
+                Logger.Log(LogLevel.Error, "Channel Information - " + JSONSerializerHelper.SerializeToString(ex));
+                await DialogHelper.ShowMessage("Failed to get channel information. If this continues, please visit the Mix It Up Discord for assistance." +
+                    Environment.NewLine + Environment.NewLine + "Error Details: " + ex.Message);
             }
             return false;
         }
 
-        private static async Task<bool> InitializeBotInternal()
+        private static async Task<Result> InitializeBotInternal()
         {
-            if (ChannelSession.MixerBotConnection != null)
+            if (ChannelSession.TwitchBotConnection != null)
             {
-                PrivatePopulatedUserModel user = await ChannelSession.MixerBotConnection.GetCurrentUser();
-                if (user != null)
+                Result result = await ChannelSession.Services.Chat.TwitchChatService.ConnectBot();
+                if (!result.Success)
                 {
-                    ChannelSession.MixerBot = user;
-
-                    Result result = await ChannelSession.Services.Chat.MixerChatService.ConnectBot();
-                    return result.Success;
+                    return result;
                 }
-                return false;
             }
-            return true;
+
+            return new Result();
         }
 
         private static async Task SessionBackgroundTask(CancellationToken cancellationToken)
@@ -568,18 +663,28 @@ namespace MixItUp.Base
                 {
                     await ChannelSession.SaveSettings();
                     sessionBackgroundTimer = 0;
-                }
-            }
-        }
 
-        private static async void GlobalEvents_OnRankChanged(object sender, UserCurrencyDataViewModel currency)
-        {
-            if (currency.Currency.RankChangedCommand != null)
-            {
-                UserViewModel user = ChannelSession.Services.User.GetUserByMixerID(currency.User.MixerID);
-                if (user != null)
-                {
-                    await currency.Currency.RankChangedCommand.Perform(user);
+                    if (ChannelSession.TwitchStreamIsLive)
+                    {
+                        try
+                        {
+                            string type = null;
+                            if (ChannelSession.TwitchUserNewAPI.IsPartner())
+                            {
+                                type = "Partner";
+                            }
+                            else if (ChannelSession.TwitchUserNewAPI.IsAffiliate())
+                            {
+                                type = "Affiliate";
+                            }
+                            ChannelSession.Services.Telemetry.TrackChannelMetrics(type, ChannelSession.TwitchStreamV5.viewers, ChannelSession.Services.Chat.AllUsers.Count,
+                                ChannelSession.TwitchStreamV5.game, ChannelSession.TwitchChannelV5.views, ChannelSession.TwitchChannelV5.followers);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log(ex);
+                        }
+                    }
                 }
             }
         }
@@ -589,7 +694,7 @@ namespace MixItUp.Base
             if (ChannelSession.Settings.HotKeys.ContainsKey(hotKey.ToString()))
             {
                 HotKeyConfiguration hotKeyConfiguration = ChannelSession.Settings.HotKeys[hotKey.ToString()];
-                CommandBase command = ChannelSession.AllCommands.FirstOrDefault(c => c.ID.Equals(hotKeyConfiguration.CommandID));
+                CommandModelBase command = ChannelSession.Settings.GetCommand(hotKeyConfiguration.CommandID);
                 if (command != null)
                 {
                     await command.Perform();

@@ -1,6 +1,10 @@
-﻿using System.Threading.Tasks;
-using MixItUp.Base.ViewModel.Window.Dashboard;
+﻿using MixItUp.Base.ViewModel.Dashboard;
 using MixItUp.WPF.Controls.Dashboard;
+using System;
+using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Interop;
 
 namespace MixItUp.WPF.Windows.Dashboard
 {
@@ -9,6 +13,16 @@ namespace MixItUp.WPF.Windows.Dashboard
     /// </summary>
     public partial class DashboardWindow : LoadingWindowBase
     {
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+        private const UInt32 SWP_NOSIZE = 0x0001;
+        private const UInt32 SWP_NOMOVE = 0x0002;
+        private const UInt32 TOPMOST_FLAGS = SWP_NOMOVE | SWP_NOSIZE;
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
         private DashboardWindowViewModel viewModel;
 
         private ChatDashboardControl chatControl = new ChatDashboardControl();
@@ -16,6 +30,7 @@ namespace MixItUp.WPF.Windows.Dashboard
         private StatisticsDashboardControl statisticsControl = new StatisticsDashboardControl();
         private GameQueueDashboardControl gameQueueControl = new GameQueueDashboardControl();
         private QuickCommandsDashboardControl quickCommandsControl = new QuickCommandsDashboardControl();
+        private RedemptionStoreDashboardControl redemptionStoreControl = new RedemptionStoreDashboardControl();
 
         public DashboardWindow()
             : base(new DashboardWindowViewModel())
@@ -34,16 +49,32 @@ namespace MixItUp.WPF.Windows.Dashboard
             await this.statisticsControl.Initialize(this);
             await this.gameQueueControl.Initialize(this);
             await this.quickCommandsControl.Initialize(this);
+            await this.redemptionStoreControl.Initialize(this);
 
             this.viewModel.ChatControl = this.chatControl;
             this.viewModel.AlertsControl = this.alertsControl;
             this.viewModel.StatisticsControl = this.statisticsControl;
             this.viewModel.GameQueueControl = this.gameQueueControl;
             this.viewModel.QuickCommandsControl = this.quickCommandsControl;
+            this.viewModel.RedemptionStoreControl = this.redemptionStoreControl;
 
             await this.viewModel.OnLoaded();
 
             await base.OnLoaded();
+        }
+
+        private void TogglePin_Click(object sender, RoutedEventArgs e)
+        {
+            this.viewModel.IsPinned = !this.viewModel.IsPinned;
+
+            if (this.viewModel.IsPinned)
+            {
+                SetWindowPos(new WindowInteropHelper(this).Handle, HWND_TOPMOST, 0, 0, 0, 0, TOPMOST_FLAGS);
+            }
+            else
+            {
+                SetWindowPos(new WindowInteropHelper(this).Handle, HWND_NOTOPMOST, 0, 0, 0, 0, TOPMOST_FLAGS);
+            }
         }
     }
 }

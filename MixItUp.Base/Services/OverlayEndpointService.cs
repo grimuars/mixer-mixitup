@@ -1,4 +1,5 @@
-﻿using Mixer.Base.Model.Client;
+﻿using MixItUp.Base.Model;
+using MixItUp.Base.Model.Commands;
 using MixItUp.Base.Model.Overlay;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
@@ -49,8 +50,8 @@ namespace MixItUp.Base.Services
 
         Task EndBatching();
 
-        Task ShowItem(OverlayItemModelBase item, UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers);
-        Task UpdateItem(OverlayItemModelBase item, UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers);
+        Task ShowItem(OverlayItemModelBase item, CommandParametersModel parameters);
+        Task UpdateItem(OverlayItemModelBase item, CommandParametersModel parameters);
         Task HideItem(OverlayItemModelBase item);
 
         Task SendTextToSpeech(OverlayTextToSpeech textToSpeech);
@@ -179,28 +180,19 @@ namespace MixItUp.Base.Services
             this.batchPackets.Clear();
         }
 
-        public async Task ShowItem(OverlayItemModelBase item, UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        public async Task ShowItem(OverlayItemModelBase item, CommandParametersModel parameters)
         {
             if (item != null)
             {
                 try
                 {
-                    JObject jobj = await item.GetProcessedItem(user, arguments, extraSpecialIdentifiers);
+                    JObject jobj = await item.GetProcessedItem(parameters);
                     if (jobj != null)
                     {
                         if (item is OverlayImageItemModel || item is OverlayVideoItemModel || item is OverlaySoundItemModel)
                         {
-                            OverlayFileItemModelBase fileItem = (OverlayFileItemModelBase)item;
-                            string filePath = jobj["FilePath"].ToString();
-                            this.SetLocalFile(fileItem.FileID, filePath);
-                        }
-                        else if (item is OverlaySparkCrystalItemModel)
-                        {
-                            OverlaySparkCrystalItemModel sparkCrystalItem = (OverlaySparkCrystalItemModel)item;
-                            if (!string.IsNullOrEmpty(sparkCrystalItem.CustomImageFilePath))
-                            {
-                                this.SetLocalFile(sparkCrystalItem.ID.ToString(), jobj["CustomImageFilePath"].ToString());
-                            }
+                            this.SetLocalFile(jobj["FileID"].ToString(), jobj["FilePath"].ToString());
+                            jobj["FullLink"] = OverlayItemModelBase.GetFileFullLink(jobj["FileID"].ToString(), jobj["FileType"].ToString(), jobj["FilePath"].ToString());
                         }
                         await this.SendPacket("Show", jobj);
                     }
@@ -212,13 +204,13 @@ namespace MixItUp.Base.Services
             }
         }
 
-        public async Task UpdateItem(OverlayItemModelBase item, UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        public async Task UpdateItem(OverlayItemModelBase item, CommandParametersModel parameters)
         {
             if (item != null)
             {
                 try
                 {
-                    JObject jobj = await item.GetProcessedItem(user, arguments, extraSpecialIdentifiers);
+                    JObject jobj = await item.GetProcessedItem(parameters);
                     if (jobj != null)
                     {
                         await this.SendPacket("Update", jobj);
@@ -300,43 +292,42 @@ namespace MixItUp.Base.Services
 
         protected override async Task ProcessConnection(HttpListenerContext listenerContext)
         {
-            string url = listenerContext.Request.Url.LocalPath;
-            url = url.Trim(new char[] { '/' });
+            try
+            {
+                string url = listenerContext.Request.Url.LocalPath;
+                url = url.Trim(new char[] { '/' });
 
-            if (url.Equals("overlay"))
-            {
-                await this.CloseConnection(listenerContext, HttpStatusCode.OK, this.webPageInstance);
-            }
-            else if (url.StartsWith(OverlayFilesWebPath))
-            {
-                string fileID = url.Replace(OverlayFilesWebPath, "");
-                string[] splits = fileID.Split(new char[] { '/', '\\' });
-                if (splits.Length == 2)
+                if (url.Equals("overlay"))
                 {
-                    string fileType = splits[0];
-                    fileID = splits[1];
-                    if (this.localFiles.ContainsKey(fileID) && File.Exists(this.localFiles[fileID]))
+                    await this.CloseConnection(listenerContext, HttpStatusCode.OK, this.webPageInstance);
+                }
+                else if (url.StartsWith(OverlayFilesWebPath))
+                {
+                    string fileID = url.Replace(OverlayFilesWebPath, "");
+                    string[] splits = fileID.Split(new char[] { '/', '\\' });
+                    if (splits.Length == 2)
                     {
-                        listenerContext.Response.Headers["Access-Control-Allow-Origin"] = "*";
-                        listenerContext.Response.StatusCode = (int)HttpStatusCode.OK;
-                        listenerContext.Response.StatusDescription = HttpStatusCode.OK.ToString();
-                        listenerContext.Response.ContentType = fileType + "/" + Path.GetExtension(this.localFiles[fileID]).Replace(".", "");
-
-                        byte[] fileData = File.ReadAllBytes(this.localFiles[fileID]);
-
-                        try
+                        string fileType = splits[0];
+                        fileID = splits[1];
+                        if (this.localFiles.ContainsKey(fileID) && File.Exists(this.localFiles[fileID]))
                         {
+                            listenerContext.Response.Headers["Access-Control-Allow-Origin"] = "*";
+                            listenerContext.Response.StatusCode = (int)HttpStatusCode.OK;
+                            listenerContext.Response.StatusDescription = HttpStatusCode.OK.ToString();
+                            listenerContext.Response.ContentType = fileType + "/" + Path.GetExtension(this.localFiles[fileID]).Replace(".", "");
+
+                            byte[] fileData = File.ReadAllBytes(this.localFiles[fileID]);
                             await listenerContext.Response.OutputStream.WriteAsync(fileData, 0, fileData.Length);
                         }
-                        catch (HttpListenerException ex) { Logger.Log(LogLevel.Debug, ex); }
-                        catch (Exception ex) { Logger.Log(ex); }
                     }
                 }
+                else
+                {
+                    await this.CloseConnection(listenerContext, HttpStatusCode.BadRequest, "");
+                }
             }
-            else
-            {
-                await this.CloseConnection(listenerContext, HttpStatusCode.BadRequest, "");
-            }
+            catch (HttpListenerException ex) { Logger.Log(LogLevel.Debug, ex); }
+            catch (Exception ex) { Logger.Log(ex); }
         }
     }
 

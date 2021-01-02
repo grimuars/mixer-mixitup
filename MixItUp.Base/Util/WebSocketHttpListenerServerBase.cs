@@ -1,5 +1,4 @@
-﻿using Mixer.Base.Model.Client;
-using StreamingClient.Base.Util;
+﻿using StreamingClient.Base.Util;
 using StreamingClient.Base.Web;
 using System;
 using System.Net;
@@ -31,9 +30,18 @@ namespace MixItUp.Base.Util
 
         public async Task Send(WebSocketPacket packet)
         {
-            foreach (WebSocketServerBase webSocketServer in this.webSocketServers)
+            try
             {
-                await webSocketServer.Send(packet);
+                foreach (WebSocketServerBase webSocketServer in this.webSocketServers)
+                {
+                    Logger.Log(LogLevel.Debug, "Sending Web Socket Packet - " + JSONSerializerHelper.SerializeToString(packet));
+
+                    await webSocketServer.Send(packet);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(ex);
             }
         }
 

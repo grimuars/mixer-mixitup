@@ -57,6 +57,12 @@ namespace MixItUp.Base.Util
             return false;
         }
 
+        public override void Clear()
+        {
+            base.Clear();
+            this.ClearTracking();
+        }
+
         public IEnumerable<K> GetAddedKeys() { return this.GetKeyValues(this.addedValues).Keys; }
 
         public IEnumerable<V> GetAddedValues() { return this.GetKeyValues(this.addedValues).Values; }
@@ -64,6 +70,14 @@ namespace MixItUp.Base.Util
         public IEnumerable<K> GetChangedKeys() { return this.GetKeyValues(this.changedValues).Keys; }
 
         public IEnumerable<V> GetChangedValues() { return this.GetKeyValues(this.changedValues).Values; }
+
+        public IEnumerable<V> GetAddedChangedValues()
+        {
+            List<V> values = new List<V>();
+            values.AddRange(this.GetAddedValues());
+            values.AddRange(this.GetChangedValues());
+            return values;
+        }
 
         public IEnumerable<K> GetRemovedValues()
         {

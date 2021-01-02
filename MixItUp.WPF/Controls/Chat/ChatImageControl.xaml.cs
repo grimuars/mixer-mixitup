@@ -1,6 +1,6 @@
 ﻿using MixItUp.Base;
-using MixItUp.Base.Model.Chat;
-using MixItUp.Base.Model.Chat.Mixer;
+using MixItUp.Base.Services.Twitch;
+using MixItUp.Base.ViewModel.Chat.Twitch;
 using MixItUp.WPF.Services;
 using StreamingClient.Base.Util;
 using System;
@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
+using TwitchV5API = Twitch.Base.Models.V5.Emotes;
 
 namespace MixItUp.WPF.Controls.Chat
 {
@@ -44,11 +45,13 @@ namespace MixItUp.WPF.Controls.Chat
             this.DataContextChanged += EmoticonControl_DataContextChanged;
         }
 
-        public ChatImageControl(MixerChatEmoteModel emoticon) : this() { this.DataContext = emoticon; }
+        public ChatImageControl(TwitchV5API.EmoteModel emote) : this() { this.DataContext = emote; }
 
-        public ChatImageControl(MixrElixrEmoteModel emoticon) : this() { this.DataContext = emoticon; }
+        public ChatImageControl(BetterTTVEmoteModel emote) : this() { this.DataContext = emote; }
 
-        public ChatImageControl(MixerSkillModel skill) : this() { this.DataContext = skill; }
+        public ChatImageControl(FrankerFaceZEmoteModel emote) : this() { this.DataContext = emote; }
+
+        public ChatImageControl(TwitchBitsCheerViewModel bitsCheer) : this() { this.DataContext = bitsCheer; }
 
         private void ChatEmoteControl_Loaded(object sender, RoutedEventArgs e)
         {
@@ -61,57 +64,48 @@ namespace MixItUp.WPF.Controls.Chat
             {
                 if (this.DataContext != null)
                 {
-                    if (this.DataContext is MixerChatEmoteModel)
+                    if (this.DataContext is TwitchV5API.EmoteModel)
                     {
-                        MixerChatEmoteModel emote = (MixerChatEmoteModel)this.DataContext;
-                        await this.DownloadImageUrl(emote.Uri);
-                        CroppedBitmap croppedBitmap = new CroppedBitmap(ChatImageControl.bitmapImages[emote.Uri], new Int32Rect((int)emote.X, (int)emote.Y, (int)emote.Width, (int)emote.Height));
-                        this.Image.Source = croppedBitmap;
-                        this.Image.ToolTip = this.AltText.Text = emote.Name;
+                        TwitchV5API.EmoteModel emote = (TwitchV5API.EmoteModel)this.DataContext;
+                        this.Image.Source = await this.DownloadImageUrl(emote.URL);
+                        this.Image.ToolTip = this.AltText.Text = emote.code;
                     }
-                    else if (this.DataContext is MixrElixrEmoteModel)
+                    else if (this.DataContext is BetterTTVEmoteModel)
                     {
-                        MixrElixrEmoteModel emote = (MixrElixrEmoteModel)this.DataContext;
-                        if (emote.animated)
-                        {
-                            this.GifImage.DataContext = emote.Url;
-                            this.GifImage.ToolTip = this.AltText.Text = emote.code;
-                        }
-                        else
-                        {
-                            await this.DownloadImageUrl(emote.Url);
-                            this.Image.Source = ChatImageControl.bitmapImages[emote.Url];
-                            this.Image.ToolTip = this.AltText.Text = emote.code;
-                        }
+                        BetterTTVEmoteModel emote = (BetterTTVEmoteModel)this.DataContext;
+                        this.Image.Source = await this.DownloadImageUrl(emote.url);
+                        this.Image.ToolTip = this.AltText.Text = emote.code;
                     }
-                    else if (this.DataContext is MixerSkillModel)
+                    else if (this.DataContext is FrankerFaceZEmoteModel)
                     {
-                        MixerSkillModel skill = (MixerSkillModel)this.DataContext;
-                        await this.DownloadImageUrl(skill.Image);
-                        this.Image.Source = ChatImageControl.bitmapImages[skill.Image];
-                        this.Image.ToolTip = this.AltText.Text = skill.Name;
+                        FrankerFaceZEmoteModel emote = (FrankerFaceZEmoteModel)this.DataContext;
+                        this.Image.Source = await this.DownloadImageUrl(emote.url);
+                        this.Image.ToolTip = this.AltText.Text = emote.name;
+                    }
+                    else if (this.DataContext is TwitchBitsCheerViewModel)
+                    {
+                        TwitchBitsCheerViewModel bitsCheer = (TwitchBitsCheerViewModel)this.DataContext;
+                        this.Image.Source = await this.DownloadImageUrl((ChannelSession.AppSettings.IsDarkBackground) ? bitsCheer.Tier.DarkImage : bitsCheer.Tier.LightImage);
+                        this.Image.ToolTip = this.AltText.Text = bitsCheer.Text;
+                        this.Text.Visibility = Visibility.Visible;
+                        this.Text.Text = bitsCheer.Amount.ToString();
                     }
                     else if (this.DataContext is string)
                     {
                         string imageUrl = (string)this.DataContext;
-                        await this.DownloadImageUrl(imageUrl);
-                        this.Image.Source = ChatImageControl.bitmapImages[imageUrl];
+                        this.Image.Source = await this.DownloadImageUrl(imageUrl);
                     }
 
                     if (this.Image.Source != null)
                     {
                         this.Image.MaxWidth = this.Image.MaxHeight = this.Image.Width = this.Image.Height = ChannelSession.Settings.ChatFontSize * 2;
                     }
-                    else if (this.GifImage.DataContext != null)
-                    {
-                        this.GifImage.MaxWidth = this.GifImage.MaxHeight = this.GifImage.Width = this.GifImage.Height = ChannelSession.Settings.ChatFontSize * 2;
-                    }
                 }
             }
             catch (Exception ex) { Logger.Log(ex); }
         }
 
-        private async Task DownloadImageUrl(string url)
+        private async Task<BitmapImage> DownloadImageUrl(string url)
         {
             if (!ChatImageControl.bitmapImages.ContainsKey(url))
             {
@@ -123,6 +117,7 @@ namespace MixItUp.WPF.Controls.Chat
                 }
                 ChatImageControl.bitmapImages[url] = bitmap;
             }
+            return ChatImageControl.bitmapImages[url];
         }
     }
 }

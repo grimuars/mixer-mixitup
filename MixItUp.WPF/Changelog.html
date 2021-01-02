@@ -5,177 +5,291 @@
     <body>
         <h1 style="color: #5e9ca0;">Changelog</h1>
 
-        <h2 style="color: #2e6c80;">v900.5.4.7024:</h2>
+        <h2 style="color: #2e6c80;">v0.5.8.5:</h2>
         <ul>
-            <li>Changing user details refreshing logic to once per user per session except for forced scenarios</li>
-            <li>Adding additional logic to process user update events for efficiently (EX: Follows, Subs)</li>
-        </ul>
-
-        <h2 style="color: #2e6c80;">v0.5.4.7024:</h2>
-        <ul>
-            <li>Adding "Replaced" comparator to Conditional Action to determine if the 1st value has been changed or replaced due to Special Identifier processing</li>
-            <li>Fixing bug with $latest___ Special Identifiers not translating properly</li>
-            <li>Fixing bug with StreamElements donations not having $username set</li>
-            <li>Adding $userpatreontier Special Identifier</li>
+            <li>Fixing bug with Permission value for Stream Pass not being respected properly when adding points to a user</li>
+            <li>Adjusting Tiltify service connectivity to use regular web browser window for authentication to work around changes to Tiltify page</li>
+            <li>Fixing bug with Notification volume settings not saving properly</li>
+            <li>Fixing bug with raids contributing to gifted subs statistics trackers</li>
             <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7023:</h2>
+        <h2 style="color: #2e6c80;">v0.5.8.4:</h2>
         <ul>
-            <li>Adding additional diagnostic logging for chat delay issues</li>
+            <li>Adding loop option to Overlay Video action and Overlay Video widget</li>
+            <li>Adding urlencode() processor function to Special Identifier action</li>
+            <li>Fixing bug with Tiltify team campaigns not properly being queried for donations when configured</li>
+            <li>Command filtering search now searches through group names and includes all commands that are part of said group</li>
             <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7022:</h2>
+        <h2 style="color: #2e6c80;">v0.5.8.2:</h2>
         <ul>
-            <li>Adding the Mix It Up Overlay as an option for the Sound action</li>
+            <li>Adjusting gifted sub logic to make sure other gifted sub-related work is run (Latest Special Identifiers, currency, etc), but only the event command & alert if it's not bundled under a mass gifted sub event</li>
+            <li>Adjusting follower detection logic to buffer scenario where we fail to get the most recent followers on initial load</li>
             <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7021:</h2>
+        <h2 style="color: #2e6c80;">v0.5.8.1:</h2>
         <ul>
-            <li>Fixing crash related to triggering certain event commands</li>
+            <li>Adding $usercolor and $usertwitchcolor Special Identifiers</li>
+            <li>Moderation error message for chat participation now state the user's name who's message was deleted</li>
+            <li>Stream Pass level up commands now translate the Special Identifier for the user's level to match the level that the command occurred for</li>
+            <li>Streamer &amp; Bot accounts will now not show up for Leaderboard Overlay Widgets</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7020:</h2>
+        <h2 style="color: #2e6c80;">v0.5.8.0:</h2>
         <ul>
-            <li>Fixing bug with certain events not allowing multiple trigger by the same user (EX: Donations Event)</li>
-            <li>Improving logic with age calcuations for things like follow age, subscriber age, etc</li>
+            <li>Large-scale re-working of Settings menu, adding new areas and moving various options to better locations</li>
+            <li>Adding filtering option to Commands settings for Twitch Subscription Gifted &amp; Mass Subscriptions Gifted event commands to provide a better experience:</li>
+            <ul>
+                <li>This option allows you to set a filter amount for the Mass Subscriptions Gifted to determine which command is run</li>
+                <li>If the amount gifted is LESS THAN OR EQUAL to the filter amount, then it will only run the Subscription Gifted command once for each user who was gifted a sub</li>
+                <li>If the amount gifted is GREATER THAN the filter amount, it will only run the Mass Subscriptions Gifted command once in total</li>
+                <li>This option is enabled by default and set to 1, it can be disabled or changed by going to Settings -> Commands</li>
+            </ul>
+            <li>Adding Commands menu to Settings for command &amp; action-based options:</li>
+            <ul>
+                <li>Filtering option for Twitch Mass Subscriptions Gifted event command based on amount of sub gifted</li>
+                <li>Adding the ability to hide specific action types from the actions list</li>
+            </ul>
+            <li>Adding Alerts menu to Settings for chat alert-based options:</li>
+            <ul>
+                <li>Enable/disable individual alert options in more detail</li>
+                <li>Set colors for each individual alert type</li>
+            </ul>
+            <li>Adding the following options to the Chat menu in Settings:</li>
+            <ul>
+                <li>Username colors now default to the user's set value on Twitch</li>
+                <li>Custom username colors can be set based on the role of the user</li>
+                <li>Hiding a user's avatar, role badge, subscriber badge, and specialty badge</li>
+                <li>Hiding messages sent by Bot account</li>
+                <li>Add line seperators between messages</li>
+                <li>Alternating background colors for messages</li>
+            </ul>
+            <li>Adding the following options to the Notifications menu in Settings:</li>
+            <ul>
+                <li>Dedicated audio device to use just for notifications</li>
+            </ul>
+            <li>Adding the following options to the Users menu in Settings:</li>
+            <ul>
+                <li>Option to clear all Mixer user data permanently from your settings</li>
+                <li>Moving option to clear all user data from Advanced section to Users section</li>
+            </ul>
+            <li>Automated settings backups will now default to the Mix It Up settings folder when enabled unless a location is set</li>
+            <li>Users that are gifted a sub and choose to continue it by paying for the next month's sub will now trigger the Subscribed event command</li>
+            <li>Adjusting Twitch Channel Points Redeemed event command & Channel Points commands to only translate $message if there is a valid message sent by the user and having it also passed in as arguments to the command</li>
+            <li>Messages that are highlighted by the Twitch Channel Points Reward now show as highlighted in the Mix It Up chat UI</li>
+            <li>Discord actions now list announcement channels for community servers in the list of selectable channels</li>
+            <li>Adding Manual Reset option on Inventory editor window</li>
+            <li>Fixing bug with Bit Cheermotes where individual, non-standard amounts did not display properly (EX: A single bit cheermote for 3 bits)</li>
+            <li>Fixing bug with month computation where it would not include the interim month (EX: Someone has been subbed to you for 40 days, $usersubmonths should be 2)</li>
+            <li>Adjusting logic for handling timezone adjustment for Twitch dates &amp; times</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7019:</h2>
+        <h2 style="color: #2e6c80;">v0.5.7.3:</h2>
         <ul>
-            <li>Adding automation local backup creation of settings file upon successful loading</li>
-            <li>Adding loading of local backup settings file in the event of a failured to load main settings file</li>
-            <li>Fixing bug TreatStream connectivity issues causing a crash</li>
+            <li>Force reseting Preview Program option for all users, please manually re-enable this option if you wish to stay in the Preview Program</li>
+            <li>Officially deprecating Moderator login and adding reference to Twitch Moderator View</li>
+            <li>Fixing bug with Latest Special Identifiers not loading correctly when app is re-launched due to serialization</li>
+            <li>Have follow/unfollow button update to show current state on Users pop-up dialog</li>
+            <li>Removing auto-assignment of Mod role for Channel Editors</li>
+            <li>Updating available text to speech voices</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7018:</h2>
+        <h2 style="color: #2e6c80;">v0.5.7.2:</h2>
         <ul>
-            <li>Fixing bug with new quotes not being properly assigned an ID</li>
-            <li>Fixing bug with using command file importer not working with older command files</li>
-            <li>Adding various diagnostic logging to troubleshoot settings &amp; chat issues</li>
+            <li>Adding $usersubtier Special Identifier</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7017:</h2>
+        <h2 style="color: #2e6c80;">v0.5.7.1:</h2>
         <ul>
-            <li>Fixing bug quotes not being properly removed when deleted and new quotes not having ID numbers</li>
-            <li>Fixing bug with v1 settings upgrade not properly saving commands &amp; quotes</li>
-            <li>Fixing bug with Chat Message Deleted event command not setting the target user correctly</li>
+            <li>Updating various event command names to include reference to 1 minute delay</li>
+            <li>Allowing Reset On Load option for Counter actions to be toggable without having the Save To File option toggled</li>
+            <li>Fixing bug with Streaming Platform action not properly saving Raid option</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7016:</h2>
+        <h2 style="color: #2e6c80;">v0.5.7.0:</h2>
         <ul>
-            <li>Fixing bug with Streamlabs OBS service not connecting on re-launch</li>
-            <li>Fixing bug with Developer APIs not starting on re-launch</li>
-            <li>Adding various localization fixes</li>
+            <li>Adding support for Twitch &amp; the removal of support for Mixer</li>
+            <li>Large-scale updates to our Wiki to reflect all changes made as part of the migration: <a href="https://github.com/SaviorXTanren/mixer-mixitup/wiki">https://github.com/SaviorXTanren/mixer-mixitup/wiki</a></li>
+            <li>The following features have been removed and will not be returning:</li>
+            <ul>
+                <li>MixPlay</li>
+                <li>Mixer-specific event commands</li>
+                <li>Sparks, Embers, &amp; Milestones</li>
+                <li>Auto Hoster</li>
+            </ul>
+            <li>The following features are being temporarily removed and will be returning in some form after changes and/or investigation:</li>
+            <ul>
+                <li>Mix It Up Store</li>
+                <li>Mix It Up Remote</li>
+                <li>New User Wizard importing</li>
+            </ul>
+            <li>The following features have been replaced by an equivalent feature:</li>
+            <ul>
+                <li>All Mixer event commands have been migrated over to their Twitch equivilents if they were possible. Please see our Wiki page for a full explanation of how each new event command works: <a href="https://github.com/SaviorXTanren/mixer-mixitup/wiki/Events">https://github.com/SaviorXTanren/mixer-mixitup/wiki/Events</a></li>
+                <li>MixPlay has been replaced by its equivilent of Channel Points. Custom Channel Point Rewards that are created can be linked to a command in Mix It Up that will automatically be run when the reward is purchased: <a href="https://github.com/SaviorXTanren/mixer-mixitup/wiki/Channel-Points">https://github.com/SaviorXTanren/mixer-mixitup/wiki/Channel-Points</a></li>
+                <li>The Mixer Clips action has been removed and the Clips action has been added. You will need to manually add this action to any existing commands that used to use the Mixer Clips action</li>
+                <li>The Stream Clip Playback Overlay Widget has been removed and the Clip Playback Overlay Widget has been added. You will need to manually add this Overlay Widget to use this functionality</li>
+                <li>Features that took advantage of Sparks &amp; Embers have now been updated to use Bits instead</li>
+                <li>Chat User Timeout: Does not indicate who performed the timeout, $targetuser___ is the person that received the timeout, $timeoutlength indicates the length of the timeout in seconds</li>
+                <li>Chat User Ban: Does not indicate who performed the ban, $targetuser___ is the person who was banned</li>
+            </ul>
+            <li>Various Special Identifiers have been adjusted or removed based on what data is available on Twitch. The following is a summary of the changes made, please see our Wiki page for full details:  <a href="https://github.com/SaviorXTanren/mixer-mixitup/wiki/Special-Identifiers">https://github.com/SaviorXTanren/mixer-mixitup/wiki/Special-Identifiers</a></li>
+            <ul>
+                <li>$userage has been replaced by $useraccountage</li>
+                <li>Adding $usertotalbitscheered</li>
+                <li>Removing $userchannelid, $userchannellive, $userchannelfeatured, &amp; $usergameimage</li>
+                <li>Adding $userstreamtitle, $userstreamgame, $userstreamfollowercount, &amp; $userstreamviewscount</li>
+                <li>Adding $topXbitscheered____, $topbitscheereduser___, &amp; $topbitscheeredamount</li>
+                <li>All $uptime___ &amp; $start___ Special Identifiers have been replaced by $streamuptime___ &amp; $streamstart___</li>
+                <li>$streamagerating &amp; $streamhostcount have been removed</li>
+                <li>$streamfollowcount has been replaced by $streamfollowercount</li>
+                <li>$streamsubcount has been replaced by $streamsubscribercount</li>
+                <li>$streamviewertotal has been replaced by $streamviewscount</li>
+                <li>$featuredchannel &amp; $costreamusers have been removed</li>
+                <li>$randomsubuser___ has been replaced by $randomsubscriberuser___</li>
+            </ul>
+            <li>Special Identifiers that are unique to a specific feature have been moved to that respective feature's Wiki page. For example, to see what Special Identifiers only work with Channel Points, visit the Channel Points Wiki page</li>
+            <li>Due to limits &amp; restrictions that Twitch places on whispers, all automated chat whispers from things such as error messages that relied on whispers will now appear as regular chat messages. Anything that is specifically indicated to be a whisper by you, such as via a Chat action, will continue to be an actual whisper</li>
+            <li>Adding !linkmixeraccount &amp; !approvemixeraccount pre-made chat command to assist with merging the user's Mix It Up data from their Mixer account over to their Twitch account</li>
+            <li>The following services will be automatically disconnected and must be manually reconnected to change from your Mixer account to your Twitch account: Streamlabs, StreamElements, TipeeeStream, TreatStream, StreamJar</li>
+            <li>Adding the ability to specify the required tier for Subscriber role for Role Usage Requirements</li>
+            <li>Adding support for BetterTTV &amp; FrankerFaceZ emotes. This can be enabled by heading to Settings -> Chat</li>
+            <li>Patreon patrons that have their Twitch account link will now improve user account pairing process with Mix It Up</li>
+            <li>When restoring backed up settings, the restoration process will not occur after the application restarts to prevent an occassional locking state that can occur</li>
+            <li>Updating Developer APIs to support querying information for Twitch users</li>
+            <li>Adding the following new themes: Mixer, Twitch, Atl3m's Plexify, BlueLeprechaunTV</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7015:</h2>
+        <h2 style="color: #2e6c80;">v0.5.6.0:</h2>
         <ul>
-            <li>Fixing bug where deleted commands were not being properly removed from settings</li>
-            <li>Adding detection of added &amp; changed commands to speed up saving logic</li>
-            <li>Fixing bug with Channel Stream Started &amp; Stopped event commands not triggering</li>
-            <li>Fixing bug with OBS Studio browser source URL updating not working</li>
-            <li>Fixing bug where changing a user's role caused user to be duplicated in Chat user list</li>
-            <li>Fixing bug with connection logic for XSplit service</li>
-            <li>Fixing bug with MixPlay group settings not being saved properly to settings</li>
+            <li>Adding new Stream Pass feature</li>
+            <li>Adding new Redemption Store feature</li>
+            <li>Adding initial rollout of Usage Requirement v2 to Redemption Store:</li>
+            <ul>
+                <li>Multiple currency, rank, &amp; inventory requirements can now be applied to a single command</li>
+                <li>Threshold requirements now allow for the command to be run for every user that participated</li>
+                <li>Patreon Benefit has been moved from Settings to User Role requirement</li>
+            </ul>
+            <li>Adding $toptimeuser___, $topsparksuseduser___, $topembersuseduser__, $top&lt;CURRENCY&gt;user, &amp; $top&lt;RANK&gt;user Special Identifiers to get the user with the highest amount</li>
+            <li>Adding Regular Bonus field to Currency/Ranks</li>
+            <li>Currency/Rank Role Bonuses now apply only to a user if they specifically have that role (Regular, Subscriber, Mod). If multiple Role Bonuses apply to a user, only the highest one is used</li>
+            <li>Inventory items can now be renamed without losing user counts for them</li>
+            <li>Adding new fields to User data exporting functionality</li>
+            <li>Improvements to User data importing functionality</li>
+            <li>Adding Export Quotes option to Quotes page</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7014:</h2>
+        <h2 style="color: #2e6c80;">v0.5.5.8:</h2>
         <ul>
-            <li>Adding check to prevent copying service authentication data if service is not connected</li>
-            <li>Fixing crash with clicking certain links on Services page</li>
-            <li>Adding additional diagnostic logging</li>
+            <li>Adding "Not Replaced" operator to Conditional action</li>
+            <li>Adding Quotes endpoints to Developer API</li>
+            <li>Fixing bug related to chat command trigger caching not updating correctly in certain scenarios</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7013:</h2>
+        <h2 style="color: #2e6c80;">v0.5.5.7:</h2>
         <ul>
-            <li>Fixing bug where Username won't appear on Users page after changing user roles</li>
-            <li>Fixing bug with double connection when connecting as a moderator with existing settings</li>
-            <li>Fixing bug with anonymous users for MixPlay not working and not showing in chat alerts</li>
-            <li>Adding various localization fixes</li>
+            <li>Adding initial language localization support for Dutch, French, Spanish, Japanese, Portuguese, and German</li>
+            <li>Adding $usergiveawayentries and $usergiveawaytotalentries Special Identifiers to Giveaway User Joined command</li>
+            <li>Fixing bug with user details not refreshing for Special Identifier processing</li>
+            <li>Adding Mod User &amp; Unmod User options to Moderation action</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7012:</h2>
+        <h2 style="color: #2e6c80;">v0.5.5.6:</h2>
         <ul>
-            <li>Fixing bug with user lookup by username if there's an "@" character at the beginning of the text</li>
-            <li>Fixing bug with embers triggering the Sparks Spent event command instead of the Embers Spent event command</li>
-            <li>Fixing bug with command importing logic</li>
-            <li>Adding various localization fixes</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7011:</h2>
+        <h2 style="color: #2e6c80;">v0.5.5.5:</h2>
         <ul>
-            <li>Adding the ability to manually change the localized language</li>
-            <li>Fixing bug with Auto Hoster not properly saving/loading settings file</li>
-            <li>Adding the ability to skip certain Mixer service connection errors and continue logging in</li>
-            <li>Adding additional error messaging for failing to connect to Mixer services</li>
-            <li>Fixing bug with Giveaways page not properly displaying who is entered into the giveaway</li>
-            <li>Fixing bug with Chat command triggers using MixrElxir emotes not working</li>
-            <li>Disabling tracking of whisper numbers for moderator logins to prevent endless whispering bug</li>
+            <li>Fixing bug with New User Wizard re-running on start up when activated via Settings -> Advanced</li>
+            <li>Adding additional diagnostic logging to help diagnose various issues</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7010:</h2>
+        <h2 style="color: #2e6c80;">v0.5.5.4:</h2>
         <ul>
-            <li>Fixing bug with Auto Log-In not correctly detecting the right settings to load</li>
-            <li>Fixing Twitter log in not working due to blocking loading screen</li>
-            <li>Fixing bug related to user permissions list not showing properly for some MixPlay actions</li>
-            <li>Fixing bug related to Auto Hoster not launching for some users</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7007-7009:</h2>
+        <h2 style="color: #2e6c80;">v0.5.5.3:</h2>
         <ul>
-            <li>Fixing bug related to counters not processing correctly for Special Identifiers</li>
-            <li>Adding loading animations to service connections</li>
-            <li>Fixing bug related to preview program updates not sticking</li>
+            <li>Fixing bug with importing of data during New User Wizard</li>
+            <li>Fixing permissions bug with running ads through the Streaming Platform action</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7006:</h2>
+        <h2 style="color: #2e6c80;">v0.5.5.2:</h2>
         <ul>
-            <li>Fixing bug related to upgrading old backed up settings</li>
+            <li>Chat message &amp; command processing performance tweaks</li>
+            <li>Updating Streamlabs donation checking to use real-time web socket connection</li>
+            <li>Fixing bug with game sub-commands not running in some cases</li>
+            <li>Fixing bug with alert chat messages not processing correctly</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7004-7005:</h2>
+        <h2 style="color: #2e6c80;">v0.5.5.1:</h2>
         <ul>
-            <li>Fixing bug related to Event commands not triggering after being run once</li>
-            <li>Fixing bug related to pre-made chat commands not being triggerable upon launching</li>
-            <li>Fixing bug related to user purging/banning causing a crash</li>
-            <li>Fixing bug related to MixPlay &amp; Currency/Rank/Inventory actions causing a crash when saving them in a command</li>
-            <li>Fixing bug related to user display on the Game Queue page</li>
+            <li>Actions can now be dragged &amp; dropped within a command to re-order them</li>
+            <li>Adding the ability to run /timeout &amp; /ban commands from Chat window</li>
+            <li>Fixing bug where chat alert messages did not contain the correct user for right-click menus</li>
+            <li>Fixing bug where signing in to a bot account when app is fully launched did not log the bot account into chat</li>
+            <li>Fixing bug where MixPlay controls with emojis weren't being updated upon connection to fix design issue with MixPlay</li>
+            <li>Various quality of life &amp; bug fixes</li>
         </ul>
 
-        <h2 style="color: #2e6c80;">v0.5.4.7003:</h2>
+        <h2 style="color: #2e6c80;">v0.5.5.0:</h2>
         <ul>
-            <li>Fixing bug related to Application Settings not being upgraded properly</li>
-            <li>Fixing bug related to Streamloots overlay url not being processed correctly</li>
-            <li>Fixing bug related to basic chat commands crashing when being saved</li>
-            <li>Adding missing MixPlay control Special Identifiers</li>
-        </ul>
-
-        <h2 style="color: #2e6c80;">v0.5.4.7002:</h2>
-        <ul>
-            <li>Fixing bug where chat messages were triggered the Chat User Banned event command (not actually banning people) instead of the Chat Message Received event</li>
-        </ul>
-
-        <h2 style="color: #2e6c80;">v0.5.4.7001:</h2>
-        <ul>
-            <li>BREAKING CHANGE: Removing Song Requests feature <a href="https://mixitupapp.com/songrequests">https://mixitupapp.com/songrequests</a></li>
-            <li>BREAKING CHANGE: Removing Twitter Retweet event command due to rate limiting issues with Twitter</li>
+            <li><b>BREAKING CHANGE:</b> Removing Song Requests feature <a href="https://mixitupapp.com/songrequests">https://mixitupapp.com/songrequests</a></li>
+            <li><b>BREAKING CHANGE:</b> Removing Twitter Retweet event command due to rate limiting issues with Twitter</li>
+            <li><b>BREAKING CHANGE:</b> The Chat User Banned event command has been updated to support tracking the user that performed the ban. $user____ now represents the user who triggered the ban, while $targetuser____ now represents the user that was banned.</li>
+            <li>Adding StreamElements service connectivity and StreamElements donation event command</li>
+            <li>Adding initial language localization support for German (de-DE)</li>
             <li>Upgrading settings data formatting to improve reliability and integrity</li>
             <li>Large-scale rework of services connectivity, events, and MixPlay logic to improve speed and reliability</li>
-            <li>Adding initial language localization support for German (de-DE)</li>
-            <li>Adding StreamElements service connectivity and StreamElements donation event command</li>
-            <li>Revamping New User Wizard experience to better assist and onboard new users</li>
+            <li>Adding improved error messaging to connections &amp; services to assist with diagnosing issues for users</li>
             <li>Adding MixPlay spamming input detection for visual cooldowns to prevent extra MixPlay command triggering</li>
-            <li>Fixing Text to Speech action no longer working due to service API change &amp; updating available speech types</li>
+            <li>Adding the Mix It Up Overlay as a sound device option for the Sound action</li>
+            <li>Adding "Run Ad" option to Streaming Platform action</li>
+            <li>Adding "Replaced" comparator to Conditional Action to determine if the 1st value has been changed or replaced due to Special Identifier processing</li>
+            <li>Adding Chat User Timeout event command with $timeoutlength Special Identifier</li>
+            <li>Adding Chat Whisper Received event command</li>
+            <li>Adding $usersubstreak Special Identifier to Mixer Channel Resubscribed event</li>
+            <li>Adding $userisregular Special Identifier</li>
             <li>Adding latest Special Identifiers to keep track of last user/usage for various features: $latestfolloweruser____, $latesthostuser____, $latesthostviewercount, $latestsubscriberuser____, $latestsubscribersubmonths, $latestsparkusageuser____, $latestsparkusageamount, $latestemberusageuser____, $latestemberusageamount, $latestdonationuser____, $latestdonationamount</li>
             <li>Adding Special Identifier for Currency/Rank/Inventory to show display-friendly numbers: $user____display</li>
             <li>Adding Special Identifier for Currency/Rank/Inventory to show position relative to all users: $user____position</li>
+            <li>Adding support for $skill_____ Special Identifiers in Channel Embers Spent event command</li>
+            <li>Adding $userpatreontier Special Identifier</li>
+            <li>Adding $milestoneendtime &amp; $milestonetimeremaining Special Identifiers</li>
+            <li>Adding $streamviewertotal &amp; $streamchattercount Special Identifier</li>
+            <li>Adding option to pin Dashboard window to top of screen</li>
+            <li>Revamping New User Wizard experience to better assist and onboard new users</li>
             <li>Adding Accounts page to main menu and moving Mixer Bot Account authentication to this page</li>
             <li>MixPlay actions with the Cooldown option now support Special Identifiers</li>
             <li>Special Identifiers created by Web Request actions are no longer global Special Identifiers</li>
             <li>Adding $isautohost Special Identifier to Mixer Channel Hosted event to indicate if the host occurred by Mixer's built-in auto-hosting</li>
+            <li>Updating list of supported Text to Speech voices</li>
+            <li>Improving logic with age calcuations for things like follow age, subscriber age, etc</li>
+            <li>Fixing bug with WASD buttons being reversed for MixPlay Joystick Commands</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.4.8:</h2>
+        <ul>
+            <li>Fixing broken Overlay animation by updating animation library URL</li>
+            <li>Fixing broken Text to Speech functionality due to service changes</li>
             <li>Various quality of life &amp; bug fixes</li>
         </ul>
 

@@ -1,9 +1,8 @@
 ﻿using Microsoft.ApplicationInsights;
 using MixItUp.Base;
-using MixItUp.Base.Actions;
-using MixItUp.Base.Commands;
+using MixItUp.Base.Model.Actions;
+using MixItUp.Base.Model.Commands;
 using MixItUp.Base.Services;
-using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
 using PlayFab;
 using PlayFab.ClientModels;
@@ -70,23 +69,50 @@ namespace MixItUp.WPF.Services
             this.SendPlayFabEvent("PageView", "Name", pageName);
         }
 
-        public void TrackLogin(string userID, bool isStreamer, bool isPartner)
+        public void TrackLogin(string userID, string userType)
         {
-            this.TrySendEvent(() => this.telemetryClient.TrackEvent("Login", new Dictionary<string, string> { { "Is Streamer", isStreamer.ToString() }, { "Is Partner", isPartner.ToString() } }));
-            this.SendPlayFabEvent("Login", new Dictionary<string, object>() { { "IsStreamer", isStreamer.ToString() }, { "IsPartner", isPartner.ToString() } });
-            this.TrySendPlayFabTelemetry(PlayFabClientAPI.UpdateUserDataAsync(new UpdateUserDataRequest() { Data = new Dictionary<string, string>() { { "UserID", userID }, { "Platform", "Windows" }, { "IsStreamer", isStreamer.ToString() }, { "IsPartner", isPartner.ToString() } } }));
+            if (string.IsNullOrEmpty(userType))
+            {
+                userType = "Streamer";
+            }
+
+            this.TrySendEvent(() => this.telemetryClient.TrackEvent("Login", new Dictionary<string, string> { { "User Type", userType } }));
+            this.SendPlayFabEvent("Login", new Dictionary<string, object>() { { "User Type", userType } });
+            this.TrySendPlayFabTelemetry(PlayFabClientAPI.UpdateUserDataAsync(new UpdateUserDataRequest() { Data = new Dictionary<string, string>() { { "UserID", userID }, { "Platform", "Windows" }, { "User Type", userType } } }));
         }
 
-        public void TrackCommand(CommandTypeEnum type, bool IsBasic)
+        public void TrackCommand(CommandTypeEnum type, string details = null)
         {
-            this.TrySendEvent(() => this.telemetryClient.TrackEvent("Command", new Dictionary<string, string> { { "Type", EnumHelper.GetEnumName(type) }, { "Is Basic", IsBasic.ToString() } }));
-            this.SendPlayFabEvent("Command", new Dictionary<string, object>() { { "Type", EnumHelper.GetEnumName(type) }, { "IsBasic", IsBasic.ToString() } });
+            if (string.IsNullOrEmpty(details))
+            {
+                details = "None";
+            }
+            this.TrySendEvent(() => this.telemetryClient.TrackEvent("Command", new Dictionary<string, string> { { "Type", EnumHelper.GetEnumName(type) }, { "Details", details } }));
+            this.SendPlayFabEvent("Command", new Dictionary<string, object>() { { "Type", EnumHelper.GetEnumName(type) }, { "Details", details } });
         }
 
         public void TrackAction(ActionTypeEnum type)
         {
             this.TrySendEvent(() => this.telemetryClient.TrackEvent("Action", new Dictionary<string, string> { { "Type", EnumHelper.GetEnumName(type) } }));
             this.SendPlayFabEvent("Action", "Type", EnumHelper.GetEnumName(type));
+        }
+
+        public void TrackService(string type)
+        {
+            this.TrySendEvent(() => this.telemetryClient.TrackEvent("Service", new Dictionary<string, string> { { "Type", type } }));
+            this.SendPlayFabEvent("Service", "Type", type);
+        }
+
+        public void TrackChannelMetrics(string type, long viewerCount, long chatterCount, string game, long viewCount, long followCount)
+        {
+            if (string.IsNullOrEmpty(type))
+            {
+                type = "Normal";
+            }
+            this.TrySendEvent(() => this.telemetryClient.TrackEvent("Channel", new Dictionary<string, string> { { "Type", type }, { "Viewers", viewerCount.ToString() },
+                { "Chatters", chatterCount.ToString() }, { "Game", game }, { "Views", viewCount.ToString() }, { "Follows", followCount.ToString() } }));
+            this.SendPlayFabEvent("Channel", new Dictionary<string, object>() { { "Type", type }, { "Viewers", viewerCount.ToString() }, { "Chatters", chatterCount.ToString() },
+                { "Game", game }, { "Views", viewCount.ToString() }, { "Follows", followCount.ToString() } });
         }
 
         public void TrackRemoteAuthentication(Guid clientID)
@@ -110,12 +136,10 @@ namespace MixItUp.WPF.Services
                 { "BoardID", boardID.ToString() } });
         }
 
-        public void SetUserID(string userID)
+        public void SetUserID(string id)
         {
-            this.telemetryClient.Context.User.Id = userID;
-
-            string playFabUserID = HashHelper.ComputeMD5Hash("Mixer-" + (ChannelSession.IsStreamer ? "Streamer" : "Moderator") + ChannelSession.MixerUser.id);
-            this.TrySendPlayFabTelemetry(PlayFabClientAPI.LoginWithCustomIDAsync(new LoginWithCustomIDRequest { CustomId = playFabUserID, CreateAccount = true }));
+            this.telemetryClient.Context.User.Id = id.ToString();
+            this.TrySendPlayFabTelemetry(PlayFabClientAPI.LoginWithCustomIDAsync(new LoginWithCustomIDRequest { CustomId = id, CreateAccount = true }));
         }
 
         private void TrySendEvent(Action eventAction)

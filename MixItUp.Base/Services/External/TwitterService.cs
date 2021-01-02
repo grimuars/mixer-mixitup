@@ -1,8 +1,5 @@
 ﻿using LinqToTwitter;
-using Mixer.Base.Model.User;
-using MixItUp.Base.Commands;
 using MixItUp.Base.Util;
-using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
 using StreamingClient.Base.Model.OAuth;
 using StreamingClient.Base.Util;
@@ -45,7 +42,7 @@ namespace MixItUp.Base.Services.External
             this.Links = new List<string>();
         }
 
-        public bool IsStreamTweet { get { return this.Links.Any(l => l.ToLower().Contains(string.Format("mixer.com/{0}", ChannelSession.MixerChannel.token.ToLower()))); } }
+        public bool IsStreamTweet { get { return this.Links.Any(l => l.ToLower().Contains(string.Format("twitch.tv/{0}", ChannelSession.TwitchUserNewAPI.login.ToLower()))); } }
     }
 
     public interface ITwitterService : IOAuthExternalService
@@ -186,44 +183,6 @@ namespace MixItUp.Base.Services.External
             return results;
         }
 
-        public async Task<IEnumerable<Tweet>> GetRetweets(Tweet tweet)
-        {
-            List<Tweet> results = new List<Tweet>();
-            try
-            {
-                using (var twitterCtx = new TwitterContext(this.authorizer))
-                {
-                    List<Status> retweets = await (from retweet in twitterCtx.Status where retweet.Type == StatusType.Retweets && retweet.ID == tweet.ID select retweet).ToListAsync();
-
-                    if (retweets != null)
-                    {
-                        foreach (Status retweet in retweets)
-                        {
-                            ulong.TryParse(retweet.User.UserIDResponse, out ulong userID);
-
-                            Tweet t = new Tweet()
-                            {
-                                ID = retweet.StatusID,
-                                UserID = userID,
-                                UserName = retweet.User.ScreenNameResponse,
-                                Text = retweet.Text,
-                                DateTime = new DateTimeOffset(retweet.CreatedAt, DateTimeOffset.UtcNow.Offset),
-                            };
-
-                            foreach (var urlEntry in retweet.Entities.UrlEntities)
-                            {
-                                t.Links.Add((!string.IsNullOrEmpty(urlEntry.ExpandedUrl) ? urlEntry.ExpandedUrl : urlEntry.DisplayUrl));
-                            }
-
-                            results.Add(t);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex) { Logger.Log(ex); }
-            return results;
-        }
-
         public async Task<bool> SendTweet(string tweet, string imagePath = null)
         {
             try
@@ -250,7 +209,11 @@ namespace MixItUp.Base.Services.External
                                 }
                             }
                         }
-                        catch (Exception ex) { Logger.Log(ex); }
+                        catch (Exception ex)
+                        {
+                            Logger.Log(ex);
+                            return false;
+                        }
 
                         await twitterCtx.TweetAsync(tweet, mediaIds);
 
@@ -258,7 +221,10 @@ namespace MixItUp.Base.Services.External
                     }
                 }
             }
-            catch (Exception ex) { Logger.Log(ex); }
+            catch (Exception ex)
+            {
+                Logger.Log(ex);
+            }
             return false;
         }
 
@@ -294,6 +260,7 @@ namespace MixItUp.Base.Services.External
             if (!string.IsNullOrEmpty(this.authorizer.CredentialStore.OAuthToken))
             {
                 await this.RefreshOAuthToken();
+                this.TrackServiceTelemetry("Twitter");
                 return new Result();
             }
             return new Result("Failed to get authorization");

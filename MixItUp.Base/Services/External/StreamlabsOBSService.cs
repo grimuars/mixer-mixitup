@@ -1,4 +1,4 @@
-﻿using MixItUp.Base.Actions;
+﻿using MixItUp.Base.Model.Actions;
 using MixItUp.Base.Util;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -138,7 +138,7 @@ namespace MixItUp.Base.Services.External
     public abstract class StreamlabsOBSPacketBase
     {
         [JsonProperty("id")]
-        public int ID { get; set; }
+        public int? ID { get; set; }
 
         [JsonProperty]
         public string jsonrpc = "2.0";
@@ -160,20 +160,33 @@ namespace MixItUp.Base.Services.External
 
         public string Name { get { return "Streamlabs OBS"; } }
 
+        public bool IsEnabled { get { return ChannelSession.Settings.EnableStreamlabsOBSConnection; } }
+
         public bool IsConnected { get; private set; }
 
         public async Task<Result> Connect()
         {
             this.IsConnected = false;
-            if (await this.TestConnection())
+
+            try
             {
-                await this.StartReplayBuffer();
+                if (await this.TestConnection())
+                {
+                    await this.StartReplayBuffer();
 
-                this.Connected(this, new EventArgs());
-                ChannelSession.ReconnectionOccurred("Streamlabs OBS");
-                this.IsConnected = true;
-
-                return new Result();
+                    this.Connected(this, new EventArgs());
+                    ChannelSession.ReconnectionOccurred("Streamlabs OBS");
+                    this.IsConnected = true;
+                    ChannelSession.Services.Telemetry.TrackService("Streamlabs OBS");
+                    return new Result();
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                if (!ChannelSession.IsElevated)
+                {
+                    return new Result("Streamlabs OBS might be running as administrator and Mix It Up is not. Try running Mix It Up as an Administrator before connecting.");
+                }
             }
             return new Result("Streamlabs OBS could not be reached.");
         }
@@ -199,6 +212,17 @@ namespace MixItUp.Base.Services.External
             }
         }
 
+        public async Task<string> GetCurrentScene()
+        {
+            var scene = await this.GetActiveScene();
+            if (scene == null)
+            {
+                return "Unknown";
+            }
+
+            return scene.Name;
+        }
+
         public async Task SetSourceVisibility(string sceneName, string sourceName, bool visibility)
         {
             StreamlabsOBSSceneItem sceneItem = await this.GetSceneItem(sceneName, sourceName);
@@ -209,6 +233,8 @@ namespace MixItUp.Base.Services.External
                 await this.SendAndReceive(request);
             }
         }
+
+        public Task SetSourceFilterVisibility(string sourceName, string filterName, bool visibility) { return Task.FromResult(0); }
 
         public async Task SetWebBrowserSourceURL(string sceneName, string sourceName, string url)
         {
@@ -244,7 +270,7 @@ namespace MixItUp.Base.Services.External
             }
         }
 
-        public async Task SetSourceDimensions(string sceneName, string sourceName, StreamingSourceDimensions dimensions)
+        public async Task SetSourceDimensions(string sceneName, string sourceName, StreamingSoftwareSourceDimensionsModel dimensions)
         {
             StreamlabsOBSSceneItem sceneItem = await this.GetSceneItem(sceneName, sourceName);
             if (sceneItem != null)
@@ -269,12 +295,12 @@ namespace MixItUp.Base.Services.External
             }
         }
 
-        public async Task<StreamingSourceDimensions> GetSourceDimensions(string sceneName, string sourceName)
+        public async Task<StreamingSoftwareSourceDimensionsModel> GetSourceDimensions(string sceneName, string sourceName)
         {
             StreamlabsOBSSceneItem sceneItem = await this.GetSceneItem(sceneName, sourceName);
             if (sceneItem != null)
             {
-                return new StreamingSourceDimensions()
+                return new StreamingSoftwareSourceDimensionsModel()
                 {
                     X = (int)sceneItem.Transform.Position.X,
                     Y = (int)sceneItem.Transform.Position.Y,
@@ -286,15 +312,11 @@ namespace MixItUp.Base.Services.External
             return null;
         }
 
-        public async Task StartStopStream()
-        {
-            await this.SendAndReceive(new StreamlabsOBSRequest("toggleStreaming", "StreamingService"));
-        }
+        public async Task StartStopStream() { await this.SendAndReceive(new StreamlabsOBSRequest("toggleStreaming", "StreamingService")); }
 
-        public async Task SaveReplayBuffer()
-        {
-            await this.SendAndReceive(new StreamlabsOBSRequest("saveReplay", "StreamingService"));
-        }
+        public async Task StartStopRecording() { await this.SendAndReceive(new StreamlabsOBSRequest("toggleRecording", "StreamingService")); }
+
+        public async Task SaveReplayBuffer() { await this.SendAndReceive(new StreamlabsOBSRequest("saveReplay", "StreamingService")); }
 
         public async Task<bool> StartReplayBuffer()
         {
@@ -354,6 +376,7 @@ namespace MixItUp.Base.Services.External
 
         private async Task<JObject> SendAndReceive(StreamlabsOBSRequest request)
         {
+            Exception exception = null;
             JObject result = new JObject();
 
             await this.idSempahoreLock.WaitAndRelease(async () =>
@@ -369,17 +392,35 @@ namespace MixItUp.Base.Services.External
 
                     await Task.WhenAny(Task.Run(async () =>
                     {
-                        namedPipeClient.Connect();
-                        await namedPipeClient.WriteAsync(requestBytes, 0, requestBytes.Length);
+                        try
+                        {
+                            namedPipeClient.Connect();
+                            await namedPipeClient.WriteAsync(requestBytes, 0, requestBytes.Length);
 
-                        byte[] responseBytes = new byte[1000000];
-                        int count = await namedPipeClient.ReadAsync(responseBytes, 0, responseBytes.Length);
+                            byte[] responseBytes = new byte[1000000];
+                            int count = await namedPipeClient.ReadAsync(responseBytes, 0, responseBytes.Length);
 
-                        string responseString = Encoding.ASCII.GetString(responseBytes, 0, count);
-                        result = JObject.Parse(responseString);
+                            string responseString = Encoding.ASCII.GetString(responseBytes, 0, count);
+                            result = JObject.Parse(responseString);
+                        }
+                        catch (Exception ex)
+                        {
+                            exception = ex;
+                        }
                     }), Task.Delay(5000));
                 }
             });
+
+            if (exception != null)
+            {
+                throw exception;
+            }
+
+            if (result != null)
+            {
+                Logger.Log(result.ToString());
+            }
+
             return result;
         }
 

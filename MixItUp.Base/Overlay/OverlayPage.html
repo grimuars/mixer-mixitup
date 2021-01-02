@@ -14,10 +14,10 @@
     <link href="https://vjs.zencdn.net/7.6.0/video-js.css" rel="stylesheet">
     <script src="https://vjs.zencdn.net/7.6.0/video.js"></script>
 
-    <link rel="stylesheet" type="text/css" href="https://daneden.github.io/animate.css/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.7.2/animate.min.css">
 
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://gist.githubusercontent.com/hellt/bc4fc51d6f1b9584605517f5c8d6a5a0/raw/1541916ad019f8b5349d7353489b6fd2d36513dd/jumbotron-narrow.css">
+    <link rel="stylesheet" href="https://gist.github.com/hellt/bc4fc51d6f1b9584605517f5c8d6a5a0.js">
 
     <style>
         .slidedown-animation {
@@ -297,8 +297,8 @@
                                     streamBossUpdatePacket(packet.data);
                                 }
                             }
-                            else if (packet.data.ItemTypeName === "StreamClip") {
-                                streamClipPacket(packet.data);
+                            else if (packet.data.ItemTypeName === "ClipPlayback") {
+                                clipPlaybackPacket(packet.data);
                             }
                             else if (packet.data.ItemTypeName === "ChatMessages" || packet.data.ItemTypeName === "EventList" ||
                                 packet.data.ItemTypeName === "GameQueue" || packet.data.ItemTypeName === "SongRequests" ||
@@ -433,6 +433,10 @@
                 addedElement.setAttribute('autoplay', '');
                 addedElement.volume = data.VolumeDecimal;
 
+                if (data.Loop) {
+                    addedElement.setAttribute('loop', '');
+                }
+
                 sourceElement = document.createElement('source');
                 sourceElement.src = data.FullLink;
 
@@ -510,34 +514,23 @@
                 }
             }
 
-            function streamClipPacket(data) {
-                if (data.FullLink !== null) {
-                    var addedElement = document.createElement('div');
-                    addedElement.id = data.ID;
+            function clipPlaybackPacket(data) {
+                if (data.FullLink !== null && data.PlatformName !== null) {
+                    if (data.PlatformName === "All") {
+                        imagePacket(data);
+                    }
+                    else if (data.PlatformName === "Twitch") {
+                        var addedElement = document.createElement('iframe');
+                        addedElement.src = data.FullLink;
+                        addedElement.width = data.Width;
+                        addedElement.height = data.Height;
+                        addedElement.frameBorder = 0;
+                        addedElement.preload = "auto";
+                        addedElement.scrolling = false;
+                        addedElement.autoplay = true;
 
-                    var videoElement = document.createElement('video');
-                    videoElement.id = "video-" + data.ID;
-                    videoElement.className += 'video-js vjs-default-skin';
-                    videoElement.frameBorder = 0;
-                    videoElement.volume = data.VolumeDecimal;
-
-                    addedElement.appendChild(videoElement);
-
-                    addWaitRemoveElement(data, addedElement);
-
-                    var player = videojs(videoElement, {
-                        autoplay: 'play',
-                        controls: false,
-                        width: data.Width,
-                        height: data.Height,
-                        volume: data.VolumeDecimal
-                    });
-
-                    player.ready(function () {
-                        player.volume(data.VolumeDecimal);
-                    });
-
-                    player.src(data.FullLink);
+                        addWaitRemoveElement(data, addedElement);
+                    }
                 }
             }
 
@@ -568,15 +561,24 @@
                     }
                     else if (item.Add) {
                         if (item.Position > 0) {
+
+                            var existingIndex = -1;
                             for (j = 0; j < widget.Items.length; j++) {
-                                if (widget.Items[j].id === item.ID) {
-                                    removeListItem(data, j, function () {
-                                        addListItem(data, item);
-                                    });
-                                    return;
+                                if (widget.Items[j].item.ID === item.ID) {
+                                    existingIndex = j;
+                                    break;
                                 }
                             }
-                            addListItem(data, item);
+
+                            if (existingIndex >= 0) {
+                                if (widget.Items[existingIndex].item.Hash !== item.Hash) {
+                                    removeListItem(data, existingIndex, function () { });
+                                    addListItem(data, item);
+                                }
+                            }
+                            else {
+                                addListItem(data, item);
+                            }
                         }
                         else {
                             addListItem(data, item);
@@ -645,17 +647,20 @@
 
             function tickerTapeShowPacket(data) {
                 var widget = getCreatePersistentElement(data);
-                widget.Items = [];
-                widget.MainDiv.style.cssText += 'width: ' + data.Width + 'px; max-width: ' + data.Width + 'px; min-width: ' + data.Width + 'px;';
-                widget.MainDiv.style.removeProperty('left');
-                widget.MainDiv.style.removeProperty('transform');
-                widget.Marquee = document.createElement('marquee');
-                widget.Marquee.setAttribute("behavior", "scroll");
-                widget.Marquee.setAttribute("direction", "left");
-                widget.MainDiv.appendChild(widget.Marquee);
+                if (!widget.Items) {
+                    widget.Items = [];
+                    widget.MainDiv.style.cssText += 'width: ' + data.Width + 'px; max-width: ' + data.Width + 'px; min-width: ' + data.Width + 'px;';
+                    widget.MainDiv.style.removeProperty('left');
+                    widget.MainDiv.style.removeProperty('transform');
+                    widget.Marquee = document.createElement('marquee');
+                    widget.Marquee.setAttribute("behavior", "scroll");
+                    widget.Marquee.setAttribute("direction", "left");
+                    widget.MainDiv.appendChild(widget.Marquee);
+                }
             }
 
             function tickerTapeUpdatePacket(data) {
+                tickerTapeShowPacket(data);
                 var widget = getCreatePersistentElement(data);
 
                 for (i = 0; i < data.Items.length; i++) {

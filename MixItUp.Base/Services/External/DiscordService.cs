@@ -1,10 +1,6 @@
-﻿using Mixer.Base;
-using MixItUp.Base;
-using MixItUp.Base.Services;
-using MixItUp.Base.Util;
+﻿using MixItUp.Base.Util;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using StreamingClient.Base.Model.OAuth;
 using StreamingClient.Base.Util;
 using StreamingClient.Base.Web;
 using System;
@@ -143,6 +139,7 @@ namespace MixItUp.Base.Services.External
             Voice = 2,
             GroupDirectMessage = 3,
             Category = 4,
+            Announcements = 5,
         }
 
         [JsonProperty("id")]
@@ -320,7 +317,7 @@ namespace MixItUp.Base.Services.External
         public string ServerID { get; private set; }
         public string BotPermissions { get; private set; }
 
-        public DiscordOAuthServer() : base(MixerConnection.DEFAULT_OAUTH_LOCALHOST_URL, MixerConnection.DEFAULT_AUTHORIZATION_CODE_URL_PARAMETER, OAuthExternalServiceBase.LoginRedirectPageHTML) { }
+        public DiscordOAuthServer() : base(OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL, OAuthExternalServiceBase.DEFAULT_AUTHORIZATION_CODE_URL_PARAMETER, OAuthExternalServiceBase.LoginRedirectPageHTML) { }
 
         protected override async Task ProcessConnection(HttpListenerContext listenerContext)
         {
@@ -651,11 +648,11 @@ namespace MixItUp.Base.Services.External
         /// </summary>
         public const string ClientBotPermissions = "14081024";
 
-        private const string BaseAddress = "https://discordapp.com/api/";
+        private const string BaseAddress = "https://discord.com/api/";
 
         private const string DefaultClientID = "422657136510631936";
 
-        private const string AuthorizationUrl = "https://discordapp.com/api/oauth2/authorize?client_id={0}&permissions={1}&redirect_uri=http%3A%2F%2Flocalhost%3A8919%2F&response_type=code&scope=bot%20guilds%20identify%20connections%20messages.read%20guilds.join%20email%20gdm.join";
+        private const string AuthorizationUrl = "https://discord.com/api/oauth2/authorize?client_id={0}&permissions={1}&redirect_uri=http%3A%2F%2Flocalhost%3A8919%2F&response_type=code&scope=bot%20guilds%20identify%20connections%20messages.read%20guilds.join%20email%20gdm.join";
 
         private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
 
@@ -688,7 +685,7 @@ namespace MixItUp.Base.Services.External
 
                 ProcessHelper.LaunchLink(string.Format(DiscordService.AuthorizationUrl, this.ClientID, DiscordService.ClientBotPermissions));
 
-                string authorizationCode = await oauthServer.WaitForAuthorizationCode(secondsToWait: 60);
+                string authorizationCode = await oauthServer.WaitForAuthorizationCode(secondsToWait: 90);
                 oauthServer.Stop();
 
                 if (!string.IsNullOrEmpty(authorizationCode))
@@ -699,7 +696,7 @@ namespace MixItUp.Base.Services.External
                     var body = new List<KeyValuePair<string, string>>
                     {
                         new KeyValuePair<string, string>("grant_type", "authorization_code"),
-                        new KeyValuePair<string, string>("redirect_uri", MixerConnection.DEFAULT_OAUTH_LOCALHOST_URL),
+                        new KeyValuePair<string, string>("redirect_uri", OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL),
                         new KeyValuePair<string, string>("code", authorizationCode),
                     };
                     this.token = await this.GetWWWFormUrlEncodedOAuthToken("https://discordapp.com/api/oauth2/token", this.ClientID, this.ClientSecret, body);
@@ -815,7 +812,7 @@ namespace MixItUp.Base.Services.External
                 var body = new List<KeyValuePair<string, string>>
                 {
                     new KeyValuePair<string, string>("grant_type", "refresh_token"),
-                    new KeyValuePair<string, string>("redirect_uri", MixerConnection.DEFAULT_OAUTH_LOCALHOST_URL),
+                    new KeyValuePair<string, string>("redirect_uri", OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL),
                     new KeyValuePair<string, string>("refresh_token", this.token.refreshToken),
                 };
                 this.token = await this.GetWWWFormUrlEncodedOAuthToken("https://discordapp.com/api/oauth2/token", this.ClientID, this.ClientSecret, body);
@@ -827,29 +824,33 @@ namespace MixItUp.Base.Services.External
             this.botService = new DiscordBotService(this.baseAddress, this.BotToken);
 
             this.User = await this.GetCurrentUser();
-            if (!string.IsNullOrEmpty(ChannelSession.Settings.DiscordServer))
+            if (this.User != null)
             {
-                this.Server = await this.GetServer(ChannelSession.Settings.DiscordServer);
-                if (this.Server != null)
+                if (!string.IsNullOrEmpty(ChannelSession.Settings.DiscordServer))
                 {
-                    this.Emojis = await this.GetEmojis(this.Server);
-
-                    if (!this.IsUsingCustomApplication)
+                    this.Server = await this.GetServer(ChannelSession.Settings.DiscordServer);
+                    if (this.Server != null)
                     {
-                        return new Result();
-                    }
+                        this.Emojis = await this.GetEmojis(this.Server);
 
-                    DiscordGateway gateway = await this.GetBotGateway();
-                    if (gateway != null)
-                    {
-                        DiscordWebSocket webSocket = new DiscordWebSocket();
-                        if (await webSocket.Connect(gateway.WebSocketURL, gateway.Shards, this.BotToken))
+                        if (!this.IsUsingCustomApplication)
                         {
                             return new Result();
                         }
-                        return new Result("Could not connect Bot Application to web socket");
+
+                        DiscordGateway gateway = await this.GetBotGateway();
+                        if (gateway != null)
+                        {
+                            DiscordWebSocket webSocket = new DiscordWebSocket();
+                            if (await webSocket.Connect(gateway.WebSocketURL, gateway.Shards, this.BotToken))
+                            {
+                                this.TrackServiceTelemetry("Discord");
+                                return new Result();
+                            }
+                            return new Result("Could not connect Bot Application to web socket");
+                        }
+                        return new Result("Could not get Bot Application Gateway data");
                     }
-                    return new Result("Could not get Bot Application Gateway data");
                 }
                 return new Result("Could not get Server data");
             }
@@ -868,7 +869,7 @@ namespace MixItUp.Base.Services.External
                 this.lastCommand = DateTimeOffset.Now;
                 return true;
             }
-            await ChannelSession.Services.Chat.Whisper(ChannelSession.GetCurrentUser(), "The Discord action you were trying to perform was blocked due to too many requests. Please ensure you are only performing 1 Discord action every 30 seconds. You can add a custom Discord Bot under the Services page to circumvent this block.");
+            await ChannelSession.Services.Chat.SendMessage("The Discord action you were trying to perform was blocked due to too many requests. Please ensure you are only performing 1 Discord action every 30 seconds. You can add a custom Discord Bot under the Services page to circumvent this block.");
             return false;
         }
     }

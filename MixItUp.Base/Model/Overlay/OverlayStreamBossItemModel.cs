@@ -1,8 +1,10 @@
-﻿using Mixer.Base.Model.User;
-using MixItUp.Base.Commands;
+﻿using MixItUp.Base.Commands;
+using MixItUp.Base.Model.Commands;
 using MixItUp.Base.Model.User;
+using MixItUp.Base.Model.User.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
+using Newtonsoft.Json;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
@@ -65,13 +67,13 @@ namespace MixItUp.Base.Model.Overlay
         [DataMember]
         public double HostBonus { get; set; }
         [DataMember]
+        public double RaidBonus { get; set; }
+        [DataMember]
         public double SubscriberBonus { get; set; }
         [DataMember]
         public double DonationBonus { get; set; }
         [DataMember]
-        public double SparkBonus { get; set; }
-        [DataMember]
-        public double EmberBonus { get; set; }
+        public double BitsBonus { get; set; }
 
         [DataMember]
         public double HealingBonus { get; set; }
@@ -100,20 +102,22 @@ namespace MixItUp.Base.Model.Overlay
 
         [DataMember]
         public CustomCommand NewStreamBossCommand { get; set; }
-
-        [DataMember]
+        [JsonIgnore]
         public UserViewModel CurrentBoss { get; set; }
 
         private SemaphoreSlim HealthSemaphore = new SemaphoreSlim(1);
 
+        [JsonIgnore]
         private HashSet<Guid> follows = new HashSet<Guid>();
+        [JsonIgnore]
         private HashSet<Guid> hosts = new HashSet<Guid>();
-        private HashSet<Guid> subs = new HashSet<Guid>();
+        [JsonIgnore]
+        private HashSet<Guid> raids = new HashSet<Guid>();
 
         public OverlayStreamBossItemModel() : base() { }
 
         public OverlayStreamBossItemModel(string htmlText, int startingHealth, int width, int height, string textColor, string textFont, string borderColor, string backgroundColor,
-            string progressColor, double followBonus, double hostBonus, double subscriberBonus, double donationBonus, double sparkBonus, double emberBonus, double healingBonus, double overkillBonus,
+            string progressColor, double followBonus, double hostBonus, double raidBonus, double subscriberBonus, double donationBonus, double bitsBonus, double healingBonus, double overkillBonus,
             OverlayItemEffectVisibleAnimationTypeEnum damageAnimation, OverlayItemEffectVisibleAnimationTypeEnum newBossAnimation, CustomCommand newStreamBossCommand)
             : base(OverlayItemModelTypeEnum.StreamBoss, htmlText)
         {
@@ -127,10 +131,10 @@ namespace MixItUp.Base.Model.Overlay
             this.ProgressColor = progressColor;
             this.FollowBonus = followBonus;
             this.HostBonus = hostBonus;
+            this.RaidBonus = raidBonus;
             this.SubscriberBonus = subscriberBonus;
             this.DonationBonus = donationBonus;
-            this.SparkBonus = sparkBonus;
-            this.EmberBonus = emberBonus;
+            this.BitsBonus = bitsBonus;
             this.HealingBonus = healingBonus;
             this.OverkillBonus = overkillBonus;
             this.DamageAnimation = damageAnimation;
@@ -171,6 +175,10 @@ namespace MixItUp.Base.Model.Overlay
             {
                 GlobalEvents.OnHostOccurred += GlobalEvents_OnHostOccurred;
             }
+            if (this.RaidBonus > 0.0)
+            {
+                GlobalEvents.OnRaidOccurred += GlobalEvents_OnRaidOccurred;
+            }
             if (this.SubscriberBonus > 0.0)
             {
                 GlobalEvents.OnSubscribeOccurred += GlobalEvents_OnSubscribeOccurred;
@@ -181,13 +189,9 @@ namespace MixItUp.Base.Model.Overlay
             {
                 GlobalEvents.OnDonationOccurred += GlobalEvents_OnDonationOccurred;
             }
-            if (this.SparkBonus > 0.0)
+            if (this.BitsBonus > 0.0)
             {
-                GlobalEvents.OnSparkUseOccurred += GlobalEvents_OnSparkUseOccurred;
-            }
-            if (this.EmberBonus > 0.0)
-            {
-                GlobalEvents.OnEmberUseOccurred += GlobalEvents_OnEmberUseOccurred;
+                GlobalEvents.OnBitsOccurred += GlobalEvents_OnBitsOccurred;
             }
 
             await base.Enable();
@@ -197,17 +201,17 @@ namespace MixItUp.Base.Model.Overlay
         {
             GlobalEvents.OnFollowOccurred -= GlobalEvents_OnFollowOccurred;
             GlobalEvents.OnHostOccurred -= GlobalEvents_OnHostOccurred;
+            GlobalEvents.OnRaidOccurred -= GlobalEvents_OnRaidOccurred;
             GlobalEvents.OnSubscribeOccurred -= GlobalEvents_OnSubscribeOccurred;
             GlobalEvents.OnResubscribeOccurred -= GlobalEvents_OnResubscribeOccurred;
             GlobalEvents.OnSubscriptionGiftedOccurred -= GlobalEvents_OnSubscriptionGiftedOccurred;
             GlobalEvents.OnDonationOccurred -= GlobalEvents_OnDonationOccurred;
-            GlobalEvents.OnSparkUseOccurred -= GlobalEvents_OnSparkUseOccurred;
-            GlobalEvents.OnEmberUseOccurred -= GlobalEvents_OnEmberUseOccurred;
+            GlobalEvents.OnBitsOccurred -= GlobalEvents_OnBitsOccurred;
 
             await base.Disable();
         }
 
-        protected override async Task<Dictionary<string, string>> GetTemplateReplacements(UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        protected override async Task<Dictionary<string, string>> GetTemplateReplacements(CommandParametersModel parameters)
         {
             UserViewModel boss = null;
             int health = 0;
@@ -298,46 +302,41 @@ namespace MixItUp.Base.Model.Overlay
             }
         }
 
-        private async void GlobalEvents_OnHostOccurred(object sender, Tuple<UserViewModel, int> host)
+        private async void GlobalEvents_OnHostOccurred(object sender, UserViewModel host)
         {
-            if (!this.hosts.Contains(host.Item1.ID))
+            if (!this.hosts.Contains(host.ID))
             {
-                this.hosts.Add(host.Item1.ID);
-                await this.ReduceHealth(host.Item1, (Math.Max(host.Item2, 1) * this.HostBonus));
+                this.hosts.Add(host.ID);
+                await this.ReduceHealth(host, this.HostBonus);
+            }
+        }
+
+        private async void GlobalEvents_OnRaidOccurred(object sender, Tuple<UserViewModel, int> raid)
+        {
+            if (!this.raids.Contains(raid.Item1.ID))
+            {
+                this.raids.Add(raid.Item1.ID);
+                await this.ReduceHealth(raid.Item1, (Math.Max(raid.Item2, 1) * this.RaidBonus));
             }
         }
 
         private async void GlobalEvents_OnSubscribeOccurred(object sender, UserViewModel user)
         {
-            if (!this.subs.Contains(user.ID))
-            {
-                this.subs.Add(user.ID);
-                await this.ReduceHealth(user, this.SubscriberBonus);
-            }
+            await this.ReduceHealth(user, this.SubscriberBonus);
         }
 
         private async void GlobalEvents_OnResubscribeOccurred(object sender, Tuple<UserViewModel, int> user)
         {
-            if (!this.subs.Contains(user.Item1.ID))
-            {
-                this.subs.Add(user.Item1.ID);
-                await this.ReduceHealth(user.Item1, this.SubscriberBonus);
-            }
+            await this.ReduceHealth(user.Item1, this.SubscriberBonus);
         }
 
         private async void GlobalEvents_OnSubscriptionGiftedOccurred(object sender, Tuple<UserViewModel, UserViewModel> e)
         {
-            if (!this.subs.Contains(e.Item2.ID))
-            {
-                this.subs.Add(e.Item2.ID);
-                await this.ReduceHealth(e.Item2, this.SubscriberBonus);
-            }
+            await this.ReduceHealth(e.Item2, this.SubscriberBonus);
         }
 
         private async void GlobalEvents_OnDonationOccurred(object sender, UserDonationModel donation) { await this.ReduceHealth(donation.User, (donation.Amount * this.DonationBonus)); }
 
-        private async void GlobalEvents_OnSparkUseOccurred(object sender, Tuple<UserViewModel, uint> sparkUsage) { await this.ReduceHealth(sparkUsage.Item1, (sparkUsage.Item2 * this.SparkBonus)); }
-
-        private async void GlobalEvents_OnEmberUseOccurred(object sender, UserEmberUsageModel emberUsage) { await this.ReduceHealth(emberUsage.User, (emberUsage.Amount * this.EmberBonus)); }
+        private async void GlobalEvents_OnBitsOccurred(object sender, TwitchUserBitsCheeredModel e) { await this.ReduceHealth(e.User, (e.Amount * this.BitsBonus)); }
     }
 }

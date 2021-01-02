@@ -1,5 +1,4 @@
-﻿using Mixer.Base;
-using MixItUp.Base.Model.User;
+﻿using MixItUp.Base.Model.User;
 using MixItUp.Base.Util;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -64,7 +63,7 @@ namespace MixItUp.Base.Services.External
         public bool IsApproved { get { return string.Equals(this.approved, "allowed"); } }
 
         [JsonIgnore]
-        public DateTimeOffset CreatedDate { get { return new DateTimeOffset(DateTime.Parse(this.createdAt), new TimeSpan()); } }
+        public DateTimeOffset CreatedDate { get; set; } = DateTimeOffset.Now;
 
         public UserDonationModel ToGenericDonation()
         {
@@ -146,7 +145,7 @@ namespace MixItUp.Base.Services.External
                     bodyContent.Add(new KeyValuePair<string, string>("client_id", StreamElementsService.ClientID));
                     bodyContent.Add(new KeyValuePair<string, string>("client_secret", clientSecret));
                     bodyContent.Add(new KeyValuePair<string, string>("code", authorizationCode));
-                    bodyContent.Add(new KeyValuePair<string, string>("redirect_uri", MixerConnection.DEFAULT_OAUTH_LOCALHOST_URL));
+                    bodyContent.Add(new KeyValuePair<string, string>("redirect_uri", OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL));
 
                     this.token = await this.GetWWWFormUrlEncodedOAuthToken(StreamElementsService.TokenUrl, StreamElementsService.ClientID, clientSecret, bodyContent);
                     if (this.token != null)
@@ -201,7 +200,7 @@ namespace MixItUp.Base.Services.External
                 bodyContent.Add(new KeyValuePair<string, string>("client_id", StreamElementsService.ClientID));
                 bodyContent.Add(new KeyValuePair<string, string>("client_secret", clientSecret));
                 bodyContent.Add(new KeyValuePair<string, string>("refresh_token", this.token.refreshToken));
-                bodyContent.Add(new KeyValuePair<string, string>("redirect_uri", MixerConnection.DEFAULT_OAUTH_LOCALHOST_URL));
+                bodyContent.Add(new KeyValuePair<string, string>("redirect_uri", OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL));
 
                 this.token = await this.GetWWWFormUrlEncodedOAuthToken(StreamElementsService.TokenUrl, StreamElementsService.ClientID, clientSecret, bodyContent);
             }
@@ -217,8 +216,11 @@ namespace MixItUp.Base.Services.External
                     donationsReceived[seDonation._id] = seDonation;
                 }
 
-                MixItUp.Base.Util.AsyncRunner.RunBackgroundTask(this.cancellationTokenSource.Token, 30000, this.BackgroundDonationCheck);
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                AsyncRunner.RunAsyncBackground(this.BackgroundDonationCheck, this.cancellationTokenSource.Token, 60000);
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
+                this.TrackServiceTelemetry("StreamElements");
                 return new Result();
             }
             return new Result("Failed to get user information");

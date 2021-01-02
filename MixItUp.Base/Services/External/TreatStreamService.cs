@@ -1,4 +1,5 @@
 ﻿using MixItUp.Base.Commands;
+using MixItUp.Base.Model;
 using MixItUp.Base.Model.User;
 using MixItUp.Base.Util;
 using Newtonsoft.Json;
@@ -41,11 +42,21 @@ namespace MixItUp.Base.Services.External
 
         public UserDonationModel ToGenericDonation()
         {
+            StreamingPlatformTypeEnum platform = StreamingPlatformTypeEnum.All;
+            foreach (StreamingPlatformTypeEnum p in StreamingPlatforms.Platforms)
+            {
+                if (string.Equals(p.ToString(), this.SenderType, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    platform = p;
+                }
+            }
+
             return new UserDonationModel()
             {
                 Source = UserDonationSourceEnum.TreatStream,
 
                 ID = Guid.NewGuid().ToString(),
+                Platform = platform,
                 Username = this.Sender,
                 Type = this.Title,
                 Message = this.Message,
@@ -75,7 +86,7 @@ namespace MixItUp.Base.Services.External
     {
         private const string BaseAddress = "https://treatstream.com/api/";
 
-        public const string ClientID = "xr7qxfpymxsdabivcit0sjv64qv2u5x34058pzvw";
+        public const string ClientID = "n3x0h4lmr0sayf23f9rxtaqghbikvlszv3psgzbt";
 
         public const string ListeningURL = "http://localhost:8919";
 
@@ -216,6 +227,7 @@ namespace MixItUp.Base.Services.External
             {
                 if (await this.ConnectSocket())
                 {
+                    this.TrackServiceTelemetry("TreatStream");
                     return new Result();
                 }
                 return new Result("Failed to connect to Socket");

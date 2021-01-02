@@ -1,6 +1,9 @@
-﻿using MixItUp.Base.ViewModel.User;
+﻿using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Model.User;
+using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading;
@@ -24,7 +27,7 @@ namespace MixItUp.Base.Model.Overlay
         [DataMember]
         public string ID { get; set; }
         [DataMember]
-        public UserViewModel User { get; set; }
+        public Guid UserID { get; set; }
         [DataMember]
         public int Position { get; set; }
 
@@ -41,14 +44,34 @@ namespace MixItUp.Base.Model.Overlay
         [DataMember]
         public string Hash { get; set; } = string.Empty;
 
+        [JsonIgnore]
+        private UserViewModel cachedUser;
+
         public OverlayListIndividualItemModel() { }
+
+        public UserViewModel GetUser()
+        {
+            if (this.cachedUser == null && this.UserID != Guid.Empty)
+            {
+                this.cachedUser = ChannelSession.Services.User.GetUserByID(this.UserID);
+                if (this.cachedUser == null)
+                {
+                    UserDataModel userData = ChannelSession.Settings.GetUserData(this.UserID);
+                    if (userData != null)
+                    {
+                        this.cachedUser = new UserViewModel(userData);
+                    }
+                }
+            }
+            return this.cachedUser;
+        }
 
         public static OverlayListIndividualItemModel CreateAddItem(string id, UserViewModel user, int position, string html)
         {
             return new OverlayListIndividualItemModel()
             {
                 ID = id,
-                User = user,
+                UserID = (user != null) ? user.ID : Guid.Empty,
                 Position = position,
                 HTML = html,
                 Add = true
@@ -137,9 +160,9 @@ namespace MixItUp.Base.Model.Overlay
             await base.Disable();
         }
 
-        public override async Task<JObject> GetProcessedItem(UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        public override async Task<JObject> GetProcessedItem(CommandParametersModel parameters)
         {
-            JObject jobj = await base.GetProcessedItem(user, arguments, extraSpecialIdentifiers);
+            JObject jobj = await base.GetProcessedItem(parameters);
             this.cachedItems.AddRange(this.Items);
             while (this.cachedItems.Count > this.TotalToShow)
             {
@@ -157,7 +180,7 @@ namespace MixItUp.Base.Model.Overlay
             return Task.FromResult(0);
         }
 
-        protected override async Task PerformReplacements(JObject jobj, UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        protected override async Task PerformReplacements(JObject jobj, CommandParametersModel parameters)
         {
             if (jobj != null)
             {
@@ -171,16 +194,16 @@ namespace MixItUp.Base.Model.Overlay
                         itemJObj["HTML"] = jobj["HTML"];
                         itemJObj["HTML"] = this.PerformTemplateReplacements(itemJObj["HTML"].ToString(), this.Items[i].TemplateReplacements);
 
-                        await base.PerformReplacements(itemJObj, user, arguments, extraSpecialIdentifiers);
+                        await base.PerformReplacements(itemJObj, parameters);
                     }
                 }
-                await base.PerformReplacements(jobj, user, arguments, extraSpecialIdentifiers);
+                await base.PerformReplacements(jobj, parameters);
             }
         }
 
-        protected override async Task<Dictionary<string, string>> GetTemplateReplacements(UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        protected override async Task<Dictionary<string, string>> GetTemplateReplacements(CommandParametersModel parameters)
         {
-            Dictionary<string, string> replacementSets = await base.GetTemplateReplacements(user, arguments, extraSpecialIdentifiers);
+            Dictionary<string, string> replacementSets = await base.GetTemplateReplacements(parameters);
 
             replacementSets["BACKGROUND_COLOR"] = this.BackgroundColor;
             replacementSets["BORDER_COLOR"] = this.BorderColor;

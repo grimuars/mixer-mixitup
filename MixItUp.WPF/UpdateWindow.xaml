@@ -15,7 +15,7 @@
         TextElement.FontSize="14"
         FontFamily="pack://application:,,,/MaterialDesignThemes.Wpf;component/Resources/Roboto/#Roboto"      
 
-        Title="Mix It Up - Update Available" Height="550" Width="600">
+        Title="Mix It Up - Update Available" Height="650" Width="600">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
@@ -38,29 +38,47 @@
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" HorizontalAlignment="Center">A new update is available for Mix It Up!</TextBlock>
-            
+
             <Grid Grid.Row="2" HorizontalAlignment="Center">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="80" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <TextBlock Grid.Column="0" VerticalAlignment="Center">New Version:</TextBlock>
-                <TextBlock Grid.Column="2" x:Name="NewVersionTextBlock" VerticalAlignment="Center" />
+                <Grid Grid.Row="0" HorizontalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="10" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="10" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="4" VerticalAlignment="Center">Current Version:</TextBlock>
-                <TextBlock Grid.Column="6" x:Name="CurrentVersionTextBlock" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center">New Version:</TextBlock>
+                    <TextBlock Grid.Column="2" x:Name="NewVersionTextBlock" VerticalAlignment="Center" />
 
+                    <TextBlock Grid.Column="4" VerticalAlignment="Center">Current Version:</TextBlock>
+                    <TextBlock Grid.Column="6" x:Name="CurrentVersionTextBlock" VerticalAlignment="Center" />
+                </Grid>
+
+                <Grid Grid.Row="1" x:Name="PreviewUpdateGrid" Visibility="Collapsed" Margin="10,10,10,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="10" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" TextWrapping="Wrap" Foreground="Red">IMPORTANT NOTICE: Preview updates are an opportunity to help test features early and report issues. They receive some amount of testing before they are released, but not the same amount given to public updates.</TextBlock>
+
+                    <TextBlock Grid.Row="2" TextWrapping="Wrap" Foreground="Red">We encourage you to backup your settings first by clicking Skip below and then going to Settings -> Advanced. If you do not want to take this update, please click Skip below and optionally disable Preview Program under Settings -> General.</TextBlock>
+                </Grid>
             </Grid>
 
             <WebBrowser Grid.Row="4" x:Name="UpdateChangelogWebBrowser" Margin="20,0" ScrollViewer.VerticalScrollBarVisibility="Visible" />
 
-            <TextBlock Grid.Row="6" HorizontalAlignment="Center" TextWrapping="Wrap" Width="500">If you are running the Mix It Up Auto-Hoster, please close it before updating. If the update does not complete successfully and you are prompted to update again, restart your computer first &amp; then try again.</TextBlock>
+            <TextBlock Grid.Row="6" HorizontalAlignment="Center" TextWrapping="Wrap" Width="500">If the update does not complete successfully and you are prompted to update again, restart your computer first &amp; then try again.</TextBlock>
             
             <Grid Grid.Row="8" HorizontalAlignment="Center">
                 <Grid.ColumnDefinitions>

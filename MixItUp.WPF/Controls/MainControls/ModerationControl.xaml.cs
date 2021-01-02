@@ -1,12 +1,12 @@
-﻿using Mixer.Base.Util;
-using MixItUp.Base;
+﻿using MixItUp.Base;
 using MixItUp.Base.Commands;
-using MixItUp.Base.Util;
-using MixItUp.Base.ViewModel.Requirement;
-using MixItUp.Base.ViewModel.User;
+using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Model.User;
+using MixItUp.Base.Services;
 using MixItUp.WPF.Controls.Command;
+using MixItUp.WPF.Util;
 using MixItUp.WPF.Windows.Command;
-using StreamingClient.Base.Util;
+using MixItUp.WPF.Windows.Commands;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -34,10 +34,10 @@ namespace MixItUp.WPF.Controls.MainControls
             this.MaxCapsTypeComboBox.ItemsSource = ModerationControl.ChatTextModerationSliderTypes;
             this.MaxPunctuationSymbolsEmotesTypeComboBox.ItemsSource = ModerationControl.ChatTextModerationSliderTypes;
 
-            this.FilteredWordsExemptComboBox.ItemsSource = RoleRequirementViewModel.BasicUserRoleAllowedValues;
-            this.ChatTextModerationExemptComboBox.ItemsSource = RoleRequirementViewModel.BasicUserRoleAllowedValues;
-            this.BlockLinksExemptComboBox.ItemsSource = RoleRequirementViewModel.BasicUserRoleAllowedValues;
-            this.ChatInteractiveParticipationExemptComboBox.ItemsSource = RoleRequirementViewModel.BasicUserRoleAllowedValues;
+            this.FilteredWordsExemptComboBox.ItemsSource = MixItUp.Base.ViewModel.Requirements.RoleRequirementViewModel.SelectableUserRoles();
+            this.ChatTextModerationExemptComboBox.ItemsSource = MixItUp.Base.ViewModel.Requirements.RoleRequirementViewModel.SelectableUserRoles();
+            this.BlockLinksExemptComboBox.ItemsSource = MixItUp.Base.ViewModel.Requirements.RoleRequirementViewModel.SelectableUserRoles();
+            this.ChatParticipationExemptComboBox.ItemsSource = MixItUp.Base.ViewModel.Requirements.RoleRequirementViewModel.SelectableUserRoles();
 
             this.CommunityBannedWordsToggleButton.IsChecked = ChannelSession.Settings.ModerationUseCommunityFilteredWords;
             this.FilteredWordsTextBox.Text = this.ConvertFilteredWordListToText(ChannelSession.Settings.FilteredWords);
@@ -58,12 +58,12 @@ namespace MixItUp.WPF.Controls.MainControls
 
             this.ChatInteractiveParticipationComboBox.ItemsSource = Enum.GetValues(typeof(ModerationChatInteractiveParticipationEnum));
             this.ChatInteractiveParticipationComboBox.SelectedItem = ChannelSession.Settings.ModerationChatInteractiveParticipation;
-            this.ChatInteractiveParticipationExemptComboBox.SelectedItem = ChannelSession.Settings.ModerationChatInteractiveParticipationExcempt;
+            this.ChatParticipationExemptComboBox.SelectedItem = ChannelSession.Settings.ModerationChatInteractiveParticipationExcempt;
 
             this.ResetStrikesOnLaunchToggleButton.IsChecked = ChannelSession.Settings.ModerationResetStrikesOnLaunch;
-            this.Strike1Command.DataContext = ChannelSession.Settings.ModerationStrike1Command;
-            this.Strike2Command.DataContext = ChannelSession.Settings.ModerationStrike2Command;
-            this.Strike3Command.DataContext = ChannelSession.Settings.ModerationStrike3Command;
+            this.Strike1Command.DataContext = ChannelSession.Settings.GetCommand(ChannelSession.Settings.ModerationStrike1CommandID);
+            this.Strike2Command.DataContext = ChannelSession.Settings.GetCommand(ChannelSession.Settings.ModerationStrike2CommandID);
+            this.Strike3Command.DataContext = ChannelSession.Settings.GetCommand(ChannelSession.Settings.ModerationStrike3CommandID);
 
             this.isLoaded = true;
 
@@ -95,11 +95,13 @@ namespace MixItUp.WPF.Controls.MainControls
                     ChannelSession.Settings.ModerationBlockLinksApplyStrikes = this.BlockLinksApplyStrikesToggleButton.IsChecked.GetValueOrDefault();
 
                     ChannelSession.Settings.ModerationChatInteractiveParticipation = (ModerationChatInteractiveParticipationEnum)this.ChatInteractiveParticipationComboBox.SelectedItem;
-                    ChannelSession.Settings.ModerationChatInteractiveParticipationExcempt = (UserRoleEnum)this.ChatInteractiveParticipationExemptComboBox.SelectedItem;
+                    ChannelSession.Settings.ModerationChatInteractiveParticipationExcempt = (UserRoleEnum)this.ChatParticipationExemptComboBox.SelectedItem;
 
                     ChannelSession.Settings.ModerationResetStrikesOnLaunch = this.ResetStrikesOnLaunchToggleButton.IsChecked.GetValueOrDefault();
 
                     await ChannelSession.SaveSettings();
+
+                    ChannelSession.Services.Moderation.RebuildCache();
                 });
             }
         }
@@ -127,7 +129,7 @@ namespace MixItUp.WPF.Controls.MainControls
         private string ConvertFilteredWordListToText(IEnumerable<string> words)
         {
             string text = string.Join(Environment.NewLine, words);
-            text = text.Replace(ModerationHelper.BannedWordWildcardRegexFormat, "*");
+            text = text.Replace(ModerationService.WordWildcardRegex, "*");
             return text;
         }
 
@@ -137,7 +139,7 @@ namespace MixItUp.WPF.Controls.MainControls
             {
                 text = "";
             }
-            text = text.Replace("*", ModerationHelper.BannedWordWildcardRegexFormat);
+            text = text.Replace("*", ModerationService.WordWildcardRegex);
 
             list.Clear();
             foreach (string split in text.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries))
@@ -155,6 +157,39 @@ namespace MixItUp.WPF.Controls.MainControls
                 CommandWindow window = new CommandWindow(new CustomCommandDetailsControl(command));
                 window.Show();
             }
+        }
+
+        private void Strike1Command_EditClicked(object sender, System.Windows.RoutedEventArgs e)
+        {
+            CommandEditorWindow window = new CommandEditorWindow(FrameworkElementHelpers.GetDataContext<CustomCommandModel>(sender));
+            window.CommandSaved += (object s, CommandModelBase command) =>
+            {
+                this.Strike1Command.DataContext = null;
+                this.Strike1Command.DataContext = command;
+            };
+            window.Show();
+        }
+
+        private void Strike2Command_EditClicked(object sender, System.Windows.RoutedEventArgs e)
+        {
+            CommandEditorWindow window = new CommandEditorWindow(FrameworkElementHelpers.GetDataContext<CustomCommandModel>(sender));
+            window.CommandSaved += (object s, CommandModelBase command) =>
+            {
+                this.Strike2Command.DataContext = null;
+                this.Strike2Command.DataContext = command;
+            };
+            window.Show();
+        }
+
+        private void Strike3Command_EditClicked(object sender, System.Windows.RoutedEventArgs e)
+        {
+            CommandEditorWindow window = new CommandEditorWindow(FrameworkElementHelpers.GetDataContext<CustomCommandModel>(sender));
+            window.CommandSaved += (object s, CommandModelBase command) =>
+            {
+                this.Strike3Command.DataContext = null;
+                this.Strike3Command.DataContext = command;
+            };
+            window.Show();
         }
     }
 }

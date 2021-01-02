@@ -1,15 +1,14 @@
-﻿using Mixer.Base.Model.Chat;
-using MixItUp.Base.Model.Chat;
-using MixItUp.Base.Model.Chat.Mixer;
+﻿using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Chat;
-using MixItUp.Base.ViewModel.Chat.Mixer;
+using MixItUp.Base.ViewModel.Chat.Twitch;
 using MixItUp.Base.ViewModel.User;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
+using Twitch.Base.Models.V5.Emotes;
 
 namespace MixItUp.Base.Model.Overlay
 {
@@ -26,19 +25,8 @@ namespace MixItUp.Base.Model.Overlay
           </p>
         </div>";
 
-        private static readonly Dictionary<string, string> userColors = new Dictionary<string, string>()
-        {
-            { "UserStreamerRoleColor", "#FFFFFF" },
-            { "UserStaffRoleColor", "#FFD700" },
-            { "UserModRoleColor", "#008000" },
-            { "UserGlobalModRoleColor", "#07FDC6" },
-            { "UserProRoleColor", "#800080" },
-            { "UserDefaultRoleColor", "#0000FF" },
-        };
-
         private const string TextMessageHTMLTemplate = @"<span style=""font-family: '{TEXT_FONT}'; font-size: {TEXT_SIZE}px; font-weight: bold; word-wrap: break-word; color: {TEXT_COLOR}; vertical-align: middle; margin-left: 10px;"">{TEXT}</span>";
-        private const string EmoticonMessageHTMLTemplate = @"<span style=""height: {TEXT_SIZE}px; width: {TEXT_SIZE}px; background-repeat: no-repeat; display: inline-block; background-image: url({EMOTICON}); background-position: {EMOTICON_X}px {EMOTICON_Y}px;""></span>";
-        private const string SkillImageMessageHTMLTemplate = @"<img src=""{IMAGE}"" style=""vertical-align: middle; margin-left: 10px; max-height: 80px;""></img>";
+        private const string ImageMessageHTMLTemplate = @"<img src=""{IMAGE}"" style=""vertical-align: middle; margin-left: 10px; max-height: 80px;""></img>";
 
         public OverlayChatMessagesListItemModel() : base() { }
 
@@ -49,17 +37,8 @@ namespace MixItUp.Base.Model.Overlay
 
         public override Task LoadTestData()
         {
-            ChatMessageViewModel message = new ChatMessageViewModel(Guid.NewGuid().ToString(), StreamingPlatformTypeEnum.Mixer, ChannelSession.GetCurrentUser());
+            ChatMessageViewModel message = new ChatMessageViewModel(Guid.NewGuid().ToString(), StreamingPlatformTypeEnum.All, ChannelSession.GetCurrentUser());
             message.AddStringMessagePart("Test Message");
-
-            ChatMessageEventModel messageEvent = new ChatMessageEventModel()
-            {
-                id = Guid.NewGuid(),
-                user_id = ChannelSession.MixerUser.id,
-                user_name = ChannelSession.MixerUser.username,
-                channel = ChannelSession.MixerChannel.id,
-                message = new ChatMessageContentsModel() { message = new ChatMessageDataModel[] { new ChatMessageDataModel() { type = "text", text = "Test Message" } } }
-            };
             this.GlobalEvents_OnChatMessageReceived(this, message);
             return Task.FromResult(0);
         }
@@ -84,60 +63,54 @@ namespace MixItUp.Base.Model.Overlay
         {
             if (!message.IsWhisper)
             {
-                if (message is MixerChatMessageViewModel)
+                if (message is UserChatMessageViewModel)
                 {
                     OverlayListIndividualItemModel item = OverlayListIndividualItemModel.CreateAddItem(message.ID.ToString(), message.User, -1, this.HTML);
 
-                    string text = string.Empty;
-                    string messageTemplate = string.Empty;
-                    if (message is MixerSkillChatMessageViewModel)
+                    List<string> textParts = new List<string>();
+                    foreach (object messagePart in message.MessageParts)
                     {
-                        MixerSkillChatMessageViewModel skillMessage = (MixerSkillChatMessageViewModel)message;
-                        item.TemplateReplacements.Add("MESSAGE", OverlayChatMessagesListItemModel.SkillImageMessageHTMLTemplate);
-                        if (skillMessage.Skill != null)
+                        string imageURL = null;
+                        if (messagePart is string)
                         {
-                            item.TemplateReplacements.Add("IMAGE", skillMessage.Skill.Image);
+                            textParts.Add((string)messagePart);
+                        }
+                        else if (messagePart is EmoteModel)
+                        {
+                            imageURL = ((EmoteModel)messagePart).Size1URL;
+                        }
+                        else if (messagePart is BetterTTVEmoteModel)
+                        {
+                            imageURL = ((BetterTTVEmoteModel)messagePart).url;
+                        }
+                        else if (messagePart is FrankerFaceZEmoteModel)
+                        {
+                            imageURL = ((FrankerFaceZEmoteModel)messagePart).url;
+                        }
+                        else if (messagePart is TwitchBitsCheerViewModel)
+                        {
+                            imageURL = ((TwitchBitsCheerViewModel)messagePart).Tier.LightImage;
+                        }
+
+                        if (!string.IsNullOrEmpty(imageURL))
+                        {
+                            string imageText = OverlayChatMessagesListItemModel.ImageMessageHTMLTemplate;
+                            imageText = imageText.Replace("{IMAGE}", imageURL);
+                            textParts.Add(imageText);
                         }
                     }
-                    else
+
+                    UserViewModel user = item.GetUser();
+                    if (user != null)
                     {
                         item.TemplateReplacements.Add("MESSAGE", OverlayChatMessagesListItemModel.TextMessageHTMLTemplate);
-
-                        List<string> textParts = new List<string>();
-                        foreach (object messagePart in message.MessageParts)
-                        {
-                            if (messagePart is string)
-                            {
-                                textParts.Add((string)messagePart);
-                            }
-                            else if (messagePart is MixerChatEmoteModel)
-                            {
-                                MixerChatEmoteModel mixerEmote = (MixerChatEmoteModel)messagePart;
-                                string emoticonText = OverlayChatMessagesListItemModel.EmoticonMessageHTMLTemplate;
-                                emoticonText = emoticonText.Replace("{EMOTICON}", mixerEmote.Uri);
-                                emoticonText = emoticonText.Replace("{EMOTICON_X}", (-mixerEmote.X).ToString());
-                                emoticonText = emoticonText.Replace("{EMOTICON_Y}", (-mixerEmote.Y).ToString());
-                                textParts.Add(emoticonText);
-                            }
-                            else if (messagePart is MixrElixrEmoteModel)
-                            {
-                                MixrElixrEmoteModel mixrElixrEmote = (MixrElixrEmoteModel)messagePart;
-                                string emoticonText = OverlayChatMessagesListItemModel.EmoticonMessageHTMLTemplate;
-                                emoticonText = emoticonText.Replace("{EMOTICON}", mixrElixrEmote.Url);
-                                emoticonText = emoticonText.Replace("{EMOTICON_X}", "0");
-                                emoticonText = emoticonText.Replace("{EMOTICON_Y}", "0");
-                                textParts.Add(emoticonText);
-                            }
-                        }
-
                         item.TemplateReplacements.Add("TEXT", string.Join(" ", textParts));
+                        item.TemplateReplacements.Add("USERNAME", user.Username);
+                        item.TemplateReplacements.Add("USER_IMAGE", user.AvatarLink);
+                        item.TemplateReplacements.Add("USER_COLOR", user.Color);
+                        item.TemplateReplacements.Add("SUB_IMAGE", string.Empty);
+                        item.TemplateReplacements.Add("TEXT_SIZE", this.Height.ToString());
                     }
-
-                    item.TemplateReplacements.Add("USERNAME", item.User.Username);
-                    item.TemplateReplacements.Add("USER_IMAGE", item.User.AvatarLink);
-                    item.TemplateReplacements.Add("USER_COLOR", OverlayChatMessagesListItemModel.userColors[item.User.PrimaryRoleColorName]);
-                    item.TemplateReplacements.Add("SUB_IMAGE", (item.User.IsPlatformSubscriber && ChannelSession.MixerChannel.badge != null) ? ChannelSession.MixerChannel.badge.url : string.Empty);
-                    item.TemplateReplacements.Add("TEXT_SIZE", this.Height.ToString());
 
                     await this.listSemaphore.WaitAndRelease(() =>
                     {

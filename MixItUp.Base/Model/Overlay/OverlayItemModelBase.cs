@@ -1,5 +1,5 @@
-﻿using MixItUp.Base.Util;
-using MixItUp.Base.ViewModel.User;
+﻿using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Util;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using StreamingClient.Base.Util;
@@ -23,6 +23,7 @@ namespace MixItUp.Base.Model.Overlay
         EventList,
         GameQueue,
         ChatMessages,
+        [Obsolete]
         StreamClip,
         Leaderboard,
         Timer,
@@ -31,9 +32,11 @@ namespace MixItUp.Base.Model.Overlay
         [Obsolete]
         SongRequests,
         TickerTape,
+        [Obsolete]
         SparkCrystal,
         EndCredits,
-        Sound
+        Sound,
+        ClipPlayback,
     }
 
     public enum OverlayItemPositionType
@@ -46,76 +49,47 @@ namespace MixItUp.Base.Model.Overlay
     {
         None,
 
-        [Name("Bounce In")]
         BounceIn,
-        [Name("Bounce In Up")]
         BounceInUp,
-        [Name("Bounce In Down")]
         BounceInDown,
-        [Name("Bounce In Left")]
         BounceInLeft,
-        [Name("Bounce In Right")]
         BounceInRight,
 
-        [Name("Fade In")]
         FadeIn,
-        [Name("Fade In Up")]
         FadeInUp,
-        [Name("Fade In Down")]
         FadeInDown,
-        [Name("Fade In Left")]
         FadeInLeft,
-        [Name("Fade In Right")]
         FadeInRight,
 
-        [Name("Flip In X")]
         FlipInX,
-        [Name("Flip In Y")]
         FlipInY,
 
-        [Name("Light Speed In")]
         LightSpeedIn,
 
-        [Name("Rotate In")]
         RotateIn,
 
-        [Name("Rotate In Up")]
         [Obsolete]
         RotateInUp,
-        [Name("Rotate In Down")]
         [Obsolete]
         RotateInDown,
-        [Name("Rotate In Left")]
         [Obsolete]
         RotateInLeft,
-        [Name("Rotate In Right")]
         [Obsolete]
         RotateInRight,
 
-        [Name("Slide In Up")]
         SlideInUp,
-        [Name("Slide In Down")]
         SlideInDown,
-        [Name("Slide In Left")]
         SlideInLeft,
-        [Name("Slide In Right")]
         SlideInRight,
 
-        [Name("Zoom In")]
         ZoomIn,
-        [Name("Zoom In Up")]
         ZoomInUp,
-        [Name("Zoom In Down")]
         ZoomInDown,
-        [Name("Zoom In Left")]
         ZoomInLeft,
-        [Name("Zoom In Right")]
         ZoomInRight,
 
-        [Name("Jack In The Box")]
         JackInTheBox,
 
-        [Name("Roll In")]
         RollIn,
 
         Random,
@@ -128,7 +102,6 @@ namespace MixItUp.Base.Model.Overlay
         Bounce,
         Flash,
         Pulse,
-        [Name("Rubber Band")]
         RubberBand,
         Shake,
         Swing,
@@ -144,75 +117,47 @@ namespace MixItUp.Base.Model.Overlay
     {
         None,
 
-        [Name("Bounce Out")]
         BounceOut,
-        [Name("Bounce Out Up")]
         BounceOutUp,
-        [Name("Bounce Out Down")]
         BounceOutDown,
-        [Name("Bounce Out Left")]
         BounceOutLeft,
-        [Name("Bounce Out Right")]
         BounceOutRight,
 
-        [Name("Fade Out")]
         FadeOut,
-        [Name("Fade Out Up")]
         FadeOutUp,
-        [Name("Fade Out Down")]
         FadeOutDown,
-        [Name("Fade Out Left")]
         FadeOutLeft,
-        [Name("Fade Out Right")]
         FadeOutRight,
 
-        [Name("Flip Out X")]
         FlipOutX,
-        [Name("Flip Out Y")]
         FlipOutY,
 
-        [Name("Light Speed Out")]
         LightSpeedOut,
 
-        [Name("Rotate Out")]
         RotateOut,
 
-        [Name("Rotate Out Up")]
         [Obsolete]
         RotateOutUp,
-        [Name("Rotate Out Down")]
         [Obsolete]
         RotateOutDown,
-        [Name("Rotate Out Left")]
         [Obsolete]
         RotateOutLeft,
-        [Name("Rotate Out Right")]
         [Obsolete]
         RotateOutRight,
 
-        [Name("Slide Out Up")]
         SlideOutUp,
-        [Name("Slide Out Down")]
         SlideOutDown,
-        [Name("Slide Out Left")]
         SlideOutLeft,
-        [Name("Slide Out Right")]
         SlideOutRight,
 
-        [Name("Zoom Out")]
         ZoomOut,
-        [Name("Zoom Out Up")]
         ZoomOutUp,
-        [Name("Zoom Out Down")]
         ZoomOutDown,
-        [Name("Zoom Out Left")]
         ZoomOutLeft,
-        [Name("Zoom Out Right")]
         ZoomOutRight,
 
         Hinge,
 
-        [Name("Roll Out")]
         RollOut,
 
         Random,
@@ -221,6 +166,15 @@ namespace MixItUp.Base.Model.Overlay
     [DataContract]
     public abstract class OverlayItemModelBase
     {
+        public static string GetFileFullLink(string fileID, string fileType, string filePath)
+        {
+            if (!Uri.IsWellFormedUriString(filePath, UriKind.RelativeOrAbsolute))
+            {
+                return string.Format("/overlay/files/{0}/{1}?nonce={2}", fileType, fileID, Guid.NewGuid());
+            }
+            return filePath;
+        }
+
         [DataMember]
         public Guid ID { get; set; }
 
@@ -289,25 +243,16 @@ namespace MixItUp.Base.Model.Overlay
             return Task.FromResult(0);
         }
 
-        public virtual async Task<JObject> GetProcessedItem(UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        public virtual async Task<JObject> GetProcessedItem(CommandParametersModel parameters)
         {
             JObject jobj = JObject.FromObject(this);
-            await this.PerformReplacements(jobj, user, arguments, extraSpecialIdentifiers);
+            await this.PerformReplacements(jobj, parameters);
             return jobj;
-        }
-
-        public string GetFileFullLink(string fileID, string fileType, string filePath)
-        {
-            if (!Uri.IsWellFormedUriString(filePath, UriKind.RelativeOrAbsolute))
-            {
-                return string.Format("/overlay/files/{0}/{1}?nonce={2}", fileType, fileID, Guid.NewGuid());
-            }
-            return filePath;
         }
 
         public virtual Task LoadCachedData() { return Task.FromResult(0); }
 
-        protected virtual async Task PerformReplacements(JObject jobj, UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        protected virtual async Task PerformReplacements(JObject jobj, CommandParametersModel parameters)
         {
             if (jobj != null)
             {
@@ -315,27 +260,20 @@ namespace MixItUp.Base.Model.Overlay
                 {
                     if (jobj[key].Type == JTokenType.String)
                     {
-                        jobj[key] = await this.ReplaceStringWithSpecialModifiers(jobj[key].ToString(), user, arguments, extraSpecialIdentifiers);
+                        jobj[key] = await this.ReplaceStringWithSpecialModifiers(jobj[key].ToString(), parameters);
                     }
                     else if (jobj[key].Type == JTokenType.Object)
                     {
-                        await this.PerformReplacements((JObject)jobj[key], user, arguments, extraSpecialIdentifiers);
+                        await this.PerformReplacements((JObject)jobj[key], parameters);
                     }
                 }
             }
         }
 
-        protected async Task<string> ReplaceStringWithSpecialModifiers(string str, UserViewModel user, IEnumerable<string> arguments, Dictionary<string, string> extraSpecialIdentifiers)
+        protected async Task<string> ReplaceStringWithSpecialModifiers(string str, CommandParametersModel parameters)
         {
             SpecialIdentifierStringBuilder siString = new SpecialIdentifierStringBuilder(str, encode: false);
-            if (extraSpecialIdentifiers != null)
-            {
-                foreach (var kvp in extraSpecialIdentifiers)
-                {
-                    siString.ReplaceSpecialIdentifier(kvp.Key, kvp.Value);
-                }
-            }
-            await siString.ReplaceCommonSpecialModifiers(user, arguments);
+            await siString.ReplaceCommonSpecialModifiers(parameters);
             return siString.ToString();
         }
 
@@ -424,4 +362,17 @@ namespace MixItUp.Base.Model.Overlay
             return string.Empty;
         }
     }
+
+    #region Obsolete
+
+    public class OverlayStreamClipItemModel : OverlayFileItemModelBase
+    {
+        public OverlayStreamClipItemModel() : base() { }
+
+        public OverlayStreamClipItemModel(int width, int height, int volume, OverlayItemEffectEntranceAnimationTypeEnum entranceAnimation, OverlayItemEffectExitAnimationTypeEnum exitAnimation) { }
+
+        public override string FileType { get { return "video"; } set { } }
+    }
+
+    #endregion Obsolete
 }
