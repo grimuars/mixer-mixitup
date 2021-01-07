@@ -1861,6 +1861,15 @@ namespace MixItUp.Base {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Wait Until Complete.
+        /// </summary>
+        public static string CommandActionWaitUntilComplete {
+            get {
+                return ResourceManager.GetString("CommandActionWaitUntilComplete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Command Group.
         /// </summary>
         public static string CommandGroup {
@@ -2244,6 +2253,15 @@ namespace MixItUp.Base {
         public static string CreatedBy {
             get {
                 return ResourceManager.GetString("CreatedBy", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Create New Command.
+        /// </summary>
+        public static string CreateNewCommand {
+            get {
+                return ResourceManager.GetString("CreateNewCommand", resourceCulture);
             }
         }
         
@@ -4052,7 +4070,7 @@ namespace MixItUp.Base {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The option number you selected is not answer.
+        ///   Looks up a localized string similar to The option number you selected is not valid.
         /// </summary>
         public static string GameCommandBetInvalidSelection {
             get {
@@ -5508,6 +5526,15 @@ namespace MixItUp.Base {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The correct answer was $gamecorrectanswer! Everyone who guess it won $gamepayout {0}!.
+        /// </summary>
+        public static string GameCommandTriviaCorrectAnswerExample {
+            get {
+                return ResourceManager.GetString("GameCommandTriviaCorrectAnswerExample", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Custom Questions.
         /// </summary>
         public static string GameCommandTriviaCustomQuestions {
@@ -5549,6 +5576,15 @@ namespace MixItUp.Base {
         public static string GameCommandTriviaQuestionMissing {
             get {
                 return ResourceManager.GetString("GameCommandTriviaQuestionMissing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to @$username has started a game of trivia! Type the number of the answer to the following question: $gamequestion: $gameanswers.
+        /// </summary>
+        public static string GameCommandTriviaStartedExample {
+            get {
+                return ResourceManager.GetString("GameCommandTriviaStartedExample", resourceCulture);
             }
         }
         
@@ -8516,6 +8552,15 @@ namespace MixItUp.Base {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Output.
+        /// </summary>
+        public static string Output {
+            get {
+                return ResourceManager.GetString("Output", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Overlay.
         /// </summary>
         public static string Overlay {
@@ -9736,6 +9781,15 @@ namespace MixItUp.Base {
         public static string Resubs {
             get {
                 return ResourceManager.GetString("Resubs", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Result.
+        /// </summary>
+        public static string Result {
+            get {
+                return ResourceManager.GetString("Result", resourceCulture);
             }
         }
         

@@ -24,7 +24,7 @@ namespace MixItUp.Base.Model.Requirements
         public Guid CurrencyID { get; set; }
 
         [DataMember]
-        public CurrencyRequirementTypeEnum RequirementType { get; set; } = CurrencyRequirementTypeEnum.RequiredAmount;
+        public CurrencyRequirementTypeEnum RequirementType { get; set; }
 
         [DataMember]
         public int MinAmount { get; set; }
@@ -40,7 +40,7 @@ namespace MixItUp.Base.Model.Requirements
         public CurrencyRequirementModel(CurrencyModel currency, CurrencyRequirementTypeEnum requirementType, int minAmount, int maxAmount)
         {
             this.CurrencyID = currency.ID;
-            this.RequirementType = CurrencyRequirementTypeEnum.RequiredAmount;
+            this.RequirementType = requirementType;
             this.MinAmount = minAmount;
             this.MaxAmount = maxAmount;
         }
@@ -117,22 +117,6 @@ namespace MixItUp.Base.Model.Requirements
             await base.Perform(parameters);
             if (this.HasTemporaryAmount())
             {
-                this.AddSubtractAmount(parameters.User, this.temporaryAmount);
-            }
-            else if (this.RequirementType == CurrencyRequirementTypeEnum.RequiredAmount)
-            {
-                this.AddSubtractAmount(parameters.User, this.MinAmount);
-            }
-            else if (this.RequirementType == CurrencyRequirementTypeEnum.MinimumOnly || this.RequirementType == CurrencyRequirementTypeEnum.MinimumAndMaximum)
-            {
-                this.AddSubtractAmount(parameters.User, this.GetAmount(parameters));
-            }
-        }
-
-        public override Task Refund(CommandParametersModel parameters)
-        {
-            if (this.HasTemporaryAmount())
-            {
                 this.AddSubtractAmount(parameters.User, -this.temporaryAmount);
             }
             else if (this.RequirementType == CurrencyRequirementTypeEnum.RequiredAmount)
@@ -142,6 +126,22 @@ namespace MixItUp.Base.Model.Requirements
             else if (this.RequirementType == CurrencyRequirementTypeEnum.MinimumOnly || this.RequirementType == CurrencyRequirementTypeEnum.MinimumAndMaximum)
             {
                 this.AddSubtractAmount(parameters.User, -this.GetAmount(parameters));
+            }
+        }
+
+        public override Task Refund(CommandParametersModel parameters)
+        {
+            if (this.HasTemporaryAmount())
+            {
+                this.AddSubtractAmount(parameters.User, this.temporaryAmount);
+            }
+            else if (this.RequirementType == CurrencyRequirementTypeEnum.RequiredAmount)
+            {
+                this.AddSubtractAmount(parameters.User, this.MinAmount);
+            }
+            else if (this.RequirementType == CurrencyRequirementTypeEnum.MinimumOnly || this.RequirementType == CurrencyRequirementTypeEnum.MinimumAndMaximum)
+            {
+                this.AddSubtractAmount(parameters.User, this.GetAmount(parameters));
             }
             return Task.FromResult(0);
         }
@@ -196,7 +196,7 @@ namespace MixItUp.Base.Model.Requirements
                 }
                 else if (amount < 0)
                 {
-                    currency.SubtractAmount(user.Data, amount);
+                    currency.SubtractAmount(user.Data, -amount);
                 }
             }
         }

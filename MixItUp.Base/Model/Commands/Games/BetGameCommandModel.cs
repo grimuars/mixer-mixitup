@@ -106,11 +106,10 @@ namespace MixItUp.Base.Model.Commands.Games
                         {
                             this.gameActive = false;
                             this.betsClosed = false;
-
-                            await this.GameCompleteCommand.Perform(this.runParameters);
-
                             GameOutcomeModel winningOutcome = this.BetOptions[answer - 1];
+
                             this.runParameters.SpecialIdentifiers[BetGameCommandModel.GameBetWinningOptionSpecialIdentifier] = winningOutcome.Name;
+                            await this.GameCompleteCommand.Perform(this.runParameters);
 
                             foreach (CommandParametersModel winner in this.runUserSelections.Where(kvp => kvp.Value == answer).Select(kvp => this.runUsers[kvp.Key]))
                             {
@@ -120,6 +119,10 @@ namespace MixItUp.Base.Model.Commands.Games
 
                             this.ClearData();
                             await this.CooldownRequirement.Perform(this.runParameters);
+                        }
+                        else
+                        {
+                            await ChannelSession.Services.Chat.SendMessage(MixItUp.Base.Resources.GameCommandBetInvalidSelection);
                         }
                     }
                     else
@@ -187,7 +190,7 @@ namespace MixItUp.Base.Model.Commands.Games
             this.runUsers[parameters.User] = parameters;
             this.runUserSelections[parameters.User] = choice;
 
-            await this.UserJoinCommand.Perform(this.runParameters);
+            await this.UserJoinCommand.Perform(parameters);
             this.ResetCooldown();
         }
 

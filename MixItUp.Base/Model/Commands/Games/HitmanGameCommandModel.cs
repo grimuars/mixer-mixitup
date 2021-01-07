@@ -1,6 +1,7 @@
 ﻿using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
+using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -162,7 +163,7 @@ namespace MixItUp.Base.Model.Commands.Games
             else if (string.IsNullOrEmpty(this.runHitmanName) && !this.runUsers.ContainsKey(parameters.User))
             {
                 this.runUsers[parameters.User] = parameters;
-                await this.UserJoinCommand.Perform(this.runParameters);
+                await this.UserJoinCommand.Perform(parameters);
                 this.ResetCooldown();
                 return;
             }
@@ -175,18 +176,27 @@ namespace MixItUp.Base.Model.Commands.Games
 
         private async void GlobalEvents_OnChatMessageReceived(object sender, ViewModel.Chat.ChatMessageViewModel message)
         {
-            if (!string.IsNullOrEmpty(this.runHitmanName) && this.runUsers.ContainsKey(message.User) && string.Equals(this.runHitmanName, message.PlainTextMessage, StringComparison.CurrentCultureIgnoreCase))
+            try
             {
-                this.gameActive = false;
-                int payout = this.runBetAmount * this.runUsers.Count;
-                this.PerformPrimarySetPayout(message.User, payout);
+                if (!string.IsNullOrEmpty(this.runHitmanName) && this.runUsers.ContainsKey(message.User) && string.Equals(this.runHitmanName, message.PlainTextMessage, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    CommandParametersModel winner = this.runUsers[message.User];
 
-                this.runUsers[message.User].SpecialIdentifiers[HitmanGameCommandModel.GamePayoutSpecialIdentifier] = payout.ToString();
-                this.runUsers[message.User].SpecialIdentifiers[HitmanGameCommandModel.GameHitmanNameSpecialIdentifier] = this.runHitmanName;
+                    this.gameActive = false;
+                    int payout = this.runBetAmount * this.runUsers.Count;
+                    this.PerformPrimarySetPayout(message.User, payout);
 
-                await this.CooldownRequirement.Perform(this.runParameters);
-                this.ClearData();
-                await this.UserSuccessCommand.Perform(this.runUsers[message.User]);
+                    winner.SpecialIdentifiers[HitmanGameCommandModel.GamePayoutSpecialIdentifier] = payout.ToString();
+                    winner.SpecialIdentifiers[HitmanGameCommandModel.GameHitmanNameSpecialIdentifier] = this.runHitmanName;
+
+                    await this.CooldownRequirement.Perform(this.runParameters);
+                    this.ClearData();
+                    await this.UserSuccessCommand.Perform(winner);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(ex);
             }
         }
 

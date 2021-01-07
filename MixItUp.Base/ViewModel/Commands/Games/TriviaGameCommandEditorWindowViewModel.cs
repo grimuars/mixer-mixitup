@@ -3,6 +3,7 @@ using MixItUp.Base.Model.Commands.Games;
 using MixItUp.Base.Model.Currency;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModels;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -227,9 +228,9 @@ namespace MixItUp.Base.ViewModel.Games
             this.WinAmount = 100;
             this.TimeLimit = 30;
             this.UseRandomOnlineQuestions = true;
-            this.StartedCommand = this.CreateBasicChatCommand(string.Format(MixItUp.Base.Resources.GameCommandBetStartedExample, this.PrimaryCurrencyName));
+            this.StartedCommand = this.CreateBasicChatCommand(MixItUp.Base.Resources.GameCommandTriviaStartedExample);
             this.UserJoinCommand = this.CreateBasicCommand();
-            this.CorrectAnswerCommand = this.CreateBasicChatCommand(string.Format(MixItUp.Base.Resources.GameCommandBetStartedExample, this.PrimaryCurrencyName));
+            this.CorrectAnswerCommand = this.CreateBasicChatCommand(string.Format(MixItUp.Base.Resources.GameCommandTriviaCorrectAnswerExample, this.PrimaryCurrencyName));
             this.UserSuccessCommand = this.CreateBasicCommand();
             this.UserFailureCommand = this.CreateBasicCommand();
 
@@ -254,6 +255,7 @@ namespace MixItUp.Base.ViewModel.Games
             gCommand.CorrectAnswerCommand = this.CorrectAnswerCommand;
             gCommand.UserSuccessCommand = this.UserSuccessCommand;
             gCommand.UserFailureCommand = this.UserFailureCommand;
+            gCommand.CustomQuestions = new List<TriviaGameQuestionModel>(this.CustomQuestions.Select(o => o.GetModel()));
         }
 
         public override async Task<Result> Validate()
