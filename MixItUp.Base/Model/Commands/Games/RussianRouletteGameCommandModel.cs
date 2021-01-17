@@ -55,6 +55,7 @@ namespace MixItUp.Base.Model.Commands.Games
             this.GameCompleteCommand = gameCompleteCommand;
         }
 
+#pragma warning disable CS0612 // Type or member is obsolete
         internal RussianRouletteGameCommandModel(Base.Commands.RussianRouletteGameCommand command)
             : base(command, GameCommandTypeEnum.RussianRoulette)
         {
@@ -68,6 +69,7 @@ namespace MixItUp.Base.Model.Commands.Games
             this.UserFailureCommand = new CustomCommandModel(command.UserFailOutcome.Command) { IsEmbedded = true };
             this.GameCompleteCommand = new CustomCommandModel(command.GameCompleteCommand) { IsEmbedded = true };
         }
+#pragma warning restore CS0612 // Type or member is obsolete
 
         private RussianRouletteGameCommandModel() { }
 
@@ -133,6 +135,7 @@ namespace MixItUp.Base.Model.Commands.Games
                         await this.UserFailureCommand.Perform(loser);
                     }
 
+                    this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersCountSpecialIdentifier] = winners.Count.ToString();
                     this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersSpecialIdentifier] = string.Join(", ", winners.Select(u => "@" + u.User.Username));
                     this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameAllPayoutSpecialIdentifier] = payout.ToString();
                     await this.GameCompleteCommand.Perform(this.runParameters);

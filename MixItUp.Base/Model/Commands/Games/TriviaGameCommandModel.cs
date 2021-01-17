@@ -28,12 +28,14 @@ namespace MixItUp.Base.Model.Commands.Games
 
         public TriviaGameQuestionModel() { }
 
+#pragma warning disable CS0612 // Type or member is obsolete
         internal TriviaGameQuestionModel(Base.Commands.TriviaGameQuestion question)
         {
             this.Question = question.Question;
             this.Answers.Add(question.CorrectAnswer);
             this.Answers.AddRange(question.WrongAnswers);
         }
+#pragma warning disable CS0612 // Type or member is obsolete
     }
 
     [DataContract]
@@ -115,6 +117,7 @@ namespace MixItUp.Base.Model.Commands.Games
             this.UserFailureCommand = userFailureCommand;
         }
 
+#pragma warning disable CS0612 // Type or member is obsolete
         internal TriviaGameCommandModel(Base.Commands.TriviaGameCommand command)
             : base(command, GameCommandTypeEnum.Trivia)
         {
@@ -128,6 +131,7 @@ namespace MixItUp.Base.Model.Commands.Games
             this.UserSuccessCommand = new CustomCommandModel(command.UserSuccessOutcome.Command) { IsEmbedded = true };
             this.UserFailureCommand = new CustomCommandModel(MixItUp.Base.Resources.GameSubCommand) { IsEmbedded = true };
         }
+#pragma warning restore CS0612 // Type or member is obsolete
 
         private TriviaGameCommandModel() { }
 
@@ -231,6 +235,7 @@ namespace MixItUp.Base.Model.Commands.Games
                 }
             }
 
+            this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersCountSpecialIdentifier] = winners.Count.ToString();
             this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersSpecialIdentifier] = string.Join(", ", winners.Select(u => "@" + u.User.Username));
             this.runParameters.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = this.WinAmount.ToString();
             await this.CorrectAnswerCommand.Perform(this.runParameters);

@@ -66,6 +66,7 @@ namespace MixItUp.Base.Model.Commands.Games
             this.NoneSucceedCommand = noneSucceedCommand;
         }
 
+#pragma warning disable CS0612 // Type or member is obsolete
         internal HeistGameCommandModel(Base.Commands.HeistGameCommand command)
             : base(command, GameCommandTypeEnum.Heist)
         {
@@ -82,6 +83,7 @@ namespace MixItUp.Base.Model.Commands.Games
             this.LowThirdsSucceedCommand = new CustomCommandModel(command.LowThirdsSucceedCommand) { IsEmbedded = true };
             this.NoneSucceedCommand = new CustomCommandModel(command.NoneSucceedCommand) { IsEmbedded = true };
         }
+#pragma warning restore CS0612 // Type or member is obsolete
 
         private HeistGameCommandModel() { }
 
@@ -141,6 +143,7 @@ namespace MixItUp.Base.Model.Commands.Games
                         }
                     }
 
+                    this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersCountSpecialIdentifier] = winners.Count.ToString();
                     this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersSpecialIdentifier] = string.Join(", ", winners.Select(u => "@" + u.User.Username));
                     this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameAllPayoutSpecialIdentifier] = totalPayout.ToString();
                     double successRate = Convert.ToDouble(winners.Count) / Convert.ToDouble(this.runUsers.Count);

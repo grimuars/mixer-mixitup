@@ -69,6 +69,7 @@ namespace MixItUp.Base.Model.Commands.Games
             this.GameCompleteCommand = gameCompleteCommand;
         }
 
+#pragma warning disable CS0612 // Type or member is obsolete
         internal RouletteGameCommandModel(Base.Commands.RouletteGameCommand command)
             : base(command, GameCommandTypeEnum.Roulette)
         {
@@ -83,6 +84,7 @@ namespace MixItUp.Base.Model.Commands.Games
             this.UserFailureCommand = new CustomCommandModel(command.UserFailOutcome.Command) { IsEmbedded = true };
             this.GameCompleteCommand = new CustomCommandModel(command.GameCompleteCommand) { IsEmbedded = true };
         }
+#pragma warning restore CS0612 // Type or member is obsolete
 
         private RouletteGameCommandModel() { }
 
@@ -154,6 +156,7 @@ namespace MixItUp.Base.Model.Commands.Games
                             }
                         }
 
+                        this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersCountSpecialIdentifier] = winners.Count.ToString();
                         this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersSpecialIdentifier] = string.Join(", ", winners.Select(u => "@" + u.User.Username));
                         this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameAllPayoutSpecialIdentifier] = totalPayout.ToString();
                         this.runParameters.SpecialIdentifiers[RouletteGameCommandModel.GameRouletteWinningBetTypeSpecialIdentifier] = winningBetType;

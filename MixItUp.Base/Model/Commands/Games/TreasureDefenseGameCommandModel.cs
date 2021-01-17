@@ -80,6 +80,7 @@ namespace MixItUp.Base.Model.Commands.Games
             this.ThiefSelectedCommand = thiefSelectedCommand;
         }
 
+#pragma warning disable CS0612 // Type or member is obsolete
         internal TreasureDefenseGameCommandModel(Base.Commands.TreasureDefenseGameCommand command)
             : base(command, GameCommandTypeEnum.TreasureDefense)
         {
@@ -96,6 +97,7 @@ namespace MixItUp.Base.Model.Commands.Games
             this.KnightSelectedCommand = new CustomCommandModel(command.KnightSelectedCommand) { IsEmbedded = true };
             this.ThiefSelectedCommand = new CustomCommandModel(command.ThiefSelectedCommand) { IsEmbedded = true };
         }
+#pragma warning restore CS0612 // Type or member is obsolete
 
         private TreasureDefenseGameCommandModel() { }
 
@@ -198,14 +200,15 @@ namespace MixItUp.Base.Model.Commands.Games
 
                         int payout = this.runBetAmount * this.runUsers.Count;
                         int individualPayout = payout / winnerParameters.Count();
-                        this.runParameters.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = individualPayout.ToString();
-                        this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameAllPayoutSpecialIdentifier] = payout.ToString();
                         foreach (CommandParametersModel winner in winnerParameters)
                         {
                             this.PerformPrimarySetPayout(winner.User, individualPayout);
                         }
-                        this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersSpecialIdentifier] = string.Join(", ", winnerParameters.Select(u => "@" + u.User.Username));
 
+                        parameters.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = individualPayout.ToString();
+                        parameters.SpecialIdentifiers[GameCommandModelBase.GameAllPayoutSpecialIdentifier] = payout.ToString();
+                        parameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersCountSpecialIdentifier] = winnerParameters.Count().ToString();
+                        parameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersSpecialIdentifier] = string.Join(", ", winnerParameters.Select(u => "@" + u.User.Username));
                         if (selectedType == WinLosePlayerType.Knight)
                         {
                             await this.KnightSelectedCommand.Perform(parameters);
