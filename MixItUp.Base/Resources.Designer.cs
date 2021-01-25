@@ -3996,7 +3996,7 @@ namespace MixItUp.Base {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A game is already underway.
+        ///   Looks up a localized string similar to A game is already underway..
         /// </summary>
         public static string GameCommandAlreadyUnderway {
             get {
@@ -4019,6 +4019,15 @@ namespace MixItUp.Base {
         public static string GameCommandAtLeast1Outcome {
             get {
                 return ResourceManager.GetString("GameCommandAtLeast1Outcome", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to EX: {0} answer &lt;OPTION #&gt;.
+        /// </summary>
+        public static string GameCommandBetAnswerExample {
+            get {
+                return ResourceManager.GetString("GameCommandBetAnswerExample", resourceCulture);
             }
         }
         
@@ -4050,17 +4059,6 @@ namespace MixItUp.Base {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to EX: !bet
-        ///EX: !bet &lt;OPTION #&gt; 100
-        ///EX: !bet answer &lt;OPTION #&gt;.
-        /// </summary>
-        public static string GameCommandBetExample {
-            get {
-                return ResourceManager.GetString("GameCommandBetExample", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to $gamebetwinningoption was the winning choice!.
         /// </summary>
         public static string GameCommandBetGameCompleteExample {
@@ -4070,7 +4068,7 @@ namespace MixItUp.Base {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The option number you selected is not valid.
+        ///   Looks up a localized string similar to {0}: The option number you selected is not valid..
         /// </summary>
         public static string GameCommandBetInvalidSelection {
             get {
@@ -4106,7 +4104,7 @@ namespace MixItUp.Base {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to $gamewinners won the bidding war with a bid of $gamebet {0}! Listen closely for how to claim your prize....
+        ///   Looks up a localized string similar to @$username won the bidding war with a bid of $gamebet {0}! Listen closely for how to claim your prize....
         /// </summary>
         public static string GameCommandBidGameCompleteExample {
             get {
@@ -4493,7 +4491,7 @@ namespace MixItUp.Base {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to @$username has started a game of Heist! Type !heist &lt;AMOUNT&gt; to join in!.
+        ///   Looks up a localized string similar to @$username has started a game of Heist! Type !heist to join in!.
         /// </summary>
         public static string GameCommandHeistStartedExample {
             get {
@@ -4579,6 +4577,24 @@ namespace MixItUp.Base {
         public static string GameCommandHitmanStartedExample {
             get {
                 return ResourceManager.GetString("GameCommandHitmanStartedExample", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Hitman Time Limit.
+        /// </summary>
+        public static string GameCommandHitmanTimeLimit {
+            get {
+                return ResourceManager.GetString("GameCommandHitmanTimeLimit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No one was able to stop the hitman! Everyone loses!.
+        /// </summary>
+        public static string GameCommandHitmanUserFailureExample {
+            get {
+                return ResourceManager.GetString("GameCommandHitmanUserFailureExample", resourceCulture);
             }
         }
         
@@ -5043,7 +5059,7 @@ namespace MixItUp.Base {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to @$username has started a game of roulette! Type !roulette &lt;BET TYPE&gt; &lt;AMOUNT&gt; in chat to play! Valid Bet Types: $gamevalidbettypes.
+        ///   Looks up a localized string similar to @$username has started a game of roulette! Type !roulette &lt;BET TYPE&gt; in chat to play! Valid Bet Types: $gamevalidbettypes.
         /// </summary>
         public static string GameCommandRouletteStartedExample {
             get {
@@ -5526,7 +5542,7 @@ namespace MixItUp.Base {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The correct answer was $gamecorrectanswer! Everyone who guess it won $gamepayout {0}!.
+        ///   Looks up a localized string similar to The correct answer was $gamecorrectanswer! Everyone who guessed it won $gamepayout {0}!.
         /// </summary>
         public static string GameCommandTriviaCorrectAnswerExample {
             get {
@@ -5938,6 +5954,15 @@ namespace MixItUp.Base {
         public static string GameCommandWordScrambleTimeLimit {
             get {
                 return ResourceManager.GetString("GameCommandWordScrambleTimeLimit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No one correctly guessed the word &quot;$gamewordscrambleanswer&quot;..
+        /// </summary>
+        public static string GameCommandWordScrambleUserFailureExample {
+            get {
+                return ResourceManager.GetString("GameCommandWordScrambleUserFailureExample", resourceCulture);
             }
         }
         

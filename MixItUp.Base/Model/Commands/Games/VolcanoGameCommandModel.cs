@@ -139,7 +139,7 @@ namespace MixItUp.Base.Model.Commands.Games
                     if (!this.collectUsers.Contains(parameters.User))
                     {
                         this.collectUsers.Add(parameters.User);
-                        int payout = this.GenerateRandomNumber(this.TotalAmount, this.CollectMinimumPercentage, this.CollectMaximumPercentage);
+                        int payout = this.GenerateRandomNumber(this.TotalAmount, this.CollectMinimumPercentage / 100.0d, this.CollectMaximumPercentage / 100.0d);
                         this.PerformPrimarySetPayout(parameters.User, payout);
 
                         parameters.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = payout.ToString();
@@ -158,6 +158,7 @@ namespace MixItUp.Base.Model.Commands.Games
             }
             else if (parameters.Arguments.Count == 1 && string.Equals(parameters.Arguments[0], this.StatusArgument, StringComparison.CurrentCultureIgnoreCase))
             {
+                parameters.SpecialIdentifiers[GameCommandModelBase.GameTotalAmountSpecialIdentifier] = this.TotalAmount.ToString();
                 if (this.TotalAmount >= this.Stage3MinimumAmount)
                 {
                     await this.Stage3StatusCommand.Perform(parameters);
@@ -188,7 +189,7 @@ namespace MixItUp.Base.Model.Commands.Games
                 if (this.GenerateProbability() <= this.PayoutProbability)
                 {
                     this.collectUsers.Add(parameters.User);
-                    int payout = this.GenerateRandomNumber(this.TotalAmount, this.PayoutMinimumPercentage, this.PayoutMaximumPercentage);
+                    int payout = this.GenerateRandomNumber(this.TotalAmount, this.PayoutMinimumPercentage / 100.0d, this.PayoutMaximumPercentage / 100.0d);
                     this.PerformPrimarySetPayout(parameters.User, payout);
                     parameters.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = payout.ToString();
 
@@ -196,7 +197,7 @@ namespace MixItUp.Base.Model.Commands.Games
                     AsyncRunner.RunAsyncBackground(async (cancellationToken) =>
                     {
                         this.collectActive = true;
-                        await Task.Delay(this.CollectTimeLimit * 1000);
+                        await DelayNoThrow(this.CollectTimeLimit * 1000, cancellationToken);
                         this.ClearData();
                     }, new CancellationToken());
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed

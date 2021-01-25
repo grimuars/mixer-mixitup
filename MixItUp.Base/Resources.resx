@@ -3480,7 +3480,7 @@ For example, if this option is enabled and amount is set to 5, then any time 5 O
     <value>The user does not have {0} {1}</value>
   </data>
   <data name="GameCommandAlreadyUnderway" xml:space="preserve">
-    <value>A game is already underway</value>
+    <value>A game is already underway.</value>
   </data>
   <data name="GameCommandHangmanNotLetter" xml:space="preserve">
     <value>The argument must be a valid letter</value>
@@ -3510,7 +3510,8 @@ For example, if this option is enabled and amount is set to 5, then any time 5 O
     <value>Answer</value>
   </data>
   <data name="GameCommandBetInvalidSelection" xml:space="preserve">
-    <value>The option number you selected is not valid</value>
+    <value>{0}: The option number you selected is not valid.</value>
+    <comment>{0} is the username</comment>
   </data>
   <data name="GameCommandRouletteValidBetTypes" xml:space="preserve">
     <value>Valid Bet Types: {0}</value>
@@ -3545,10 +3546,9 @@ For example, if this option is enabled and amount is set to 5, then any time 5 O
   <data name="GameCommandBetDescription" xml:space="preserve">
     <value>The Bet game allows a user to start a bet amongst all users over which option is correct. Each user who participates must specify which options you expect to win and how much they wish to bet. Once the time limit is completed, a user can specify what the correct answer is to the bet and all correct users will be rewarded. Additionally, you can specify what user roles can start &amp; answer this game to ensure it isn't abused, such as Moderators or higher only.</value>
   </data>
-  <data name="GameCommandBetExample" xml:space="preserve">
-    <value>EX: !bet
-EX: !bet &lt;OPTION #&gt; 100
-EX: !bet answer &lt;OPTION #&gt;</value>
+  <data name="GameCommandBetAnswerExample" xml:space="preserve">
+    <value>EX: {0} answer &lt;OPTION #&gt;</value>
+    <comment>{0} will be the command trigger</comment>
   </data>
   <data name="Bid" xml:space="preserve">
     <value>Bid</value>
@@ -3830,7 +3830,7 @@ Once the volcano reaches stage 3, each subsequent deposit has a chance to trigge
     <value>Symbols</value>
   </data>
   <data name="GameCommandBidGameCompleteExample" xml:space="preserve">
-    <value>$gamewinners won the bidding war with a bid of $gamebet {0}! Listen closely for how to claim your prize...</value>
+    <value>@$username won the bidding war with a bid of $gamebet {0}! Listen closely for how to claim your prize...</value>
   </data>
   <data name="GameCommandBidNewTopBidder" xml:space="preserve">
     <value>New Top Bidder</value>
@@ -4040,7 +4040,7 @@ Once the volcano reaches stage 3, each subsequent deposit has a chance to trigge
     <value>The wheel slows down, revealing $gamewinningbettype as the winning bet! Total Payout: $gameallpayout {0}</value>
   </data>
   <data name="GameCommandRouletteStartedExample" xml:space="preserve">
-    <value>@$username has started a game of roulette! Type !roulette &lt;BET TYPE&gt; &lt;AMOUNT&gt; in chat to play! Valid Bet Types: $gamevalidbettypes</value>
+    <value>@$username has started a game of roulette! Type !roulette &lt;BET TYPE&gt; in chat to play! Valid Bet Types: $gamevalidbettypes</value>
   </data>
   <data name="GameCommandRouletteUserSuccessExample" xml:space="preserve">
     <value>@$username won $gamepayout {0}!</value>
@@ -4127,7 +4127,7 @@ Once the volcano reaches stage 3, each subsequent deposit has a chance to trigge
     <value>Someone was a spy! The cops were waiting for you as soon as you showed up and got everyone!</value>
   </data>
   <data name="GameCommandHeistStartedExample" xml:space="preserve">
-    <value>@$username has started a game of Heist! Type !heist &lt;AMOUNT&gt; to join in!</value>
+    <value>@$username has started a game of Heist! Type !heist to join in!</value>
   </data>
   <data name="GameCommandHeistTopThirdsSucceed" xml:space="preserve">
     <value>99% - 66% Succeed</value>
@@ -4631,7 +4631,7 @@ This setting will change all role requirements to be explicit and require that t
     <value>Wait Until Complete</value>
   </data>
   <data name="GameCommandTriviaCorrectAnswerExample" xml:space="preserve">
-    <value>The correct answer was $gamecorrectanswer! Everyone who guess it won $gamepayout {0}!</value>
+    <value>The correct answer was $gamecorrectanswer! Everyone who guessed it won $gamepayout {0}!</value>
   </data>
   <data name="GameCommandTriviaStartedExample" xml:space="preserve">
     <value>@$username has started a game of trivia! Type the number of the answer to the following question: $gamequestion: $gameanswers</value>
@@ -4659,5 +4659,14 @@ This setting will change all role requirements to be explicit and require that t
   </data>
   <data name="WebRequestActionDuplicateJSONParameter" xml:space="preserve">
     <value>Web Request Action: Duplicate JSON parameter</value>
+  </data>
+  <data name="GameCommandHitmanTimeLimit" xml:space="preserve">
+    <value>Hitman Time Limit</value>
+  </data>
+  <data name="GameCommandHitmanUserFailureExample" xml:space="preserve">
+    <value>No one was able to stop the hitman! Everyone loses!</value>
+  </data>
+  <data name="GameCommandWordScrambleUserFailureExample" xml:space="preserve">
+    <value>No one correctly guessed the word "$gamewordscrambleanswer".</value>
   </data>
 </root>
