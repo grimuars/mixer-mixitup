@@ -10,11 +10,6 @@ namespace MixItUp.Base.ViewModel.Commands
         {
             get
             {
-                CommandGroupSettingsModel commandGroup = this.GetCommandGroup();
-                if (commandGroup != null && commandGroup.TimerInterval != this.commandGroupTimerInterval)
-                {
-                    this.commandGroupTimerInterval = commandGroup.TimerInterval;
-                }
                 return this.commandGroupTimerInterval;
             }
             set
@@ -25,7 +20,18 @@ namespace MixItUp.Base.ViewModel.Commands
         }
         private int commandGroupTimerInterval;
 
-        public TimerCommandEditorWindowViewModel(TimerCommandModel existingCommand) : base(existingCommand) { }
+        public bool IsCommandGroupTimerIntervalEnabled
+        {
+            get
+            {
+                return !string.IsNullOrEmpty(SelectedCommandGroup);
+            }
+        }
+
+        public TimerCommandEditorWindowViewModel(TimerCommandModel existingCommand) : base(existingCommand)
+        {
+            this.SelectedCommandGroupChanged();
+        }
 
         public TimerCommandEditorWindowViewModel() : base(CommandTypeEnum.Timer) { }
 
@@ -35,6 +41,12 @@ namespace MixItUp.Base.ViewModel.Commands
             {
                 return Task.FromResult(new Result(MixItUp.Base.Resources.ACommandNameMustBeSpecified));
             }
+
+            if (this.CommandGroupTimerInterval < 0)
+            {
+                return Task.FromResult(new Result(MixItUp.Base.Resources.CommandGroupTimerIntervalMustBePositive));
+            }
+
             return Task.FromResult(new Result());
         }
 
@@ -55,6 +67,15 @@ namespace MixItUp.Base.ViewModel.Commands
             if (commandGroup != null)
             {
                 commandGroup.TimerInterval = this.CommandGroupTimerInterval;
+            }
+        }
+
+        protected override void SelectedCommandGroupChanged()
+        {
+            CommandGroupSettingsModel commandGroup = this.GetCommandGroup();
+            if (commandGroup != null && commandGroup.TimerInterval != this.commandGroupTimerInterval)
+            {
+                this.CommandGroupTimerInterval = commandGroup.TimerInterval;
             }
         }
     }

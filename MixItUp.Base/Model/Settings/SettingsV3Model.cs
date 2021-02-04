@@ -570,7 +570,7 @@ namespace MixItUp.Base.Model.Settings
 
                 await ChannelSession.Services.Database.Read(this.DatabaseFilePath, "SELECT * FROM Users", (Dictionary<string, object> data) =>
                 {
-                    UserDataModel userData = JSONSerializerHelper.DeserializeFromString<UserDataModel>((string)data["Data"]);
+                    UserDataModel userData = JSONSerializerHelper.DeserializeFromString<UserDataModel>(data["Data"].ToString());
                     this.UserData[userData.ID] = userData;
                     if (userData.Platform.HasFlag(StreamingPlatformTypeEnum.Twitch))
                     {
@@ -586,7 +586,7 @@ namespace MixItUp.Base.Model.Settings
                 await ChannelSession.Services.Database.Read(this.DatabaseFilePath, "SELECT * FROM Quotes", (Dictionary<string, object> data) =>
                 {
                     DateTimeOffset.TryParse((string)data["DateTime"], out DateTimeOffset dateTime);
-                    this.Quotes.Add(new UserQuoteModel(Convert.ToInt32(data["ID"]), (string)data["Quote"], dateTime, (string)data["GameName"]));
+                    this.Quotes.Add(new UserQuoteModel(Convert.ToInt32(data["ID"]), data["Quote"].ToString(), dateTime, data["GameName"].ToString()));
                 });
                 this.Quotes.ClearTracking();
 
@@ -595,7 +595,7 @@ namespace MixItUp.Base.Model.Settings
                     CommandModelBase command = null;
                     CommandTypeEnum type = (CommandTypeEnum)Convert.ToInt32(data["TypeID"]);
 
-                    string commandData = (string)data["Data"];
+                    string commandData = data["Data"].ToString();
                     if (type == CommandTypeEnum.Chat)
                     {
                         command = JSONSerializerHelper.DeserializeFromString<ChatCommandModel>(commandData);
@@ -635,6 +635,7 @@ namespace MixItUp.Base.Model.Settings
                         this.Commands[command.ID] = command;
                     }
                 });
+                this.Commands.ClearTracking();
 
                 ChannelSession.ChatCommands.Clear();
                 ChannelSession.EventCommands.Clear();
