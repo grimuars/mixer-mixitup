@@ -9,6 +9,8 @@ namespace MixItUp.Base.ViewModel.Commands
 {
     public class ChatCommandEditorWindowViewModel : CommandEditorWindowViewModelBase
     {
+        public virtual bool ShowCommandGroupSelector { get { return true; } }
+
         public string Triggers
         {
             get { return this.triggers; }
@@ -77,6 +79,12 @@ namespace MixItUp.Base.ViewModel.Commands
             if (existingCommand.Triggers.Any(t => t.Contains(' ')))
             {
                 this.Triggers = string.Join(";", existingCommand.Triggers);
+
+                // If this is the only trigger, we need to add a semi-colon to the end
+                if (existingCommand.Triggers.Count == 1)
+                {
+                    this.Triggers += ";";
+                }
             }
             else
             {
@@ -115,7 +123,7 @@ namespace MixItUp.Base.ViewModel.Commands
                 triggers = new HashSet<string>(triggers.Select(t => "!" + t));
             }
 
-            foreach (ChatCommandModel command in ChannelSession.AllChatAccessibleCommands)
+            foreach (ChatCommandModel command in ChannelSession.AllEnabledChatAccessibleCommands)
             {
                 if (this.existingCommand != command)
                 {
@@ -167,6 +175,8 @@ namespace MixItUp.Base.ViewModel.Commands
 
     public class UserOnlyChatCommandEditorWindowViewModel : ChatCommandEditorWindowViewModel
     {
+        public override bool ShowCommandGroupSelector { get { return false; } }
+
         public Guid UserID
         {
             get { return this.userID; }
