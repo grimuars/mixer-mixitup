@@ -43,9 +43,6 @@ namespace MixItUp.Base.Services
                     }
                 }
 
-                // Remove this when we wish to re-enable Test Builds
-                ChannelSession.AppSettings.TestBuild = false;
-
                 if (ChannelSession.AppSettings.TestBuild)
                 {
                     MixItUpUpdateModel testUpdate = await ChannelSession.Services.MixItUpService.GetLatestTestUpdate();
