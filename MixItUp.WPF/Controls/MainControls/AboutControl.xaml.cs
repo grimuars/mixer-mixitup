@@ -1,8 +1,6 @@
 ﻿using MixItUp.Base;
-using MixItUp.Base.Model;
 using MixItUp.Base.Util;
 using System.Reflection;
-using System.Runtime.Remoting.Channels;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -27,18 +25,18 @@ namespace MixItUp.WPF.Controls.MainControls
 
         private void IssueReportHyperlink_Click(object sender, RoutedEventArgs e)
         {
-            ProcessHelper.LaunchProgram("MixItUp.Reporter.exe", string.Format("{0} {1} {2} {3}", FileLoggerHandler.CurrentLogFilePath, (int)StreamingPlatformTypeEnum.Twitch, ChannelSession.TwitchUserNewAPI?.id, ChannelSession.TwitchUserNewAPI?.login));
+            ProcessHelper.LaunchProgram("MixItUp.Reporter.exe", $"{FileLoggerHandler.CurrentLogFilePath} {ChannelSession.Settings?.Name ?? "NONE"}");
         }
 
         private void TwitterButton_Click(object sender, RoutedEventArgs e) { ProcessHelper.LaunchLink("https://twitter.com/MixItUpApp"); }
 
         private void DiscordButton_Click(object sender, RoutedEventArgs e) { ProcessHelper.LaunchLink("https://mixitupapp.com/discord"); }
 
-        private void YouTubeButton_Click(object sender, RoutedEventArgs e) { ProcessHelper.LaunchLink("https://www.youtube.com/channel/UCcY0vKI9yqcMTgh8OzSnRSA"); }
+        private void YouTubeButton_Click(object sender, RoutedEventArgs e) { ProcessHelper.LaunchLink("https://www.youtube.com/c/MixItUpApp"); }
 
         private void TwitchButton_Click(object sender, RoutedEventArgs e) { ProcessHelper.LaunchLink("https://twitch.tv/MixItUpApp"); }
 
-        private void WikiButton_Click(object sender, RoutedEventArgs e) { ProcessHelper.LaunchLink("https://github.com/SaviorXTanren/mixer-mixitup/wiki"); }
+        private void WikiButton_Click(object sender, RoutedEventArgs e) { ProcessHelper.LaunchLink("https://wiki.mixitupapp.com/"); }
 
         private void GithubButton_Click(object sender, RoutedEventArgs e) { ProcessHelper.LaunchLink("https://github.com/SaviorXTanren/mixer-mixitup"); }
 

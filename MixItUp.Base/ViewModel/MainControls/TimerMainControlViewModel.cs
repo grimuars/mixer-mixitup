@@ -1,4 +1,5 @@
 ﻿using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Services;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -28,6 +29,16 @@ namespace MixItUp.Base.ViewModel.MainControls
             }
         }
 
+        public bool RunTimersOnlyWhenLive
+        {
+            get { return ChannelSession.Settings.RunTimersOnlyWhenLive; }
+            set
+            {
+                ChannelSession.Settings.RunTimersOnlyWhenLive = value;
+                this.NotifyPropertyChanged();
+            }
+        }
+
         public bool RandomizeTimers
         {
             get { return ChannelSession.Settings.RandomizeTimers; }
@@ -46,15 +57,19 @@ namespace MixItUp.Base.ViewModel.MainControls
                 ChannelSession.Settings.DisableAllTimers = value;
                 this.NotifyPropertyChanged();
 
-                ChannelSession.Services.Timers.RebuildTimerGroups().Wait();
+                ServiceManager.Get<TimerService>().RebuildTimerGroups().Wait();
             }
         }
 
-        public TimerMainControlViewModel(MainWindowViewModel windowViewModel) : base(windowViewModel) { }
+        public TimerMainControlViewModel(MainWindowViewModel windowViewModel)
+            : base(windowViewModel)
+        {
+            GroupedCommandsMainControlViewModelBase.OnCommandAddedEdited += GroupedCommandsMainControlViewModelBase_OnCommandAddedEdited;
+        }
 
         protected override IEnumerable<CommandModelBase> GetCommands()
         {
-            return ChannelSession.TimerCommands.ToList();
+            return ServiceManager.Get<CommandService>().TimerCommands.ToList();
         }
 
         private void CheckIfMinMessagesAndIntervalAreBothZero()
@@ -62,6 +77,14 @@ namespace MixItUp.Base.ViewModel.MainControls
             if (ChannelSession.Settings.TimerCommandsMinimumMessages <= 0 && ChannelSession.Settings.TimerCommandsInterval <= 0)
             {
                 this.TimeIntervalString = "1";
+            }
+        }
+
+        private void GroupedCommandsMainControlViewModelBase_OnCommandAddedEdited(object sender, CommandModelBase command)
+        {
+            if (command.Type == CommandTypeEnum.Timer)
+            {
+                this.AddCommand(command);
             }
         }
     }

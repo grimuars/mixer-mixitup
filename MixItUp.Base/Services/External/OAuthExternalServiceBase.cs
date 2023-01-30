@@ -40,7 +40,7 @@ namespace MixItUp.Base.Services.External
             <head>
                 <meta charset=""utf-8"" />
                 <title>Mix It Up - Logged In</title>
-                <link rel=""shortcut icon"" type=""image/x-icon"" href=""https://github.com/SaviorXTanren/mixer-mixitup/raw/master/Branding/MixItUp-Logo-Base-TransparentSM.png"" />
+                <link rel=""shortcut icon"" type=""image/x-icon"" href=""https://github.com/SaviorXTanren/mixer-mixitup/raw/master/Branding/MixItUp-Logo-Base-WhiteXS.png"" />
                 <style>
                     body {
                         background: #0e162a
@@ -48,7 +48,7 @@ namespace MixItUp.Base.Services.External
                 </style>
             </head>
             <body>
-                <img src=""https://github.com/SaviorXTanren/mixer-mixitup/raw/master/Branding/MixItUp-Logo-Base-WhiteSM.png"" width=""150"" height=""150"" style=""position: absolute; left: 50%; top: 25%; transform: translate(-50%, -50%);"" />
+                <img src=""https://static.mixitupapp.com/desktop/Mix-It-Up_Logo_Auth-Callback.png"" width=""150"" height=""150"" style=""position: absolute; left: 50%; top: 25%; transform: translate(-50%, -50%);"" />
                 <div style='background-color:#232841; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 20px'>
                     <h1 style=""text-align:center;color:white;margin-top:10px"">Mix It Up</h1>
                     <h3 style=""text-align:center;color:white;"">Logged In Successfully</h3>
@@ -112,10 +112,10 @@ namespace MixItUp.Base.Services.External
 
         protected async Task<string> ConnectViaOAuthRedirect(string oauthPageURL, int secondsToWait = 30) { return await this.ConnectViaOAuthRedirect(oauthPageURL, OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL); }
 
-        protected virtual async Task<string> ConnectViaOAuthRedirect(string oauthPageURL, string listeningAddress, int secondsToWait = 30)
+        protected virtual async Task<string> ConnectViaOAuthRedirect(string oauthPageURL, string listeningAddress, int secondsToWait = 45)
         {
-            LocalOAuthHttpListenerServer oauthServer = new LocalOAuthHttpListenerServer(listeningAddress, OAuthExternalServiceBase.DEFAULT_AUTHORIZATION_CODE_URL_PARAMETER, successResponse: OAuthExternalServiceBase.LoginRedirectPageHTML);
-            oauthServer.Start();
+            LocalOAuthHttpListenerServer oauthServer = new LocalOAuthHttpListenerServer(OAuthExternalServiceBase.DEFAULT_AUTHORIZATION_CODE_URL_PARAMETER, successResponse: OAuthExternalServiceBase.LoginRedirectPageHTML);
+            oauthServer.Start(listeningAddress);
 
             ProcessHelper.LaunchLink(oauthPageURL);
 
@@ -159,7 +159,7 @@ namespace MixItUp.Base.Services.External
 
         protected abstract Task RefreshOAuthToken();
 
-        protected void TrackServiceTelemetry(string name) { ChannelSession.Services.Telemetry.TrackService(name); }
+        protected void TrackServiceTelemetry(string name) { ServiceManager.Get<ITelemetryService>().TrackService(name); }
 
         #region IDisposable Support
         private bool disposedValue = false; // To detect redundant calls

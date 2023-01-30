@@ -19,6 +19,8 @@ namespace MixItUp.Base.ViewModel.Requirements
 
         public InventoryListRequirementViewModel Inventory { get; set; } = new InventoryListRequirementViewModel();
 
+        public ArgumentsRequirementViewModel Arguments { get; set; } = new ArgumentsRequirementViewModel();
+
         public ThresholdRequirementViewModel Threshold { get; set; } = new ThresholdRequirementViewModel();
 
         public SettingsRequirementViewModel Settings { get; set; } = new SettingsRequirementViewModel();
@@ -33,6 +35,7 @@ namespace MixItUp.Base.ViewModel.Requirements
                 requirements.AddRange(this.Currency.Items);
                 requirements.AddRange(this.Rank.Items);
                 requirements.AddRange(this.Inventory.Items);
+                requirements.Add(this.Arguments);
                 requirements.Add(this.Threshold);
                 requirements.Add(this.Settings);
                 return requirements;
@@ -43,10 +46,9 @@ namespace MixItUp.Base.ViewModel.Requirements
 
         public RequirementsSetViewModel()
         {
-            this.HelpCommand = this.CreateCommand((parameter) =>
+            this.HelpCommand = this.CreateCommand(() =>
             {
-                ProcessHelper.LaunchLink("https://github.com/SaviorXTanren/mixer-mixitup/wiki/Usage-Requirements");
-                return Task.FromResult(0);
+                ProcessHelper.LaunchLink("https://wiki.mixitupapp.com/usage-requirements");
             });
         }
 
@@ -74,6 +76,10 @@ namespace MixItUp.Base.ViewModel.Requirements
                 else if (requirement is InventoryRequirementModel)
                 {
                     this.Inventory.Add((InventoryRequirementModel)requirement);
+                }
+                else if (requirement is ArgumentsRequirementModel)
+                {
+                    this.Arguments = new ArgumentsRequirementViewModel((ArgumentsRequirementModel)requirement);
                 }
                 else if (requirement is ThresholdRequirementModel)
                 {

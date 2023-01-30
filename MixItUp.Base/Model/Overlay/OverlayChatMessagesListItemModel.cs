@@ -8,7 +8,8 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
-using Twitch.Base.Models.V5.Emotes;
+using System.Web;
+using Twitch.Base.Models.NewAPI.Chat;
 
 namespace MixItUp.Base.Model.Overlay
 {
@@ -20,13 +21,13 @@ namespace MixItUp.Base.Model.Overlay
           <p style=""padding: 10px; margin: auto;"">
             <img src=""{USER_IMAGE}"" width=""{TEXT_SIZE}"" height=""{TEXT_SIZE}"" style=""vertical-align: middle; padding-right: 2px"">
             <span style=""font-family: '{TEXT_FONT}'; font-size: {TEXT_SIZE}px; font-weight: bold; word-wrap: break-word; color: {USER_COLOR}; vertical-align: middle;"">{USERNAME}</span>
-            <img src=""{SUB_IMAGE}"" style=""vertical-align: middle; padding-right: 5px"" onerror=""this.style.display='none'"">
+            <img src=""{USER_SUB_IMAGE}"" style=""vertical-align: middle; padding-right: 5px"" onerror=""this.style.display='none'"">
             {MESSAGE}
           </p>
         </div>";
 
         private const string TextMessageHTMLTemplate = @"<span style=""font-family: '{TEXT_FONT}'; font-size: {TEXT_SIZE}px; font-weight: bold; word-wrap: break-word; color: {TEXT_COLOR}; vertical-align: middle; margin-left: 10px;"">{TEXT}</span>";
-        private const string ImageMessageHTMLTemplate = @"<img src=""{IMAGE}"" style=""vertical-align: middle; margin-left: 10px; max-height: 80px;""></img>";
+        private const string ImageMessageHTMLTemplate = @"<img src=""{IMAGE}"" style=""vertical-align: middle; margin-left: 10px; width: auto; height: {TEXT_SIZE}px;""></img>";
 
         public OverlayChatMessagesListItemModel() : base() { }
 
@@ -37,10 +38,10 @@ namespace MixItUp.Base.Model.Overlay
 
         public override Task LoadTestData()
         {
-            ChatMessageViewModel message = new ChatMessageViewModel(Guid.NewGuid().ToString(), StreamingPlatformTypeEnum.All, ChannelSession.GetCurrentUser());
+            UserChatMessageViewModel message = new UserChatMessageViewModel(Guid.NewGuid().ToString(), StreamingPlatformTypeEnum.None, ChannelSession.User);
             message.AddStringMessagePart("Test Message");
             this.GlobalEvents_OnChatMessageReceived(this, message);
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
 
         public override async Task Enable()
@@ -73,23 +74,11 @@ namespace MixItUp.Base.Model.Overlay
                         string imageURL = null;
                         if (messagePart is string)
                         {
-                            textParts.Add((string)messagePart);
+                            textParts.Add(HttpUtility.HtmlEncode((string)messagePart));
                         }
-                        else if (messagePart is EmoteModel)
+                        else if (messagePart is ChatEmoteViewModelBase)
                         {
-                            imageURL = ((EmoteModel)messagePart).Size1URL;
-                        }
-                        else if (messagePart is BetterTTVEmoteModel)
-                        {
-                            imageURL = ((BetterTTVEmoteModel)messagePart).url;
-                        }
-                        else if (messagePart is FrankerFaceZEmoteModel)
-                        {
-                            imageURL = ((FrankerFaceZEmoteModel)messagePart).url;
-                        }
-                        else if (messagePart is TwitchBitsCheerViewModel)
-                        {
-                            imageURL = ((TwitchBitsCheerViewModel)messagePart).Tier.LightImage;
+                            imageURL = ((ChatEmoteViewModelBase)messagePart).ImageURL;
                         }
 
                         if (!string.IsNullOrEmpty(imageURL))
@@ -100,7 +89,7 @@ namespace MixItUp.Base.Model.Overlay
                         }
                     }
 
-                    UserViewModel user = item.GetUser();
+                    UserV2ViewModel user = await item.GetUser();
                     if (user != null)
                     {
                         item.TemplateReplacements.Add("MESSAGE", OverlayChatMessagesListItemModel.TextMessageHTMLTemplate);
@@ -108,7 +97,8 @@ namespace MixItUp.Base.Model.Overlay
                         item.TemplateReplacements.Add("USERNAME", user.DisplayName);
                         item.TemplateReplacements.Add("USER_IMAGE", user.AvatarLink);
                         item.TemplateReplacements.Add("USER_COLOR", user.Color);
-                        item.TemplateReplacements.Add("SUB_IMAGE", string.Empty);
+                        item.TemplateReplacements.Add("SUB_IMAGE", user.PlatformSubscriberBadgeLink);
+                        item.TemplateReplacements.Add("USER_SUB_IMAGE", user.PlatformSubscriberBadgeLink);
                         item.TemplateReplacements.Add("TEXT_SIZE", this.Height.ToString());
                     }
 
@@ -116,20 +106,20 @@ namespace MixItUp.Base.Model.Overlay
                     {
                         this.Items.Add(item);
                         this.SendUpdateRequired();
-                        return Task.FromResult(0);
+                        return Task.CompletedTask;
                     });
                 }
             }
         }
 
-        private async void GlobalEvents_OnChatMessageDeleted(object sender, Guid id)
+        private async void GlobalEvents_OnChatMessageDeleted(object sender, string id)
         {
             await this.listSemaphore.WaitAndRelease(() =>
             {
-                OverlayListIndividualItemModel item = OverlayListIndividualItemModel.CreateRemoveItem(id.ToString());
+                OverlayListIndividualItemModel item = OverlayListIndividualItemModel.CreateRemoveItem(id);
                 this.Items.Add(item);
                 this.SendUpdateRequired();
-                return Task.FromResult(0);
+                return Task.CompletedTask;
             });
         }
     }

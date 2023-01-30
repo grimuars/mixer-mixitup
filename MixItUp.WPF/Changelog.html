@@ -3,9 +3,415 @@
         <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
     </head>
     <body>
-        <p style="font-size: large; color: red"><b><u>WARNING: The 0.5.9.0 update is a very large update that will upgrade your settings to a newer format and will take some time. Due to this, we encourage users to NOT take this update prior to streaming and instead during your free time. If you encounter any issues, please visit our discord server for support: http://mixitupapp.com/discord</u></b></p>
-
         <h1 style="color: #5e9ca0;">Changelog</h1>
+
+        <h2 style="color: #2e6c80;">v1.0.0.24:</h2>
+        <ul>
+            <li>Adding Send Shoutout option to Twitch Action</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.23:</h2>
+        <ul>
+            <li>Fixing bug related to Currency/Rank automatic resetting not properly using last reset date</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.22:</h2>
+        <ul>
+            <li>Fixing bug with Twitch whispers not being sent out correctly</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.21:</h2>
+        <ul>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.20:</h2>
+        <ul>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.19:</h2>
+        <ul>
+            <li>Fixing hang bug related to daily currency reset setting</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.16-18:</h2>
+        <ul>
+            <li>Changing Twitch event connectivity to use new EventSub service for more real-time events</li>
+            <li>Adding Twitch Channel Hype Train Level Up event command</li>
+            <li>Adding Twitch Channel Charity Donation event command</li>
+            <li>Adding Chinese (Traditional) language</li>
+            <li>Adding Subscriber Mode On/Off option to Trovo Action</li>
+            <li>Adding Image Source and Media Source options to Streaming Software action</li>
+            <li>Adding Mute On/Off option to Voicemod Action</li>
+            <li>Adding replace() function to Special Identifier action</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.15:</h2>
+        <ul>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.14:</h2>
+        <ul>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.12-13:</h2>
+        <ul>
+            <li>Fixing crash / hang issue with OBS Studio connectivity for scenes containing lots of sources &amp; adding performance improvements for issues requests</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.11:</h2>
+        <ul>
+            <li>Fixing issue with the Source Visibility option on the Streaming Software action not working properly for sources in groups in OBS Studio 28</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.10:</h2>
+        <ul>
+            <li>Adding support for new websocket connectivity in OBS Studio 28. Users will need to disconnect their current connectivity on the Services page and re-connect it after updating OBS Studio and ensuring the websocket settings in OBS Studio are properly configured.</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.8 - v1.0.0.9:</h2>
+        <ul>
+            <li>Fixing bug with scenario where a user re-name on Twitch can cause duplicated user data</li>
+            <li>Adjusting logic for processing Twitch mass mystery gifted subs</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.7:</h2>
+        <ul>
+            <li>Fixing bug with Game Queue actions not properly handling user changes</li>
+            <li>Localization text updates for all languages</li>
+            <li>Adding Trovo Channel Magic Chat event command</li>
+            <li>Adding Glimesh Channel Subscription Gifted and Glimesh Channel Donation event commands</li>
+            <li>Adding filtering of Specialty Excluded users from random user Special Identifiers</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.6:</h2>
+        <ul>
+            <li>Restoring Channel Page functionality for Twitch and Trovo</li>
+            <li>Adding support for Glimesh Channel Subscribed event command</li>
+            <li>Adding Streamer, Admin, Moderator, and Subscriber user role tracking for Glimesh</li>
+            <li>Commands now show grouped together based on command groups in Command Action</li>
+            <li>Game Queue sub-commands on the Game Queue page now have access to the arguments and Special Identifiers used when the user joined the queue</li>
+            <li>Adding option to Arguments Usage Requirement to have arguments be assigned to dedicated Special Identifiers</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.5:</h2>
+        <ul>
+            <li>Adjusting image size used for emotes to counteract and reduce memory &amp; crash problems due to animated emotes. If you still experience issues with memory / crash problems due several animated emotes being sent to your chat, you can optionally disable animated emote rendering by heading to Settings -> Chat.</li>
+            <li>Adding the ability to trigger context-menu commands off of the User list on the Chat page</li>
+            <li>Fixing bug with $&lt;CURRENCY&gt;alltotal and $&lt;CURRENCY&gt;alltotaldisplay Special Identifiers not processing correctly</li>
+            <li>Adding optional parameter to !command pre-made command to specify the name of the group to filter commands down to</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.4:</h2>
+        <ul>
+            <li>Adding $&lt;CURRENCY&gt;alltotal and $&lt;CURRENCY&gt;alltotaldisplay Special Identifiers</li>
+            <li>Adding optional parameter to !command pre-made command to specify the name of the group to filter commands down to</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.3:</h2>
+        <ul>
+            <li>Fixing bug with backup generation failing due to an issue in the latest database library being used. Library has been rolled back to the last known good and backup generation has been verified to be working again. Any backups generated since version 1.0.0.0 should be re-made to ensure they properly contain all your settings data.</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.2:</h2>
+        <ul>
+            <li>Fixing bug with !commands pre-made command not showing command list properly</li>
+            <li>Fixing bug with new generic event commands not triggering if you don't have a platform-specific event command made</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v1.0.0.0:</h2>
+        <ul>
+            <li>Trovo:</li>
+            <ul>
+                <li>Adding support for Trovo streaming platform</li>
+                <li>Adding Trovo Spells page to allow custom commands to trigger for specific spells</li>
+                <li>Adding Trovo action for adding/removing roles, setting channel mods, and hosting, and other features</li>
+                <li>Adding Trovo custom role option to User Role Usage Requirement</li>
+                <li>Adding $usertrovocustomroles Special Identifier</li>
+            </ul>
+            <li>Glimesh:</li>
+            <ul>
+                <li>Adding support for Glimesh streaming platform</li>
+            </ul>
+            <li>Twitch</li>
+            <ul>
+                <li>Adding Set Title, Set Game, and Set Custom Tags options to Twitch action</li>
+                <li>Adding additional options to Twitch action for various chat moderation features</li>
+                <li>Adding $twitchsubcount and $twitchsubpoints Special Identifier</li>
+                <li>Adding $streamtwitchtags Special Identifier</li>
+                <li>User subscription dates are no longer available due to breaking changes with Twitch's API. Dates will be tracked with a best-effort basis based on historical tracking in Mix It Up and when subscription events occur while Mix It Up is running.</li>
+            </ul>
+            <li>Users:</li>
+            <ul>
+                <li>Adding "Add User" option to Users page to manually add individual user data to Mix It Up directly from a streaming platform</li>
+                <li>Basic account linking is now supported for user data between different platforms by using "!linkaccount" in chat</li>
+                <li>User data importing now supports handling data from different platforms. Imported data is added to users that Mix It Up currently knows about or is saved for later importing when that user is detected by Mix It Up for the first time.</li>
+            </ul>
+            <li>Special Identifiers:</li>
+            <ul>
+                <li>Adding $useraccountdays, $userfollowdays, and $usersubdays Special Identifiers</li>
+                <li>Adding $streamislive and $userstreamislive Special Identifier</li>
+            </ul>
+            <li>Removed Features:</li>
+            <ul>
+                <li>The Channel page has been removed due to low-usage, breaking changes in Twitch API, and varying functionality differences between different streaming platforms. This page will be brought back at a later date once it has been determined what features are worth bringing forward.</li>
+                <li>Offline user viewing time and offline currency/rank acquire rates have been removed</li>
+            </ul>
+            <li>Adding new Generic event commands that are triggered regardless of what platform you are streaming on so long as the related event command is supported on that platform (IE, it appears under that platforms list of event commands)</li>
+            <li>Adding new Wiki site and updating all links within the app to point to new site</li>
+            <li>Adding the ability to pause and unpause all queued commands via the Command History page and the Command Action</li>
+            <li>Large-scale improvements to automated input via the Input Action and for Hot Key detection support</li>
+            <li>Adding support for importing quotes from text or spreadsheet file</li>
+            <li>Adding PolyPop service connectivity and PolyPop action</li>
+            <li>Adding Enable Chat and Disable Chat options to Moderation Action</li>
+            <li>Fixing bug with Developer APIs returning 404 for use and resulting services such as Stream Deck support not working properly</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.12:</h2>
+        <ul>
+            <li>Fixing bug with selected Custom Overlay Endpoints being reset to the Default Overlay Endpoint when launching the app.</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.10-11:</h2>
+        <ul>
+            <li>Replacing legacy API for Twitch with new API support due to upcoming removal at the end of February. As a result of this change, certain pieces of small functionality will no longer be supported until Twitch adds support for them in their new API. The biggest removal of support is the tracking of Subscriber Dates, which will factor in to things like $usersubage and $usersubmonths: https://blog.twitch.tv/en/2021/07/15/legacy-twitch-api-v5-shutdown-details-and-timeline/</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.9:</h2>
+        <ul>
+            <li>Adding custom Webhook Commands feature: https://github.com/SaviorXTanren/mixer-mixitup/wiki/Webhooks</li>
+            <li>Adding Ukrainian language localization support</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.8:</h2>
+        <ul>
+            <li>Adding Voicemod service connectivity. This can be enabled by visiting the Services page of the app and using the Voicemod action within commands.</li>
+            <li>Adding editor window when testing commands with unique Special Identifiers to allow the editing of the values that are used.</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.7:</h2>
+        <ul>
+            <li>Adding VTube Studio service connectivity. This can be enabled by visiting the Services page of the app and using the VTube Studio action within commands.</li>
+            <li>Adding "Regex Match" option to Conditional Action for validating Regular Expression matching against text.</li>
+            <li>Adding support for math expression processing in Counter Action.</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.6:</h2>
+        <ul>
+            <li>Adding fall-back logic for displaying older Pixel Chat scene components in Pixel Chat action</li>
+            <li>Adding uriescape() function to Special Identifier action</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.5:</h2>
+        <ul>
+            <li>Adding Pixel Chat service connectivity and Pixel Chat action</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.4:</h2>
+        <ul>
+            <li>Adding $bitslifetimeamount Special Identifier for Twitch Channel Bits Cheered event command</li>
+            <li>Having Specialty Excluded option for Users also exclude from random-based Special Identifiers</li>
+            <li>Fixing bug with Arguments Usage Requirement not saving properly</li>
+            <li>Fixing bug with individual user data loading failing in some circumstances</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.3:</h2>
+        <ul>
+            <li>Screenshots can now be optionally uploaded with Community Commands to help showcase what the command does</li>
+            <li>Re-enabling User Data Import functionality on the Users page</li>
+            <li>Fixing bug with chat message deletion detection failing sometimes when deleted from outside of Mix It Up</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.2:</h2>
+        <ul>
+            <li>Adding Alerts option for Hype Train events</li>
+            <li>Fixing bug with back-up logic for donation user processing not properly creating a fake user with the supplied donation username</li>
+            <li>Fixing bug with whispers sent from streamer or bot account triggering the Chat Message Received event command</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.1:</h2>
+        <ul>
+            <li>Allowing for rating-only reviews for Community Commands</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.11.0:</h2>
+        <ul>
+            <li>Community Commands:</li>
+            <ul>
+                <li>Re-adding the Community Commands feature (formerly known as the Mix It Up Store), which allows users to upload commands they have created and search through commands other users have made.</li>
+                <li>By visiting the Community Commands section from the main menu, you will be able to see some of the highlighted commands available, search for commands, and see the commands you have uploaded</li>
+                <li>Users can rate &amp; review commands based on how well they worked and how much they liked them. They can also report commands if they deemed malicious or inappropriate.</li>
+                <li>Commands can be uploaded by editing an existing command you have and selected "Upload Command" in the bottom-right of the command editor window. A command must be saved first before the option will be available.</li>
+                <li>Uploaded commands can have their metadata (name, description, &amp; image) edited by visiting the command inside of the Community Commands feature and selecting Edit or remove a command by selected Delete.</il>
+                <li>Commands can be updated by simply re-uploading the same command again. Commands are tied based on their internal ID, so if you delete your local copy of your command, you will be unable to upload it to the same community command.</li>
+            </ul>
+            <li>Events</li>
+            <ul>
+                <li>Twitch:</li>
+                <ul>
+                    <li>We have financed a server to allow us to handle Twitch events that require Twitch's Web Hooks system. This will allow us to remove the 1 Minute Delay on certain events, as well as add support for brand-new events that were not previously possible.</li>
+                    <li>The following events have been updated to be real-time: Twitch Channel Stream Start, Twitch Channel Followed</li>
+                    <li>The following events have been added: Twitch Channel Stream Stop, Twitch Channel Hype Train Begin, Twitch Channel Hype Train End</li>
+                    <ul>
+                        <li>Twitch Channel Hype Train Begin includes the following Special Identifiers: $hypetraintotalpoints, $hypetrainlevelpoints, $hypetrainlevelgoal</li>
+                        <li>Twitch Channel Hype Train End includes the following Special Identifiers: $hypetraintotallevel, $hypetraintotalpoints</li>
+                    </ul>
+                    <li>In the event of an outage of our server or a local disconnection, the Twitch Channel Stream Start &amp; Twitch Channel Followed events will fall back to their old 1 Minute Delay logic, while the newly added events will be unavailable.</li>
+                    <li>Adding $messagenocheermotes Special Identifier to Twitch Channel Bits Cheered event command that has only the text of the user's message and no cheermotes in the message</li>
+                    <li>Message text is now available as Argument Special Identifiers for the Twitch Channel Resubscribed &amp; Twitch Channel Bits Cheered event commands</li>
+                </ul>
+                <li>Renaming StreamJar service to Rainmaker service, updating authentication for service, and adding support for real-time donation events</li>
+                <li>Fixing breaking change with StreamElements service where data being sent down was in a new format that it had previously been which was causing donations to not be properly detected</li>
+            </ul>
+            <li>Usage Requirements:</li>
+            <ul>
+                <li>Adding advanced, multi-role selecton for User Role usage requirement</li>
+                <li>Adding Arguments usage requirement which allows you to set required or optional arguments to a command based on it's type (Number, Decimal, Text, User). If a required argument is missing, an error message will be shown with the name of the arguments and correct ordering.</li>
+            </ul>
+            <li>Actions:</li>
+            <ul>
+                <li>Twitch Action:</li>
+                <ul>
+                    <li>Adding Poll options to Twitch action. Sub-actions can be added that will be run when the poll is complete and will contain the $pollchoice Special Identifier for the winning poll choice. This action <b>DOES NOT</b> wait for the poll to complete</li>
+                    <li>Adding Prediction options to Twitch action. Sub-actions can be added that will be run when the prediction is complete and will contain the $predictionoutcome Special Identifier for the winning prediction. This action <b>DOES NOT</b> wait for the prediction to complete</li>
+                    <li>Adding Special Identifier processing for various fields on the Update Channel Point option</li>
+                </ul>
+                <li>Adding "Repeat While True" option to Conditional action to allow repeated looping for sub-actions while the conditional clauses remain true</li>
+                <li>Adding option Currency/Rank/Inventory action for whether users must be present in chat</li>
+                <li>Adding urlencode() function to Special Identifier action</li>
+            </ul>
+            <li>Special Identifiers:</li>
+            <ul>
+                <li>Adding $message Special Identifier for all chat-based commands that contains the entire chat message used</li>
+                <li>Adding $streamlootscarddescription and $streamlootscardalertmessage Special Identifiers for Streamloots event commands &amp; Streamloots Card commands</li>
+                <li>Adding $argdelimitedXtext and $argdelimitedcount Special Identifiers that split argument text based on the '|' character with leading &amp; trailing spaces automatically removed. For example, the text "Hello World | How are you|     on this fine day" would have 3 arguments of $argdelimited1text, $argdelimited2text, $argdelimited3text containing the respective text of "Hello World", "How are you", "on this fine day".</li>
+                <li>Adding $usersubbadge Special Identifier</li>
+                <li>Adding $userfulldisplayname Special Identifier</li>
+                <li>Adding $userismod Special Identifier for whether the current user has the Moderator role</li>
+                <li>Adding $userdisplayroles Special Identifier for the language localized version of roles for a user</li>
+                <li>Adding $userinchat Special Identifier. Accuracy for this Special Identifier can't be guaranteed due to the unreliability of chat notifications sent down to us. All that can be guaranteed is that the user is either currently in chat or was in chat at some point during the specific instance of Mix It Up</li>
+            </ul>
+            <li>Removing the ability to follow/unfollow a user from the User pop-up dialog in Chat due to Twitch deprecation of the corresponding API: https://blog.twitch.tv/en/2021/06/28/deprecation-of-create-and-delete-follows-api-endpoints/</li>
+            <li>Adding filter options to Users page</li>
+            <li>Adding Notes section to User editor for adding details information about individual users</li>
+            <li>Adding additional error messaging and updating display text for Channel Point Reward buttons &amp; functionality</li>
+            <li>Adding memory &amp; performance usage improvements by only loading in user data when it is needed rather than loading all user data in on launch</li>
+            <li>Adding enforcement for targeted users to be detected in chat for Game commands</li>
+            <li>Adjusting display name for user's to better match how it is displayed natively in Twitch for alternative languages</li>
+            <li>Adding UI support for bit &amp; follower channel emotes</li>
+            <li>The Chat Message Overlay Widget now processes the {USER_SUB_IMAGE} text for the URL of the user's subscriber badge image</li>
+            <li>Fixing bug with Duel game command not properly refunding user if the target user does not accept</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.10.4:</h2>
+        <ul>
+            <li>Adding additional timeouts to Streamlabs &amp; StreamElements service connections to combat rapid disconnection issues to their servers</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.10.3:</h2>
+        <ul>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.10.2:</h2>
+        <ul>
+            <li>Adding extra connection protection &amp; retry logic for unstable Streamlabs and StreamElements service connections</li>
+            <li>Adding $randomregularuser____ Special Identifier</li>
+            <li>Added Input Action support for F13 to F24</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.10.1:</h2>
+        <ul>
+            <li>Adding Export Actions option to Conditional Action</li>
+            <li>Fixing bug with Command Action not performing Usage Requirements &amp; Validation of the selected sub-command when using the Run Command option</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.10.0:</h2>
+        <ul>
+            <li>Command System Improvements:</li>
+            <ul>
+                <li>Adding new Command History page that shows the most recent triggered commands, what their progress is, and the ability to cancel &amp; retry them</li>
+                <li>Adding Command Lock System option to select what types of commands are locked under Settings -> Commands</li>
+                <li>Adding Requirement Errors Cooldown Type option to determine how requirement error messages should be cooled down under Settings -> Commands </li>
+                <li>Exported *.miucommand command files will now show Mix It Up icon in Windows Explorer and can be opened to import data into a new or existing command</li>
+                <li>Exported *.miucommand command files can now be drag &amp; dropped into a command editor window to import the actions from it</li>
+                <li>Adding Cancel All Commands option to Command Action</li>
+            </ul>
+            <li>Twitch Channel Point Reward Commands:</li>
+            <ul>
+                <li>Twitch Channel Point Rewards can now be created directly from the Channel Points page of the app. This will create a basic reward with the name specified and additional details for the reward must then be configured up on Twitch's website</li>
+                <li>Twitch Channel Point Rewards that are <b>created through Mix It Up</b> can now have their properties dynamically updated using the Twitch action</li>
+            </ul>
+            <li>Adding Streamloots Cards page for creating dedicated commands that are triggered when specific Streamloots cards are redeemed. <b>Only shown when Streamloots service is connected.</b></li>
+            <li>Twitch Mass Subscriptions Gifted event command now includes all users that received a gifted sub as arguments to the command. <b>Requires the Twitch Mass Subscriptions Gifted Filter option enabled under Settings -> Commands</b></li>
+            <li>Chat Message Received event command now includes the full message as arguments to the command</li>
+            <li>The StreamElements donation event command can now be triggered in real-time and is no longer delayed by up to 1 minute</li>
+            <li>Adding settings menu for Counters to allow for viewing, editing, &amp; deletion</li>
+            <li>Adding event command for StreamElements Merch Purchase</li>
+            <li>Using the Test button for the End Credits Overlay Widget will now only fill in test data if the given category doesn't already have users set for it and will only clear out data for those categories</li>
+            <li>Adding uninstaller and registering in Windows add/remove programs</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.9.7:</h2>
+        <ul>
+            <li>Fixing crashing bug related to processing certain FrankerFaceZ emote images</li>
+            <li>Allowing text entry &amp; Special Identifier processing for item name in Currency/Rank/Inventory action</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.9.6:</h2>
+        <ul>
+            <li>If you are already editing a command and attempt to open a 2nd window of the same command, it will now not open the 2nd window and instead focus the 1st window to prevent users from accidently saving an old or inaccurate version of the same command</li>
+            <li>Fixing bug with Coin Pusher &amp; Volcano game types not properly saving out their total amounts between sessions</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.9.5:</h2>
+        <ul>
+            <li>Fixing crashing bug related to missing localization text for some languages</li>
+            <li>Adding Follower Event Moderation setting that allow for setting a maximum amount that can queue up before they are ignored</li>
+            <li>Adding initial 5 second cooldown on error messages for Cooldown Requirement to reduce spam of multiple users attempting to trigger a command at the same time</li>
+            <li>When running a command with a Currency Requirement of Minimum Only or Maximum &amp; Minimum, the amount used will default to the Minimum Amount if the user does not specify an amount or we are unable to detect the amount</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
+
+        <h2 style="color: #2e6c80;">v0.5.9.4:</h2>
+        <ul>
+            <li>Updated localizations for Russian, Portuguese, Japanese, Spanish, German, French, &amp; Dutch</li>
+            <li>Various quality of life &amp; bug fixes</li>
+        </ul>
 
         <h2 style="color: #2e6c80;">v0.5.9.3:</h2>
         <ul>

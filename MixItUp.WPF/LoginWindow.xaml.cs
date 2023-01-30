@@ -1,6 +1,7 @@
 ﻿using MixItUp.Base;
 using MixItUp.Base.Model.API;
 using MixItUp.Base.Model.Settings;
+using MixItUp.Base.Services;
 using MixItUp.Base.Util;
 using MixItUp.WPF.Windows;
 using MixItUp.WPF.Windows.Wizard;
@@ -10,7 +11,6 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Navigation;
 
 namespace MixItUp.WPF
@@ -38,11 +38,19 @@ namespace MixItUp.WPF
 
             this.Title += " - v" + Assembly.GetEntryAssembly().GetName().Version.ToString();
 
+            if (ProcessHelper.GetProcessesByName("MixItUp").Count() > 1)
+            {
+                if (!await DialogHelper.ShowConfirmation(MixItUp.Base.Resources.MixItUpIsAlreadyRunning))
+                {
+                    this.Close();
+                }
+            }
+
             this.ExistingStreamerComboBox.ItemsSource = streamerSettings;
 
             await this.CheckForUpdates();
 
-            foreach (SettingsV3Model setting in (await ChannelSession.Services.Settings.GetAllSettings()).OrderBy(s => s.Name))
+            foreach (SettingsV3Model setting in (await ServiceManager.Get<SettingsService>().GetAllSettings()).OrderBy(s => s.Name))
             {
                 this.streamerSettings.Add(setting);
             }
@@ -126,7 +134,7 @@ namespace MixItUp.WPF
 
         private async Task CheckForUpdates()
         {
-            this.currentUpdate = await ChannelSession.Services.MixItUpService.GetLatestUpdate();
+            this.currentUpdate = await ServiceManager.Get<MixItUpService>().GetLatestUpdate();
             if (this.currentUpdate != null && this.currentUpdate.SystemVersion > Assembly.GetEntryAssembly().GetName().Version)
             {
                 updateFound = true;
@@ -137,18 +145,16 @@ namespace MixItUp.WPF
 
         private async Task<bool> ExistingSettingLogin(SettingsV3Model setting)
         {
-            Result result = await ChannelSession.ConnectUser(setting);
+            Result result = await ChannelSession.Connect(setting);
             if (result.Success)
             {
-                if (await ChannelSession.InitializeSession())
+                result = await ChannelSession.InitializeSession();
+                if (result.Success)
                 {
                     return true;
                 }
             }
-            else
-            {
-                await DialogHelper.ShowMessage(result.Message);
-            }
+            await DialogHelper.ShowMessage(result.Message);
             return false;
         }
 

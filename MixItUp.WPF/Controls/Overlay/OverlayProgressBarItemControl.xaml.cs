@@ -1,7 +1,9 @@
 ﻿using MixItUp.Base.Model.Commands;
 using MixItUp.Base.ViewModel.Overlay;
 using MixItUp.WPF.Controls.Commands;
+using MixItUp.WPF.Util;
 using MixItUp.WPF.Windows.Commands;
+using System.Threading.Tasks;
 using System.Windows;
 
 namespace MixItUp.WPF.Controls.Overlay
@@ -22,11 +24,18 @@ namespace MixItUp.WPF.Controls.Overlay
             this.ViewModel = viewModel;
         }
 
+        protected override async Task OnLoaded()
+        {
+            this.TextFontComboBox.ItemsSource = InstalledFonts.GetInstalledFonts();
+
+            await base.OnLoaded();
+        }
+
         private void AddCommandButton_Click(object sender, RoutedEventArgs e)
         {
             CommandEditorWindow window = new CommandEditorWindow(CommandTypeEnum.Custom, MixItUp.Base.Resources.ProgressBarGoalReached);
             window.CommandSaved += Window_CommandSaved;
-            window.Show();
+            window.ForceShow();
         }
 
         private void CommandButtons_EditClicked(object sender, RoutedEventArgs e)
@@ -34,9 +43,9 @@ namespace MixItUp.WPF.Controls.Overlay
             CustomCommandModel command = ((CommandListingButtonsControl)sender).GetCommandFromCommandButtons<CustomCommandModel>();
             if (command != null)
             {
-                CommandEditorWindow window = new CommandEditorWindow(command);
+                CommandEditorWindow window = CommandEditorWindow.GetCommandEditorWindow(command);
                 window.CommandSaved += Window_CommandSaved;
-                window.Show();
+                window.ForceShow();
             }
         }
 

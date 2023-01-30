@@ -17,8 +17,11 @@ namespace MixItUp.Base.Model.Commands.Games
         public const string GameBetOptionsSpecialIdentifier = "gamebetoptions";
         public const string GameBetWinningOptionSpecialIdentifier = "gamebetwinningoption";
 
+        [Obsolete]
         [DataMember]
-        public UserRoleEnum StarterRole { get; set; }
+        public OldUserRoleEnum StarterRole { get; set; }
+        [DataMember]
+        public UserRoleEnum StarterUserRole { get; set; }
         [DataMember]
         public int MinimumParticipants { get; set; }
         [DataMember]
@@ -47,15 +50,15 @@ namespace MixItUp.Base.Model.Commands.Games
         [JsonIgnore]
         private CommandParametersModel runParameters;
         [JsonIgnore]
-        private Dictionary<UserViewModel, CommandParametersModel> runUsers = new Dictionary<UserViewModel, CommandParametersModel>();
+        private Dictionary<UserV2ViewModel, CommandParametersModel> runUsers = new Dictionary<UserV2ViewModel, CommandParametersModel>();
         [JsonIgnore]
-        private Dictionary<UserViewModel, int> runUserSelections = new Dictionary<UserViewModel, int>();
+        private Dictionary<UserV2ViewModel, int> runUserSelections = new Dictionary<UserV2ViewModel, int>();
 
         public BetGameCommandModel(string name, HashSet<string> triggers, UserRoleEnum starterRole, int minimumParticipants, int timeLimit, IEnumerable<GameOutcomeModel> betOptions,
             CustomCommandModel startedCommand, CustomCommandModel userJoinCommand, CustomCommandModel notEnoughPlayersCommand, CustomCommandModel betsClosedCommand, CustomCommandModel gameCompleteCommand)
             : base(name, triggers, GameCommandTypeEnum.Bet)
         {
-            this.StarterRole = starterRole;
+            this.StarterUserRole = starterRole;
             this.MinimumParticipants = minimumParticipants;
             this.TimeLimit = timeLimit;
             this.BetOptions = new List<GameOutcomeModel>(betOptions);
@@ -66,23 +69,8 @@ namespace MixItUp.Base.Model.Commands.Games
             this.GameCompleteCommand = gameCompleteCommand;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal BetGameCommandModel(Base.Commands.BetGameCommand command)
-            : base(command, GameCommandTypeEnum.Bet)
-        {
-            this.StarterRole = command.GameStarterRequirement.MixerRole;
-            this.MinimumParticipants = command.MinimumParticipants;
-            this.TimeLimit = command.TimeLimit;
-            this.BetOptions = new List<GameOutcomeModel>(command.BetOptions.Select(bo => new GameOutcomeModel(bo)));
-            this.StartedCommand = new CustomCommandModel(command.StartedCommand) { IsEmbedded = true };
-            this.UserJoinCommand = new CustomCommandModel(command.UserJoinCommand) { IsEmbedded = true };
-            this.NotEnoughPlayersCommand = new CustomCommandModel(command.NotEnoughPlayersCommand) { IsEmbedded = true };
-            this.BetsClosedCommand = new CustomCommandModel(command.BetsClosedCommand) { IsEmbedded = true };
-            this.GameCompleteCommand = new CustomCommandModel(command.GameCompleteCommand) { IsEmbedded = true };
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private BetGameCommandModel() { }
+        [Obsolete]
+        public BetGameCommandModel() : base() { }
 
         public override IEnumerable<CommandModelBase> GetInnerCommands()
         {
@@ -96,7 +84,7 @@ namespace MixItUp.Base.Model.Commands.Games
             return commands;
         }
 
-        protected override async Task<bool> ValidateRequirements(CommandParametersModel parameters)
+        public override async Task<Result> CustomValidation(CommandParametersModel parameters)
         {
             this.SetPrimaryCurrencyRequirementArgumentIndex(argumentIndex: 1);
 
@@ -104,7 +92,7 @@ namespace MixItUp.Base.Model.Commands.Games
             {
                 if (this.betsClosed)
                 {
-                    if (parameters.User.HasPermissionsTo(this.StarterRole))
+                    if (parameters.User.MeetsRole(this.StarterUserRole))
                     {
                         // At least to arguments
                         //      1st must be "answer"
@@ -115,41 +103,42 @@ namespace MixItUp.Base.Model.Commands.Games
                             this.betsClosed = false;
                             GameOutcomeModel winningOutcome = this.BetOptions[answer - 1];
 
-                            this.runParameters.SpecialIdentifiers[BetGameCommandModel.GameBetWinningOptionSpecialIdentifier] = winningOutcome.Name;
-                            await this.GameCompleteCommand.Perform(this.runParameters);
+                            List<CommandParametersModel> winners = new List<CommandParametersModel>(this.runUserSelections.Where(kvp => kvp.Value == answer).Select(kvp => this.runUsers[kvp.Key]));
 
-                            foreach (CommandParametersModel winner in this.runUserSelections.Where(kvp => kvp.Value == answer).Select(kvp => this.runUsers[kvp.Key]))
+                            this.SetGameWinners(this.runParameters, winners);
+                            this.runParameters.SpecialIdentifiers[BetGameCommandModel.GameBetWinningOptionSpecialIdentifier] = winningOutcome.Name;
+                            await this.RunSubCommand(this.GameCompleteCommand, this.runParameters);
+
+                            foreach (CommandParametersModel winner in winners)
                             {
                                 winner.SpecialIdentifiers[BetGameCommandModel.GameBetWinningOptionSpecialIdentifier] = winningOutcome.Name;
-                                await this.PerformOutcome(winner, winningOutcome);
+                                await this.RunOutcome(winner, winningOutcome);
                             }
 
                             await this.PerformCooldown(this.runParameters);
                             this.ClearData();
+
+                            return new Result(success: false);
                         }
                         else
                         {
                             string trigger = this.GetFullTriggers().FirstOrDefault() ?? "!bet";
-                            await ChannelSession.Services.Chat.SendMessage(string.Format(MixItUp.Base.Resources.GameCommandBetAnswerExample, trigger));
+                            return new Result(string.Format(MixItUp.Base.Resources.GameCommandBetAnswerExample, trigger));
                         }
                     }
                     else
                     {
-                        await ChannelSession.Services.Chat.SendMessage(string.Format(MixItUp.Base.Resources.RoleErrorInsufficientRole, this.StarterRole));
+                        return new Result(string.Format(MixItUp.Base.Resources.RoleErrorInsufficientRole, this.StarterUserRole));
                     }
                 }
-                else
+                else if (parameters.Arguments.Count == 0 || !int.TryParse(parameters.Arguments[0], out int choice) || choice <= 0 || choice > this.BetOptions.Count)
                 {
-                    if (parameters.Arguments.Count > 0 && int.TryParse(parameters.Arguments[0], out int choice) && choice > 0 && choice <= this.BetOptions.Count)
-                    {
-                        return await base.ValidateRequirements(parameters);
-                    }
-                    await ChannelSession.Services.Chat.SendMessage(string.Format(MixItUp.Base.Resources.GameCommandBetInvalidSelection, parameters.User.Username));
+                    return new Result(string.Format(MixItUp.Base.Resources.GameCommandBetInvalidSelection, parameters.User.Username));
                 }
             }
             else
             {
-                if (parameters.User.HasPermissionsTo(this.StarterRole))
+                if (parameters.User.MeetsRole(this.StarterUserRole))
                 {
                     this.gameActive = true;
                     this.runParameters = parameters;
@@ -170,7 +159,7 @@ namespace MixItUp.Base.Model.Commands.Games
 
                         if (this.runUsers.Count < this.MinimumParticipants)
                         {
-                            await this.NotEnoughPlayersCommand.Perform(this.runParameters);
+                            await this.RunSubCommand(this.NotEnoughPlayersCommand, this.runParameters);
                             foreach (var kvp in this.runUsers.ToList())
                             {
                                 await this.Requirements.Refund(kvp.Value);
@@ -181,25 +170,27 @@ namespace MixItUp.Base.Model.Commands.Games
                         }
 
                         this.betsClosed = true;
-                        await this.BetsClosedCommand.Perform(this.runParameters);
+                        await this.RunSubCommand(this.BetsClosedCommand, this.runParameters);
                     }, new CancellationToken());
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
-                    await this.StartedCommand.Perform(parameters);
-                    return false;
+                    await this.RunSubCommand(this.StartedCommand, parameters);
+                    return new Result(success: false);
                 }
-                await ChannelSession.Services.Chat.SendMessage(string.Format(MixItUp.Base.Resources.RoleErrorInsufficientRole, this.StarterRole));
+                return new Result(string.Format(MixItUp.Base.Resources.RoleErrorInsufficientRole, this.StarterUserRole));
             }
-            return false;
+            return new Result();
         }
 
-        protected override async Task PerformInternal(CommandParametersModel parameters)
+        public override async Task CustomRun(CommandParametersModel parameters)
         {
+            await this.RefundCooldown(parameters);
+
             int.TryParse(parameters.Arguments[0], out int choice);
             this.runUsers[parameters.User] = parameters;
             this.runUserSelections[parameters.User] = choice;
 
-            await this.UserJoinCommand.Perform(parameters);
+            await this.RunSubCommand(this.UserJoinCommand, parameters);
             await this.PerformCooldown(parameters);
         }
 

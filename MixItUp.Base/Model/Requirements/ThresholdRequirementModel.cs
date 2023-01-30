@@ -12,6 +12,8 @@ namespace MixItUp.Base.Model.Requirements
     [DataContract]
     public class ThresholdRequirementModel : RequirementModelBase
     {
+        private static DateTimeOffset requirementErrorCooldown = DateTimeOffset.MinValue;
+
         [DataMember]
         public int Amount { get; set; }
 
@@ -29,8 +31,6 @@ namespace MixItUp.Base.Model.Requirements
         [JsonIgnore]
         private List<CommandParametersModel> applicablePerformParameters = new List<CommandParametersModel>();
 
-        public ThresholdRequirementModel() { }
-
         public ThresholdRequirementModel(int amount, int timespan, bool runForEachUser = false)
         {
             this.Amount = amount;
@@ -38,15 +38,9 @@ namespace MixItUp.Base.Model.Requirements
             this.RunForEachUser = runForEachUser;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal ThresholdRequirementModel(MixItUp.Base.ViewModel.Requirement.ThresholdRequirementViewModel requirement)
-            : this()
-        {
-            this.Amount = requirement.Amount;
-            this.TimeSpan = requirement.TimeSpan;
-            this.RunForEachUser = false;
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
+        public ThresholdRequirementModel() { }
+
+        protected override DateTimeOffset RequirementErrorCooldown { get { return ThresholdRequirementModel.requirementErrorCooldown; } set { ThresholdRequirementModel.requirementErrorCooldown = value; } }
 
         public bool IsEnabled { get { return this.Amount > 0; } }
 

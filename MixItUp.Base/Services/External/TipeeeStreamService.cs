@@ -1,6 +1,4 @@
-﻿using MixItUp.Base.Commands;
-using MixItUp.Base.Model;
-using MixItUp.Base.Model.User;
+﻿using MixItUp.Base.Model.User;
 using MixItUp.Base.Util;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -9,7 +7,6 @@ using StreamingClient.Base.Util;
 using StreamingClient.Base.Web;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
@@ -42,9 +39,6 @@ namespace MixItUp.Base.Services.External
     [DataContract]
     public class TipeeeStreamUser
     {
-        [JsonProperty("avatar")]
-        public string Avatar { get; set; }
-
         [JsonProperty("username")]
         public string Username { get; set; }
 
@@ -152,23 +146,7 @@ namespace MixItUp.Base.Services.External
         public string Fees { get; set; }
     }
 
-    public interface ITipeeeStreamService : IOAuthExternalService
-    {
-        bool WebSocketConnected { get; }
-
-        event EventHandler OnWebSocketConnectedOccurred;
-        event EventHandler OnWebSocketDisconnectedOccurred;
-
-        event EventHandler<TipeeeStreamEvent> OnDonationOccurred;
-
-        Task<TipeeeStreamUser> GetUser();
-        Task<string> GetAPIKey();
-        Task<string> GetSocketAddress();
-
-        Task<IEnumerable<TipeeeStreamEvent>> GetDonationEvents();
-    }
-
-    public class TipeeeStreamService : OAuthExternalServiceBase, ITipeeeStreamService
+    public class TipeeeStreamService : OAuthExternalServiceBase
     {
         private const string BaseAddress = "https://api.tipeeestream.com/";
 
@@ -200,7 +178,7 @@ namespace MixItUp.Base.Services.External
             this.socket = socket;
         }
 
-        public override string Name { get { return "TipeeeStream"; } }
+        public override string Name { get { return MixItUp.Base.Resources.TipeeeStream; } }
 
         public override async Task<Result> Connect()
         {
@@ -212,7 +190,7 @@ namespace MixItUp.Base.Services.External
                     JObject payload = new JObject();
                     payload["grant_type"] = "authorization_code";
                     payload["client_id"] = TipeeeStreamService.ClientID;
-                    payload["client_secret"] = ChannelSession.Services.Secrets.GetSecret("TipeeeStreamSecret");
+                    payload["client_secret"] = ServiceManager.Get<SecretsService>().GetSecret("TipeeeStreamSecret");
                     payload["code"] = this.authorizationToken;
                     payload["redirect_uri"] = TipeeeStreamService.ListeningURL;
 
@@ -312,7 +290,7 @@ namespace MixItUp.Base.Services.External
             {
                 JObject payload = new JObject();
                 payload["client_id"] = TipeeeStreamService.ClientID;
-                payload["client_secret"] = ChannelSession.Services.Secrets.GetSecret("TipeeeStreamSecret");
+                payload["client_secret"] = ServiceManager.Get<SecretsService>().GetSecret("TipeeeStreamSecret");
                 payload["refresh_token"] = this.token.refreshToken;
 
                 this.token = await this.PostAsync<OAuthTokenModel>("https://api.tipeeestream.com/oauth/v2/refresh-token", AdvancedHttpClient.CreateContentFromObject(payload), autoRefreshToken: false);
@@ -335,13 +313,13 @@ namespace MixItUp.Base.Services.External
                             this.TrackServiceTelemetry("TipeeeStream");
                             return new Result();
                         }
-                        return new Result("Failed to connect to socket");
+                        return new Result(Resources.TipeeeStreamSocketFailed);
                     }
-                    return new Result("Unable to get Socket URL address");
+                    return new Result(Resources.TipeeeStreamSocketUrlFailed);
                 }
-                return new Result("Unable to get Socket API key");
+                return new Result(Resources.TipeeStreamSocketKeyFailed);
             }
-            return new Result("Unable to get User information");
+            return new Result(Resources.TipeeeStreamUserDataFailed);
         }
 
         private async Task<T> GetAsync<T>(string url)
@@ -352,13 +330,13 @@ namespace MixItUp.Base.Services.External
 
         public void WebSocketConnectedOccurred()
         {
-            ChannelSession.ReconnectionOccurred("TipeeeStream");
+            ChannelSession.ReconnectionOccurred(MixItUp.Base.Resources.TipeeeStream);
             this.OnWebSocketConnectedOccurred(this, new EventArgs());
         }
 
         public void WebSocketDisconnectedOccurred()
         {
-            ChannelSession.DisconnectionOccurred("TipeeeStream");
+            ChannelSession.DisconnectionOccurred(MixItUp.Base.Resources.TipeeeStream);
             this.OnWebSocketDisconnectedOccurred(this, new EventArgs());
         }
 
@@ -369,18 +347,6 @@ namespace MixItUp.Base.Services.External
 
         private async Task<bool> ConnectSocket()
         {
-            await this.socket.Connect(this.socketAddress, "access_token=" + this.apiKey);
-
-            this.socket.Listen("connect", (data) =>
-            {
-                JObject joinRoomJObj = new JObject();
-                joinRoomJObj["room"] = this.apiKey;
-                joinRoomJObj["username"] = this.user.Username;
-                this.socket.Send("join-room", joinRoomJObj);
-
-                this.WebSocketConnected = true;
-            });
-
             this.socket.Listen("new-event", (data) =>
             {
                 if (data != null)
@@ -418,6 +384,15 @@ namespace MixItUp.Base.Services.External
                 this.WebSocketDisconnectedOccurred();
                 await this.ConnectSocket();
             });
+
+            await this.socket.Connect(this.socketAddress + "?access_token=" + this.apiKey);
+
+            JObject joinRoomJObj = new JObject();
+            joinRoomJObj["room"] = this.apiKey;
+            joinRoomJObj["username"] = this.user.Username;
+            this.socket.Send("join-room", joinRoomJObj);
+
+            this.WebSocketConnected = true;
 
             for (int i = 0; i < 10 && !this.WebSocketConnected; i++)
             {

@@ -1,4 +1,5 @@
 ﻿using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Services;
 using MixItUp.Base.Util;
 using System;
 using System.Collections.Generic;
@@ -123,7 +124,7 @@ namespace MixItUp.Base.ViewModel.Commands
                 triggers = new HashSet<string>(triggers.Select(t => "!" + t));
             }
 
-            foreach (ChatCommandModel command in ChannelSession.AllEnabledChatAccessibleCommands)
+            foreach (ChatCommandModel command in ServiceManager.Get<CommandService>().AllEnabledChatAccessibleCommands)
             {
                 if (this.existingCommand != command)
                 {
@@ -156,10 +157,10 @@ namespace MixItUp.Base.ViewModel.Commands
 
         public override Task SaveCommandToSettings(CommandModelBase command)
         {
-            ChannelSession.ChatCommands.Remove((ChatCommandModel)this.existingCommand);
-            ChannelSession.ChatCommands.Add((ChatCommandModel)command);
-            ChannelSession.Services.Chat.RebuildCommandTriggers();
-            return Task.FromResult(0);
+            ServiceManager.Get<CommandService>().ChatCommands.Remove((ChatCommandModel)this.existingCommand);
+            ServiceManager.Get<CommandService>().ChatCommands.Add((ChatCommandModel)command);
+            ServiceManager.Get<ChatService>().RebuildCommandTriggers();
+            return Task.CompletedTask;
         }
 
         protected HashSet<string> GetChatTriggers()
@@ -169,8 +170,17 @@ namespace MixItUp.Base.ViewModel.Commands
             {
                 triggerSeparator = new char[] { ';' };
             }
-            return new HashSet<string>(this.Triggers.Split(triggerSeparator, StringSplitOptions.RemoveEmptyEntries));
+
+            var triggers = this.Triggers.Split(triggerSeparator, StringSplitOptions.RemoveEmptyEntries).Select(s => s);
+            if (this.IncludeExclamation)
+            {
+                triggers = triggers.Select(s => s.StartsWith("!") ? s.Substring(1) : s);
+            }
+
+            return new HashSet<string>(triggers);
         }
+
+        public override Dictionary<string, string> GetTestSpecialIdentifiers() { return ChatCommandModel.GetChatTestSpecialIdentifiers(); }
     }
 
     public class UserOnlyChatCommandEditorWindowViewModel : ChatCommandEditorWindowViewModel
@@ -203,7 +213,7 @@ namespace MixItUp.Base.ViewModel.Commands
 
         public override Task SaveCommandToSettings(CommandModelBase command)
         {
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
     }
 }

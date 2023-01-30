@@ -27,29 +27,10 @@ namespace MixItUp.Base.Util
             { "Pink", "#e91e63" },
             { "Purple", "#9c27b0" },
             { "Red", "#f44336" },
+            { "Transparent", "Transparent" },
             { "Teal", "#009688" },
             { "White", "#ffffff" },
             { "Yellow", "#ffeb3b" },
-        };
-
-        public static readonly HashSet<string> WPFColorSchemeDictionary = new HashSet<string>()
-        {
-            "Black",
-            "Blue",
-            "Brown",
-            "Cyan",
-            "Gray",
-            "Green",
-            "Indigo",
-            "Lime",
-            "Orange",
-            "Pink",
-            "Purple",
-            "Red",
-            "Teal",
-            "Transparent",
-            "White",
-            "Yellow",
         };
 
         public static string GetColorCode(string name)
@@ -59,7 +40,7 @@ namespace MixItUp.Base.Util
                 return ColorSchemes.HTMLColorSchemeDictionary[name];
             }
 
-            var locLookup = HTMLColorSchemeDictionary.Select(kvp => kvp.Key).SingleOrDefault(key => MixItUp.Base.Resources.ResourceManager.GetString(key) == name);
+            var locLookup = HTMLColorSchemeDictionary.Select(kvp => kvp.Key).SingleOrDefault(key => MixItUp.Base.Resources.ResourceManager.GetSafeString(key) == name);
             if (locLookup != null)
             {
                 return ColorSchemes.HTMLColorSchemeDictionary[locLookup];
@@ -73,7 +54,7 @@ namespace MixItUp.Base.Util
             if (!string.IsNullOrEmpty(code) && ColorSchemes.HTMLColorSchemeDictionary.ContainsValue(code))
             {
                 var key = ColorSchemes.HTMLColorSchemeDictionary.FirstOrDefault(c => c.Value.Equals(code)).Key;
-                return MixItUp.Base.Resources.ResourceManager.GetString(key) ?? key;
+                return MixItUp.Base.Resources.ResourceManager.GetSafeString(key);
             }
             return code;
         }

@@ -1,4 +1,5 @@
 ﻿using MixItUp.Base;
+using MixItUp.Base.Services;
 using MixItUp.Base.Util;
 using System;
 using System.Collections.Generic;
@@ -19,9 +20,16 @@ namespace MixItUp.WPF.Controls.MainControls
         public MainControlBase Control { get; private set; }
         public string HelpLink { get; private set; }
 
-        public string Link { get; private set; }
-
-        public Visibility LinkIconVisibility { get { return (!string.IsNullOrEmpty(this.Link)) ? Visibility.Visible : Visibility.Collapsed; } }
+        public bool Visible
+        {
+            get { return this.visible; }
+            set
+            {
+                this.visible = value;
+                this.NotifyPropertyChanged();
+            }
+        }
+        private bool visible;
 
         public Visibility HelpLinkVisibility { get { return (!string.IsNullOrEmpty(this.HelpLink)) ? Visibility.Visible : Visibility.Collapsed; } }
 
@@ -30,12 +38,6 @@ namespace MixItUp.WPF.Controls.MainControls
             this.Name = name;
             this.Control = control;
             this.HelpLink = helpLink;
-        }
-
-        public MainMenuItem(string name, string link)
-        {
-            this.Name = name;
-            this.Link = link;
         }
     }
 
@@ -52,6 +54,7 @@ namespace MixItUp.WPF.Controls.MainControls
         private HashSet<string> serviceDisconnections = new HashSet<string>();
 
         private ObservableCollection<MainMenuItem> menuItems = new ThreadSafeObservableCollection<MainMenuItem>();
+        private List<MainMenuItem> allMenuItems = new List<MainMenuItem>();
 
         public MainMenuControl()
         {
@@ -61,15 +64,33 @@ namespace MixItUp.WPF.Controls.MainControls
             GlobalEvents.OnServiceReconnect += GlobalEvents_OnServiceReconnect;
         }
 
-        public async Task AddMenuItem(string name, MainControlBase control, string helpLink = null)
+        public async Task<MainMenuItem> AddMenuItem(string name, MainControlBase control, string helpLink = null)
         {
             await control.Initialize(this.Window);
-            this.menuItems.Add(new MainMenuItem(name, control, helpLink));
+            MainMenuItem item = new MainMenuItem(name, control, helpLink);
+            this.menuItems.Add(item);
+            this.allMenuItems.Add(item);
+            return item;
         }
 
-        public void AddMenuItem(string name, string link)
+        public void ShowMenuItem(MainMenuItem item)
         {
-            this.menuItems.Add(new MainMenuItem(name, link));
+            if (!this.menuItems.Contains(item))
+            {
+                for (int i = this.allMenuItems.IndexOf(item) - 1; i >= 0; i--)
+                {
+                    if (this.menuItems.Contains(this.allMenuItems[i]))
+                    {
+                        this.menuItems.Insert(this.menuItems.IndexOf(this.allMenuItems[i]) + 1, item);
+                        return;
+                    }
+                }
+            }
+        }
+
+        public void HideMenuItem(MainMenuItem item)
+        {
+            this.menuItems.Remove(item);
         }
 
         public void MenuItemSelected(string name)
@@ -87,10 +108,6 @@ namespace MixItUp.WPF.Controls.MainControls
             {
                 this.DataContext = item;
                 this.ActiveControlContentControl.Content = item.Control;
-            }
-            else if (!string.IsNullOrEmpty(item.Link))
-            {
-                ProcessHelper.LaunchLink(item.Link);
             }
             this.MenuToggleButton.IsChecked = false;
         }
@@ -145,7 +162,7 @@ namespace MixItUp.WPF.Controls.MainControls
         {
             if (!string.IsNullOrEmpty(ChannelSession.Settings.NotificationServiceDisconnectSoundFilePath))
             {
-                await ChannelSession.Services.AudioService.Play(ChannelSession.Settings.NotificationServiceDisconnectSoundFilePath, ChannelSession.Settings.NotificationServiceDisconnectSoundVolume, ChannelSession.Settings.NotificationsAudioOutput);
+                await ServiceManager.Get<IAudioService>().Play(ChannelSession.Settings.NotificationServiceDisconnectSoundFilePath, ChannelSession.Settings.NotificationServiceDisconnectSoundVolume, ChannelSession.Settings.NotificationsAudioOutput);
             }
 
             lock (this.serviceDisconnections)
@@ -159,7 +176,7 @@ namespace MixItUp.WPF.Controls.MainControls
         {
             if (!string.IsNullOrEmpty(ChannelSession.Settings.NotificationServiceConnectSoundFilePath))
             {
-                await ChannelSession.Services.AudioService.Play(ChannelSession.Settings.NotificationServiceConnectSoundFilePath, ChannelSession.Settings.NotificationServiceConnectSoundVolume, ChannelSession.Settings.NotificationsAudioOutput);
+                await ServiceManager.Get<IAudioService>().Play(ChannelSession.Settings.NotificationServiceConnectSoundFilePath, ChannelSession.Settings.NotificationServiceConnectSoundVolume, ChannelSession.Settings.NotificationsAudioOutput);
             }
 
             lock (this.serviceDisconnections)
@@ -175,12 +192,12 @@ namespace MixItUp.WPF.Controls.MainControls
             {
                 StringBuilder tooltip = new StringBuilder();
                 tooltip.AppendLine(DisconnectedServicesHeader);
-                tooltip.AppendLine();
                 lock (this.serviceDisconnections)
                 {
                     foreach (string serviceName in this.serviceDisconnections.OrderBy(s => s))
                     {
-                        tooltip.AppendLine("- " + serviceName);
+                        tooltip.AppendLine();
+                        tooltip.Append("- " + serviceName);
                     }
                     this.DisconnectionAlertButton.Visibility = (serviceDisconnections.Count == 0) ? Visibility.Collapsed : Visibility.Visible;
                 }

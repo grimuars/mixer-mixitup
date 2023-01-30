@@ -1,4 +1,6 @@
-﻿using MixItUp.Base.Util;
+﻿using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Services;
+using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using StreamingClient.Base.Util;
 using System.Collections.Generic;
@@ -16,7 +18,7 @@ namespace MixItUp.Base.Model.Overlay
           <p style=""position: absolute; top: 50%; left: 5%; float: left; text-align: left; font-family: '{TEXT_FONT}'; font-size: {TEXT_HEIGHT}px; color: {TEXT_COLOR}; white-space: nowrap; font-weight: bold; margin: auto; transform: translate(0, -50%);"">#{POSITION} {USERNAME}</p>
         </div>";
 
-        private List<UserViewModel> lastUsers = new List<UserViewModel>();
+        private List<UserV2ViewModel> lastUsers = new List<UserV2ViewModel>();
 
         public OverlayGameQueueListItemModel() : base() { }
 
@@ -27,14 +29,14 @@ namespace MixItUp.Base.Model.Overlay
 
         public override async Task LoadTestData()
         {
-            UserViewModel user = ChannelSession.GetCurrentUser();
+            UserV2ViewModel user = ChannelSession.User;
 
-            List<UserViewModel> users = new List<UserViewModel>();
+            List<CommandParametersModel> parameters = new List<CommandParametersModel>();
             for (int i = 0; i < this.TotalToShow; i++)
             {
-                users.Add(user);
+                parameters.Add(new CommandParametersModel(user));
             }
-            await this.AddGameQueueUsers(users);
+            await this.AddGameQueueUsers(parameters);
         }
 
         public override async Task Enable()
@@ -55,37 +57,38 @@ namespace MixItUp.Base.Model.Overlay
 
         private async void GlobalEvents_OnGameQueueUpdated(object sender, System.EventArgs e)
         {
-            await this.AddGameQueueUsers(ChannelSession.Services.GameQueueService.Queue);
+            await this.AddGameQueueUsers(ServiceManager.Get<GameQueueService>().Queue);
         }
 
-        private async Task AddGameQueueUsers(IEnumerable<UserViewModel> users)
+        private async Task AddGameQueueUsers(IEnumerable<CommandParametersModel> parameters)
         {
-            await this.listSemaphore.WaitAndRelease((System.Func<Task<int>>)(() =>
+            await this.listSemaphore.WaitAndRelease(() =>
             {
-                foreach (UserViewModel user in this.lastUsers)
+                foreach (UserV2ViewModel user in this.lastUsers)
                 {
-                    if (!users.Contains(user))
+                    if (!parameters.Select(p => p.User).Contains(user))
                     {
                         this.Items.Add(OverlayListIndividualItemModel.CreateRemoveItem(user.ID.ToString()));
                     }
                 }
 
-                for (int i = 0; i < users.Count() && i < this.TotalToShow; i++)
+                for (int i = 0; i < parameters.Count() && i < this.TotalToShow; i++)
                 {
-                    UserViewModel user = users.ElementAt(i);
+                    CommandParametersModel p = parameters.ElementAt(i);
 
-                    OverlayListIndividualItemModel item = OverlayListIndividualItemModel.CreateAddItem(user.ID.ToString(), user, i + 1, this.HTML);
-                    item.TemplateReplacements.Add("USERNAME", (string)user.DisplayName);
+                    OverlayListIndividualItemModel item = OverlayListIndividualItemModel.CreateAddItem(p.User.ID.ToString(), p.User, i + 1, this.HTML);
+                    item.TemplateReplacements.Add("USERNAME", (string)p.User.DisplayName);
                     item.TemplateReplacements.Add("POSITION", (i + 1).ToString());
 
                     this.Items.Add(item);
                 }
 
-                this.lastUsers = new List<UserViewModel>(users);
+                this.lastUsers = new List<UserV2ViewModel>(parameters.Select(p => p.User));
 
                 this.SendUpdateRequired();
-                return Task.FromResult(0);
-            }));
+
+                return Task.CompletedTask;
+            });
         }
     }
 }

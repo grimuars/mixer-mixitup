@@ -57,16 +57,7 @@ namespace MixItUp.Base.Services.External
         }
     }
 
-    public interface IStreamlabsService : IOAuthExternalService
-    {
-        Task SpinWheel();
-
-        Task EmptyJar();
-
-        Task RollCredits();
-    }
-
-    public class StreamlabsService : OAuthExternalServiceBase, IStreamlabsService
+    public class StreamlabsService : OAuthExternalServiceBase
     {
         private const string BaseAddress = "https://streamlabs.com/api/v1.0/";
 
@@ -81,7 +72,7 @@ namespace MixItUp.Base.Services.External
             this.socket = socket;
         }
 
-        public override string Name { get { return "Streamlabs"; } }
+        public override string Name { get { return MixItUp.Base.Resources.Streamlabs; } }
 
         public override async Task<Result> Connect()
         {
@@ -93,7 +84,7 @@ namespace MixItUp.Base.Services.External
                     JObject payload = new JObject();
                     payload["grant_type"] = "authorization_code";
                     payload["client_id"] = StreamlabsService.ClientID;
-                    payload["client_secret"] = ChannelSession.Services.Secrets.GetSecret("StreamlabsSecret");
+                    payload["client_secret"] = ServiceManager.Get<SecretsService>().GetSecret("StreamlabsSecret");
                     payload["code"] = authorizationCode;
                     payload["redirect_uri"] = OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL;
 
@@ -115,7 +106,9 @@ namespace MixItUp.Base.Services.External
 
         public override async Task Disconnect()
         {
+            this.socket.OnDisconnected -= Socket_OnDisconnected;
             await this.socket.Disconnect();
+
             this.token = null;
         }
 
@@ -141,7 +134,7 @@ namespace MixItUp.Base.Services.External
                 JObject payload = new JObject();
                 payload["grant_type"] = "refresh_token";
                 payload["client_id"] = StreamlabsService.ClientID;
-                payload["client_secret"] = ChannelSession.Services.Secrets.GetSecret("StreamlabsSecret");
+                payload["client_secret"] = ServiceManager.Get<SecretsService>().GetSecret("StreamlabsSecret");
                 payload["refresh_token"] = this.token.refreshToken;
                 payload["redirect_uri"] = OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL;
 
@@ -151,39 +144,80 @@ namespace MixItUp.Base.Services.External
 
         protected override async Task<Result> InitializeInternal()
         {
-            JObject jobj = await this.GetJObjectAsync("socket/token?access_token=" + this.token.accessToken);
-            if (jobj != null && jobj.ContainsKey("socket_token"))
+            if (await this.ConnectSocket())
             {
-                string socketToken = jobj["socket_token"].ToString();
+                this.TrackServiceTelemetry("Streamlabs");
+                return new Result();
+            }
+            return new Result(Resources.StreamlabsWebSocketTokenFailed);
+        }
 
-                await this.socket.Connect($"https://sockets.streamlabs.com", $"token={socketToken}");
+        private async void Socket_OnDisconnected(object sender, EventArgs e)
+        {
+            ChannelSession.DisconnectionOccurred(MixItUp.Base.Resources.Streamlabs);
 
-                this.socket.Listen("event", async (data) =>
+            do
+            {
+                await Task.Delay(5000);
+            }
+            while (!await this.ConnectSocket());
+
+            ChannelSession.ReconnectionOccurred(MixItUp.Base.Resources.Streamlabs);
+        }
+
+        private async Task<bool> ConnectSocket()
+        {
+            try
+            {
+                this.socket.OnDisconnected -= Socket_OnDisconnected;
+                await this.socket.Disconnect();
+
+                JObject jobj = await this.GetJObjectAsync("socket/token?access_token=" + this.token.accessToken);
+                if (jobj != null && jobj.ContainsKey("socket_token"))
                 {
-                    if (data != null)
+                    string socketToken = jobj["socket_token"].ToString();
+
+                    this.socket.Listen("event", async (data) =>
                     {
-                        JObject eventJObj = JObject.Parse(data.ToString());
-                        if (eventJObj.ContainsKey("type"))
+                        try
                         {
-                            if (eventJObj["type"].Value<string>().Equals("donation", StringComparison.InvariantCultureIgnoreCase))
+                            if (data != null)
                             {
-                                var messages = eventJObj["message"] as JArray;
-                                if (messages != null)
+                                JObject eventJObj = JObject.Parse(data.ToString());
+                                if (eventJObj.ContainsKey("type"))
                                 {
-                                    foreach (var message in messages)
+                                    if (eventJObj["type"].Value<string>().Equals("donation", StringComparison.InvariantCultureIgnoreCase))
                                     {
-                                        StreamlabsDonation slDonation = message.ToObject<StreamlabsDonation>();
-                                        await EventService.ProcessDonationEvent(EventTypeEnum.StreamlabsDonation, slDonation.ToGenericDonation());
+                                        var messages = eventJObj["message"] as JArray;
+                                        if (messages != null)
+                                        {
+                                            foreach (var message in messages)
+                                            {
+                                                StreamlabsDonation slDonation = message.ToObject<StreamlabsDonation>();
+                                                await EventService.ProcessDonationEvent(EventTypeEnum.StreamlabsDonation, slDonation.ToGenericDonation());
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
-                this.TrackServiceTelemetry("Streamlabs");
-                return new Result();
+                        catch (Exception ex)
+                        {
+                            Logger.Log(ex);
+                        }
+                    });
+
+                    this.socket.OnDisconnected += Socket_OnDisconnected;
+                    await this.socket.Connect($"https://sockets.streamlabs.com?token={socketToken}");
+
+                    return true;
+                }
             }
-            return new Result("Failed to get web socket token");
+            catch (Exception ex)
+            {
+                Logger.Log(ex);
+            }
+            return false;
         }
     }
 }

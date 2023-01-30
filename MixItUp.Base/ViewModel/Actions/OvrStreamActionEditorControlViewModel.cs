@@ -1,4 +1,5 @@
 ﻿using MixItUp.Base.Model.Actions;
+using MixItUp.Base.Services;
 using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModels;
@@ -50,10 +51,9 @@ namespace MixItUp.Base.ViewModel.Actions
         public OvrStreamVariableViewModel(OvrStreamActionEditorControlViewModel viewModel)
         {
             this.viewModel = viewModel;
-            this.DeleteVariableCommand = this.CreateCommand((parameter) =>
+            this.DeleteVariableCommand = this.CreateCommand(() =>
             {
                 this.viewModel.Variables.Remove(this);
-                return Task.FromResult(0);
             });
         }
     }
@@ -76,7 +76,7 @@ namespace MixItUp.Base.ViewModel.Actions
         }
         private OvrStreamActionTypeEnum selectedActionType;
 
-        public bool OvrStreamNotEnabled { get { return !ChannelSession.Services.OvrStream.IsConnected; } }
+        public bool OvrStreamNotEnabled { get { return !ServiceManager.Get<IOvrStreamService>().IsConnected; } }
 
         public ThreadSafeObservableCollection<OvrStreamTitle> Titles { get; private set; } = new ThreadSafeObservableCollection<OvrStreamTitle>();
 
@@ -133,23 +133,22 @@ namespace MixItUp.Base.ViewModel.Actions
 
         public OvrStreamActionEditorControlViewModel() : base() { }
 
-        protected override async Task OnLoadedInternal()
+        protected override async Task OnOpenInternal()
         {
-            this.AddVariableCommand = this.CreateCommand((parameter) =>
+            this.AddVariableCommand = this.CreateCommand(() =>
             {
                 this.Variables.Add(new OvrStreamVariableViewModel(this));
-                return Task.FromResult(0);
             });
 
-            if (ChannelSession.Services.OvrStream.IsConnected)
+            if (ServiceManager.Get<IOvrStreamService>().IsConnected)
             {
-                IEnumerable<OvrStreamTitle> titles = await ChannelSession.Services.OvrStream.GetTitles();
+                IEnumerable<OvrStreamTitle> titles = await ServiceManager.Get<IOvrStreamService>().GetTitles();
                 if (titles != null)
                 {
                     this.Titles.AddRange(titles);
                 }
             }
-            await base.OnLoadedInternal();
+            await base.OnOpenInternal();
         }
 
         public override Task<Result> Validate()

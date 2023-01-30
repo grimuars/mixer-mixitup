@@ -6,13 +6,14 @@ namespace MixItUp.WPF.Controls.Requirements
     /// <summary>
     /// Interaction logic for RequirementsSetControl.xaml
     /// </summary>
-    public partial class RequirementsSetControl : UserControl
+    public partial class RequirementsSetControl : GroupBox
     {
         public static readonly DependencyProperty ShowRoleProperty = DependencyProperty.Register("ShowRole", typeof(bool), typeof(RequirementsSetControl), new PropertyMetadata(true));
         public static readonly DependencyProperty ShowCooldownProperty = DependencyProperty.Register("ShowCooldown", typeof(bool), typeof(RequirementsSetControl), new PropertyMetadata(true));
         public static readonly DependencyProperty ShowCurrencyProperty = DependencyProperty.Register("ShowCurrency", typeof(bool), typeof(RequirementsSetControl), new PropertyMetadata(true));
         public static readonly DependencyProperty ShowRankProperty = DependencyProperty.Register("ShowRank", typeof(bool), typeof(RequirementsSetControl), new PropertyMetadata(true));
         public static readonly DependencyProperty ShowInventoryProperty = DependencyProperty.Register("ShowInventory", typeof(bool), typeof(RequirementsSetControl), new PropertyMetadata(true));
+        public static readonly DependencyProperty ShowArgumentsProperty = DependencyProperty.Register("ShowArguments", typeof(bool), typeof(RequirementsSetControl), new PropertyMetadata(true));
         public static readonly DependencyProperty ShowThresholdProperty = DependencyProperty.Register("ShowThreshold", typeof(bool), typeof(RequirementsSetControl), new PropertyMetadata(true));
         public static readonly DependencyProperty ShowSettingsProperty = DependencyProperty.Register("ShowSettings", typeof(bool), typeof(RequirementsSetControl), new PropertyMetadata(true));
 
@@ -46,6 +47,12 @@ namespace MixItUp.WPF.Controls.Requirements
             set { SetValue(ShowInventoryProperty, value); }
         }
 
+        public bool ShowArguments
+        {
+            get { return (bool)GetValue(ShowArgumentsProperty); }
+            set { SetValue(ShowArgumentsProperty, value); }
+        }
+
         public bool ShowThreshold
         {
             get { return (bool)GetValue(ShowThresholdProperty); }
@@ -77,6 +84,7 @@ namespace MixItUp.WPF.Controls.Requirements
             if (this.Currency != null) { this.Currency.Visibility = this.ShowCurrency ? Visibility.Visible : Visibility.Collapsed; }
             if (this.Rank != null) { this.Rank.Visibility = this.ShowRank ? Visibility.Visible : Visibility.Collapsed; }
             if (this.Inventory != null) { this.Inventory.Visibility = this.ShowInventory ? Visibility.Visible : Visibility.Collapsed; }
+            if (this.Arguments != null) { this.Arguments.Visibility = this.ShowArguments ? Visibility.Visible : Visibility.Collapsed; }
             if (this.Threshold != null) { this.Threshold.Visibility = this.ShowThreshold ? Visibility.Visible : Visibility.Collapsed; }
             if (this.Settings != null) { this.Settings.Visibility = this.ShowSettings ? Visibility.Visible : Visibility.Collapsed; }
         }

@@ -1,11 +1,11 @@
 ﻿using MixItUp.Base.Model;
+using MixItUp.Base.Model.Settings;
 using MixItUp.Base.Services;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Accounts;
 using MixItUp.Base.ViewModels;
 using StreamingClient.Base.Util;
 using System;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -50,6 +50,12 @@ namespace MixItUp.Base.ViewModel.Wizard
         private bool streamerAccountsPageVisible;
 
         public StreamingPlatformAccountControlViewModel Twitch { get; set; } = new StreamingPlatformAccountControlViewModel(StreamingPlatformTypeEnum.Twitch);
+
+        public StreamingPlatformAccountControlViewModel YouTube { get; set; } = new StreamingPlatformAccountControlViewModel(StreamingPlatformTypeEnum.YouTube);
+
+        public StreamingPlatformAccountControlViewModel Trovo { get; set; } = new StreamingPlatformAccountControlViewModel(StreamingPlatformTypeEnum.Trovo);
+
+        public StreamingPlatformAccountControlViewModel Glimesh { get; set; } = new StreamingPlatformAccountControlViewModel(StreamingPlatformTypeEnum.Glimesh);
 
         #endregion Accounts Page
 
@@ -147,17 +153,23 @@ namespace MixItUp.Base.ViewModel.Wizard
 
         public NewUserWizardWindowViewModel()
         {
-            this.DiscordCommand = this.CreateCommand((parameter) => { ProcessHelper.LaunchLink("https://mixitupapp.com/discord"); return Task.FromResult(0); });
-            this.TwitterCommand = this.CreateCommand((parameter) => { ProcessHelper.LaunchLink("https://twitter.com/MixItUpApp"); return Task.FromResult(0); });
-            this.YouTubeCommand = this.CreateCommand((parameter) => { ProcessHelper.LaunchLink("https://www.youtube.com/channel/UCcY0vKI9yqcMTgh8OzSnRSA"); return Task.FromResult(0); });
-            this.WikiCommand = this.CreateCommand((parameter) => { ProcessHelper.LaunchLink("https://github.com/SaviorXTanren/mixer-mixitup/wiki"); return Task.FromResult(0); });
+            this.DiscordCommand = this.CreateCommand(() => { ProcessHelper.LaunchLink("https://mixitupapp.com/discord"); });
+            this.TwitterCommand = this.CreateCommand(() => { ProcessHelper.LaunchLink("https://twitter.com/MixItUpApp"); });
+            this.YouTubeCommand = this.CreateCommand(() => { ProcessHelper.LaunchLink("https://www.youtube.com/c/MixItUpApp"); });
+            this.WikiCommand = this.CreateCommand(() => { ProcessHelper.LaunchLink("https://wiki.mixitupapp.com/"); });
 
             this.Twitch.StartLoadingOperationOccurred += (sender, eventArgs) => { this.StartLoadingOperation(); };
             this.Twitch.EndLoadingOperationOccurred += (sender, eventArgs) => { this.EndLoadingOperation(); };
+            this.YouTube.StartLoadingOperationOccurred += (sender, eventArgs) => { this.StartLoadingOperation(); };
+            this.YouTube.EndLoadingOperationOccurred += (sender, eventArgs) => { this.EndLoadingOperation(); };
+            this.Trovo.StartLoadingOperationOccurred += (sender, eventArgs) => { this.StartLoadingOperation(); };
+            this.Trovo.EndLoadingOperationOccurred += (sender, eventArgs) => { this.EndLoadingOperation(); };
+            this.Glimesh.StartLoadingOperationOccurred += (sender, eventArgs) => { this.StartLoadingOperation(); };
+            this.Glimesh.EndLoadingOperationOccurred += (sender, eventArgs) => { this.EndLoadingOperation(); };
 
-            this.SetBackupLocationCommand = this.CreateCommand((parameter) =>
+            this.SetBackupLocationCommand = this.CreateCommand(() =>
             {
-                string folderPath = ChannelSession.Services.FileService.ShowOpenFolderDialog();
+                string folderPath = ServiceManager.Get<IFileService>().ShowOpenFolderDialog();
                 if (!string.IsNullOrEmpty(folderPath) && Directory.Exists(folderPath))
                 {
                     this.SettingsBackupLocation = folderPath;
@@ -169,11 +181,9 @@ namespace MixItUp.Base.ViewModel.Wizard
                 }
 
                 this.NotifyPropertyChanged("IsBackupLocationSet");
-
-                return Task.FromResult(0);
             });
 
-            this.NextCommand = this.CreateCommand(async (parameter) =>
+            this.NextCommand = this.CreateCommand(async () =>
             {
                 this.StatusMessage = string.Empty;
 
@@ -185,9 +195,9 @@ namespace MixItUp.Base.ViewModel.Wizard
                 }
                 else if (this.StreamerAccountsPageVisible)
                 {
-                    if (!this.Twitch.IsUserAccountConnected)
+                    if (!this.Twitch.IsUserAccountConnected && !this.YouTube.IsUserAccountConnected && !this.Trovo.IsUserAccountConnected && !this.Glimesh.IsUserAccountConnected)
                     {
-                        this.StatusMessage = "Twitch Streamer account must be signed in.";
+                        this.StatusMessage = MixItUp.Base.Resources.NewUserWizardAtLeastOneAccountMustBeSignedIn;
                         return;
                     }
 
@@ -201,9 +211,10 @@ namespace MixItUp.Base.ViewModel.Wizard
                 }
                 else if (this.FinalPageVisible)
                 {
-                    if (!await ChannelSession.InitializeSession())
+                    Result result = await ChannelSession.InitializeSession();
+                    if (!result.Success)
                     {
-                        await DialogHelper.ShowMessage("Failed to initialize session. If this continues please, visit the Mix It Up Discord for assistance.");
+                        await DialogHelper.ShowMessage(result.Message);
                         return;
                     }
 
@@ -218,7 +229,7 @@ namespace MixItUp.Base.ViewModel.Wizard
                 this.StatusMessage = string.Empty;
             });
 
-            this.BackCommand = this.CreateCommand((parameter) =>
+            this.BackCommand = this.CreateCommand(() =>
             {
                 if (this.StreamerAccountsPageVisible)
                 {
@@ -238,8 +249,16 @@ namespace MixItUp.Base.ViewModel.Wizard
                 }
 
                 this.StatusMessage = string.Empty;
-                return Task.FromResult(0);
             });
+        }
+
+        protected override async Task OnOpenInternal()
+        {
+            if (ChannelSession.Settings == null)
+            {
+                await ChannelSession.Connect(new SettingsV3Model());
+            }
+            await base.OnOpenInternal();
         }
     }
 }

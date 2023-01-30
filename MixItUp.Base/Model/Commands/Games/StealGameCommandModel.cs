@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using MixItUp.Base.Services;
+using System;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
@@ -24,25 +26,8 @@ namespace MixItUp.Base.Model.Commands.Games
             this.FailedCommand = failedCommand;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal StealGameCommandModel(Base.Commands.StealGameCommand command)
-            : base(command, GameCommandTypeEnum.Steal)
-        {
-            this.PlayerSelectionType = GamePlayerSelectionType.Random;
-            this.SuccessfulOutcome = new GameOutcomeModel(command.SuccessfulOutcome);
-            this.FailedCommand = new CustomCommandModel(command.FailedOutcome.Command) { IsEmbedded = true };
-        }
-
-        internal StealGameCommandModel(Base.Commands.PickpocketGameCommand command)
-            : base(command, GameCommandTypeEnum.Steal)
-        {
-            this.PlayerSelectionType = GamePlayerSelectionType.Targeted;
-            this.SuccessfulOutcome = new GameOutcomeModel(command.SuccessfulOutcome);
-            this.FailedCommand = new CustomCommandModel(command.FailedOutcome.Command) { IsEmbedded = true };
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private StealGameCommandModel() { }
+        [Obsolete]
+        public StealGameCommandModel() : base() { }
 
         public override IEnumerable<CommandModelBase> GetInnerCommands()
         {
@@ -52,10 +37,10 @@ namespace MixItUp.Base.Model.Commands.Games
             return commands;
         }
 
-        protected override async Task PerformInternal(CommandParametersModel parameters)
+        public override async Task CustomRun(CommandParametersModel parameters)
         {
             await this.SetSelectedUser(this.PlayerSelectionType, parameters);
-            if (parameters.TargetUser != null)
+            if (parameters.TargetUser != null && !parameters.IsTargetUserSelf)
             {
                 if (await this.ValidateTargetUserPrimaryBetAmount(parameters))
                 {
@@ -65,11 +50,12 @@ namespace MixItUp.Base.Model.Commands.Games
                     {
                         this.PerformPrimarySetPayout(parameters.User, betAmount * 2);
                         this.PerformPrimarySetPayout(parameters.TargetUser, -betAmount);
-                        await this.SuccessfulOutcome.Command.Perform(parameters);
+                        this.SetGameWinners(parameters, new List<CommandParametersModel>() { parameters });
+                        await this.RunSubCommand(this.SuccessfulOutcome.Command, parameters);
                     }
                     else
                     {
-                        await this.FailedCommand.Perform(parameters);
+                        await this.RunSubCommand(this.FailedCommand, parameters);
                     }
                     await this.PerformCooldown(parameters);
                     return;
@@ -77,7 +63,7 @@ namespace MixItUp.Base.Model.Commands.Games
             }
             else
             {
-                await ChannelSession.Services.Chat.SendMessage(MixItUp.Base.Resources.GameCommandCouldNotFindUser);
+                await ServiceManager.Get<ChatService>().SendMessage(MixItUp.Base.Resources.GameCommandCouldNotFindUser, parameters);
             }
             await this.Requirements.Refund(parameters);
         }

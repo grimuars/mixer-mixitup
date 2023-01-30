@@ -1,16 +1,85 @@
-﻿using MixItUp.Base.Model.Requirements;
+﻿using MixItUp.Base.Model;
+using MixItUp.Base.Model.Requirements;
 using MixItUp.Base.Model.User;
+using MixItUp.Base.Services;
 using MixItUp.Base.Services.External;
+using MixItUp.Base.Services.Trovo;
+using MixItUp.Base.Util;
+using MixItUp.Base.ViewModels;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace MixItUp.Base.ViewModel.Requirements
 {
+    public class UserRoleViewModel : UIViewModelBase, IComparable<UserRoleViewModel>
+    {
+        public UserRoleEnum Role
+        {
+            get { return this.role; }
+            set
+            {
+                this.role = value;
+                this.NotifyPropertyChanged();
+            }
+        }
+        private UserRoleEnum role;
+
+        public ICommand DeleteAdvancedRoleCommand { get; private set; }
+
+        private RoleRequirementViewModel viewModel;
+
+        public UserRoleViewModel(RoleRequirementViewModel viewModel, UserRoleEnum role)
+        {
+            this.viewModel = viewModel;
+            this.Role = role;
+
+            this.DeleteAdvancedRoleCommand = this.CreateCommand(() =>
+            {
+                this.viewModel.SelectedAdvancedRoles.Remove(this);
+            });
+        }
+
+        public string Name { get { return EnumLocalizationHelper.GetLocalizedName(this.Role); } }
+
+        public int CompareTo(UserRoleViewModel other) { return this.Role.CompareTo(other.Role); }
+    }
+
     public class RoleRequirementViewModel : RequirementViewModelBase
     {
         private static PatreonBenefit NonePatreonBenefit = new PatreonBenefit() { ID = string.Empty, Title = "None" };
 
-        public IEnumerable<UserRoleEnum> Roles { get { return UserDataModel.GetSelectableUserRoles(); } }
+        public IEnumerable<StreamingPlatformTypeEnum> Platforms { get { return StreamingPlatforms.SelectablePlatforms; } }
+
+        public StreamingPlatformTypeEnum SelectedPlatform
+        {
+            get { return this.selectedPlatform; }
+            set
+            {
+                this.selectedPlatform = value;
+                this.NotifyPropertyChanged();
+            }
+        }
+        private StreamingPlatformTypeEnum selectedPlatform = StreamingPlatformTypeEnum.All;
+
+        public bool IsAdvancedRolesSelected
+        {
+            get { return this.isAdvancedRolesSelected; }
+            set
+            {
+                this.isAdvancedRolesSelected = value;
+                this.NotifyPropertyChanged();
+                this.NotifyPropertyChanged("ShowSimpleRoles");
+                this.NotifyPropertyChanged("IsSubscriberRole");
+            }
+        }
+        private bool isAdvancedRolesSelected = false;
+
+        public bool ShowSimpleRoles { get { return !this.IsAdvancedRolesSelected; } }
+
+        public IEnumerable<UserRoleEnum> Roles { get { return UserRoles.Generic; } }
 
         public UserRoleEnum SelectedRole
         {
@@ -24,7 +93,35 @@ namespace MixItUp.Base.ViewModel.Requirements
         }
         private UserRoleEnum selectedRole = UserRoleEnum.User;
 
-        public bool IsSubscriberRole { get { return this.SelectedRole == UserRoleEnum.Subscriber; } }
+        public IEnumerable<UserRoleEnum> AdvancedRoles { get { return UserRoles.All; } }
+
+        public UserRoleEnum SelectedAdvancedRole
+        {
+            get { return this.selectedAdvancedRole; }
+            set
+            {
+                this.selectedAdvancedRole = value;
+                this.NotifyPropertyChanged();
+            }
+        }
+        private UserRoleEnum selectedAdvancedRole = UserRoleEnum.User;
+
+        public SortableObservableCollection<UserRoleViewModel> SelectedAdvancedRoles { get; set; } = new SortableObservableCollection<UserRoleViewModel>();
+
+        public bool IsSubscriberRole
+        {
+            get
+            {
+                if (this.IsAdvancedRolesSelected)
+                {
+                    return this.SelectedAdvancedRoles.Any(r => r.Role == UserRoleEnum.Subscriber);
+                }
+                else
+                {
+                    return this.SelectedRole == UserRoleEnum.Subscriber;
+                }
+            }
+        }
 
         public IEnumerable<int> SubscriberTiers { get { return new List<int>() { 1, 2, 3 }; } }
         public int SubscriberTier
@@ -38,7 +135,20 @@ namespace MixItUp.Base.ViewModel.Requirements
         }
         private int subscriberTier = 1;
 
-        public bool IsPatreonConnected { get { return ChannelSession.Services.Patreon.IsConnected; } }
+        public bool IsTrovoConnected { get { return ServiceManager.Get<TrovoSessionService>().IsConnected; } }
+
+        public string TrovoCustomRole
+        {
+            get { return this.trovoCustomRole; }
+            set
+            {
+                this.trovoCustomRole = value;
+                this.NotifyPropertyChanged();
+            }
+        }
+        private string trovoCustomRole;
+
+        public bool IsPatreonConnected { get { return ServiceManager.Get<PatreonService>().IsConnected; } }
 
         public IEnumerable<PatreonBenefit> PatreonBenefits
         {
@@ -48,7 +158,7 @@ namespace MixItUp.Base.ViewModel.Requirements
                 benefits.Add(RoleRequirementViewModel.NonePatreonBenefit);
                 if (this.IsPatreonConnected)
                 {
-                    benefits.AddRange(ChannelSession.Services.Patreon.Campaign.Benefits.Values.OrderBy(b => b.Title));
+                    benefits.AddRange(ServiceManager.Get<PatreonService>().Campaign.Benefits.Values.OrderBy(b => b.Title));
                 }
                 return benefits;
             }
@@ -65,12 +175,41 @@ namespace MixItUp.Base.ViewModel.Requirements
         }
         private PatreonBenefit selectedPatreonBenefit = RoleRequirementViewModel.NonePatreonBenefit;
 
-        public RoleRequirementViewModel() { }
+        public ICommand AddAdvancedRoleCommand { get; set; }
+
+        public RoleRequirementViewModel()
+        {
+            this.AddAdvancedRoleCommand = this.CreateCommand(() =>
+            {
+                if (!this.SelectedAdvancedRoles.Any(r => r.Role == this.SelectedAdvancedRole))
+                {
+                    this.SelectedAdvancedRoles.Add(new UserRoleViewModel(this, this.SelectedAdvancedRole));
+                }
+                this.NotifyPropertyChanged("IsSubscriberRole");
+            });
+        }
 
         public RoleRequirementViewModel(RoleRequirementModel requirement)
+            : this()
         {
-            this.SelectedRole = requirement.Role;
+            this.SelectedPlatform = requirement.StreamingPlatform;
+            if (requirement.UserRoleList.Count > 0)
+            {
+                this.IsAdvancedRolesSelected = true;
+                foreach (UserRoleEnum role in requirement.UserRoleList)
+                {
+                    this.SelectedAdvancedRoles.Add(new UserRoleViewModel(this, role));
+                }
+            }
+            else
+            {
+                this.SelectedRole = requirement.UserRole;
+            }
+
             this.SubscriberTier = requirement.SubscriberTier;
+
+            this.TrovoCustomRole = requirement.TrovoCustomRole;
+
             if (this.IsPatreonConnected && !string.IsNullOrEmpty(requirement.PatreonBenefitID))
             {
                 this.SelectedPatreonBenefit = this.PatreonBenefits.FirstOrDefault(b => b.ID.Equals(requirement.PatreonBenefitID));
@@ -81,9 +220,28 @@ namespace MixItUp.Base.ViewModel.Requirements
             }
         }
 
+        public override async Task<Result> Validate()
+        {
+            if (this.IsAdvancedRolesSelected)
+            {
+                if (this.SelectedAdvancedRoles.Count == 0)
+                {
+                    return new Result(MixItUp.Base.Resources.RoleRequirementAtLeastOneRoleMustBeSelected);
+                }
+            }
+            return await base.Validate();
+        }
+
         public override RequirementModelBase GetRequirement()
         {
-            return new RoleRequirementModel(this.SelectedRole, this.SubscriberTier, this.selectedPatreonBenefit?.ID);
+            if (this.IsAdvancedRolesSelected)
+            {
+                return new RoleRequirementModel(this.SelectedPlatform, this.SelectedAdvancedRoles.Select(r => r.Role), this.SubscriberTier, this.TrovoCustomRole, this.selectedPatreonBenefit?.ID);
+            }
+            else
+            {
+                return new RoleRequirementModel(this.SelectedPlatform, this.SelectedRole, this.SubscriberTier, this.TrovoCustomRole, this.selectedPatreonBenefit?.ID);
+            }
         }
     }
 }

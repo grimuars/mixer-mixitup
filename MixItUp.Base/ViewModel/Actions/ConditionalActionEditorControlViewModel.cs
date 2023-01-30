@@ -1,7 +1,5 @@
 ﻿using MixItUp.Base.Model.Actions;
-using MixItUp.Base.Model.Commands;
 using MixItUp.Base.Util;
-using MixItUp.Base.ViewModel.Commands;
 using MixItUp.Base.ViewModels;
 using StreamingClient.Base.Util;
 using System.Collections.Generic;
@@ -21,10 +19,9 @@ namespace MixItUp.Base.ViewModel.Actions
         {
             this.viewModel = viewModel;
 
-            this.DeleteCommand = this.CreateCommand((parameter) =>
+            this.DeleteCommand = this.CreateCommand(() =>
             {
                 this.viewModel.Clauses.Remove(this);
-                return Task.FromResult(0);
             });
         }
 
@@ -58,16 +55,18 @@ namespace MixItUp.Base.ViewModel.Actions
                 this.comparisionType = value;
                 this.NotifyPropertyChanged();
                 this.NotifyPropertyChanged("IsValue2Definable");
+                this.NotifyPropertyChanged("IsNormalComparision");
                 this.NotifyPropertyChanged("IsBetweenOperatorSelected");
-                this.NotifyPropertyChanged("IsBetweenOperatorNotSelected");
+                this.NotifyPropertyChanged("IsRegexMatch");
             }
         }
         private ConditionalComparisionTypeEnum comparisionType;
 
         public bool IsValue2Definable { get { return this.ComparisionType != ConditionalComparisionTypeEnum.Replaced && this.ComparisionType != ConditionalComparisionTypeEnum.NotReplaced; } }
 
+        public bool IsNormalComparision { get { return !this.IsBetweenOperatorSelected && !this.IsRegexMatch; } }
         public bool IsBetweenOperatorSelected { get { return this.ComparisionType == ConditionalComparisionTypeEnum.Between; } }
-        public bool IsBetweenOperatorNotSelected { get { return !this.IsBetweenOperatorSelected; } }
+        public bool IsRegexMatch { get { return this.ComparisionType == ConditionalComparisionTypeEnum.RegexMatch; } }
 
         public string Value1
         {
@@ -78,7 +77,7 @@ namespace MixItUp.Base.ViewModel.Actions
                 this.NotifyPropertyChanged();
             }
         }
-        private string value1;
+        private string value1 = string.Empty;
 
         public string Value2
         {
@@ -89,7 +88,7 @@ namespace MixItUp.Base.ViewModel.Actions
                 this.NotifyPropertyChanged();
             }
         }
-        private string value2;
+        private string value2 = string.Empty;
 
         public string Value3
         {
@@ -100,7 +99,7 @@ namespace MixItUp.Base.ViewModel.Actions
                 this.NotifyPropertyChanged();
             }
         }
-        private string value3;
+        private string value3 = string.Empty;
 
         public bool Validate()
         {
@@ -114,14 +113,14 @@ namespace MixItUp.Base.ViewModel.Actions
             }
             else
             {
-                return !(string.IsNullOrEmpty(this.Value1) && string.IsNullOrEmpty(this.Value2));
+                return (!string.IsNullOrEmpty(this.Value1)) || (!string.IsNullOrEmpty(this.Value2));
             }
         }
 
         public ConditionalClauseModel GetModel() { return new ConditionalClauseModel(this.ComparisionType, this.Value1, this.Value2, this.Value3); }
     }
 
-    public class ConditionalActionEditorControlViewModel : ActionEditorControlViewModelBase
+    public class ConditionalActionEditorControlViewModel : SubActionContainerControlViewModel
     {
         public override ActionTypeEnum Type { get { return ActionTypeEnum.Conditional; } }
 
@@ -151,26 +150,27 @@ namespace MixItUp.Base.ViewModel.Actions
 
         public ICommand AddClauseCommand { get; private set; }
 
+        public bool RepeatWhileTrue
+        {
+            get { return this.repeatWhileTrue; }
+            set
+            {
+                this.repeatWhileTrue = value;
+                this.NotifyPropertyChanged();
+            }
+        }
+        private bool repeatWhileTrue;
+
         public ThreadSafeObservableCollection<ConditionalClauseViewModel> Clauses { get; private set; } = new ThreadSafeObservableCollection<ConditionalClauseViewModel>();
 
-        public ICommand ImportActionsCommand { get; private set; }
-
-        public ActionEditorListControlViewModel ActionEditorList { get; set; } = new ActionEditorListControlViewModel();
-
-        private List<ActionModelBase> subActions = new List<ActionModelBase>();
-
         public ConditionalActionEditorControlViewModel(ConditionalActionModel action)
-            : base(action)
+            : base(action, action.Actions)
         {
             this.CaseSensitive = action.CaseSensitive;
             this.SelectedOperatorType = action.Operator;
+            this.RepeatWhileTrue = action.RepeatWhileTrue;
 
             this.Clauses.AddRange(action.Clauses.Select(c => new ConditionalClauseViewModel(c, this)));
-
-            foreach (ActionModelBase subAction in action.Actions)
-            {
-                subActions.Add(subAction);
-            }
         }
 
         public ConditionalActionEditorControlViewModel()
@@ -179,26 +179,14 @@ namespace MixItUp.Base.ViewModel.Actions
             this.Clauses.Add(new ConditionalClauseViewModel(this));
         }
 
-        protected override async Task OnLoadedInternal()
+        protected override async Task OnOpenInternal()
         {
-            this.AddClauseCommand = this.CreateCommand((parameter) =>
+            this.AddClauseCommand = this.CreateCommand(() =>
             {
                 this.Clauses.Add(new ConditionalClauseViewModel(this));
-                return Task.FromResult(0);
             });
 
-            this.ImportActionsCommand = this.CreateCommand(async (parameter) =>
-            {
-                await this.ImportActionsFromCommand(await CommandEditorWindowViewModelBase.ImportCommandFromFile());
-            });
-
-            foreach (ActionModelBase subAction in subActions)
-            {
-                await this.ActionEditorList.AddAction(subAction);
-            }
-            subActions.Clear();
-
-            await base.OnLoadedInternal();
+            await base.OnOpenInternal();
         }
 
         public override async Task<Result> Validate()
@@ -210,29 +198,12 @@ namespace MixItUp.Base.ViewModel.Actions
                     return new Result(MixItUp.Base.Resources.ConditionalActionClauseMissingValue);
                 }
             }
-
-            IEnumerable<Result> results = await this.ActionEditorList.ValidateActions();
-            if (results.Any(r => !r.Success))
-            {
-                return new Result(results.Where(r => !r.Success));
-            }
-            return new Result();
-        }
-
-        public async Task ImportActionsFromCommand(CommandModelBase command)
-        {
-            if (command != null)
-            {
-                foreach (ActionModelBase action in command.Actions)
-                {
-                    await this.ActionEditorList.AddAction(action);
-                }
-            }
+            return await base.Validate();
         }
 
         protected override async Task<ActionModelBase> GetActionInternal()
         {
-            return new ConditionalActionModel(this.CaseSensitive, this.SelectedOperatorType, this.Clauses.Select(c => c.GetModel()), await this.ActionEditorList.GetActions());
+            return new ConditionalActionModel(this.CaseSensitive, this.SelectedOperatorType, this.RepeatWhileTrue, this.Clauses.Select(c => c.GetModel()), await this.ActionEditorList.GetActions());
         }
     }
 }

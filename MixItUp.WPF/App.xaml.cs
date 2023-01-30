@@ -1,12 +1,13 @@
 ﻿using MixItUp.Base;
-using MixItUp.Base.Model;
 using MixItUp.Base.Model.Settings;
+using MixItUp.Base.Services;
+using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
 using MixItUp.WPF.Services;
+using MixItUp.WPF.Services.DeveloperAPI;
 using MixItUp.WPF.Util;
 using StreamingClient.Base.Util;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -16,6 +17,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -28,42 +30,36 @@ namespace MixItUp.WPF
     {
         private bool crashObtained = false;
 
-        private static readonly Dictionary<LanguageOptions, string> LanguageMaps = new Dictionary<LanguageOptions, string>
-        {
-            { LanguageOptions.Default, "en-US" },
-
-            { LanguageOptions.Dutch, "nl-NL" },
-            { LanguageOptions.English, "en-US" },
-            { LanguageOptions.German, "de-DE" },
-            { LanguageOptions.Spanish, "es-ES" },
-            { LanguageOptions.Japanese, "ja-JP" },
-            { LanguageOptions.French, "fr-FR" },
-            { LanguageOptions.Portuguese, "pt-BR" },
-            { LanguageOptions.Russian, "ru-RU" },
-
-            { LanguageOptions.Pseudo, "qps-ploc" },
-        };
-
         public App()
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 
+            ToolTipService.ShowDurationProperty.OverrideMetadata(typeof(DependencyObject), new FrameworkPropertyMetadata(Int32.MaxValue));
+
             try
             {
                 // We need to load the language setting VERY early, so this is the minimal code necessary to get this value
-                WindowsServicesManager servicesManager = new WindowsServicesManager();
-                servicesManager.Initialize();
-                ChannelSession.Initialize(servicesManager).Wait();
-                var selectedLanguageTask = ApplicationSettingsV2Model.Load();
-                selectedLanguageTask.Wait();
+                ServiceManager.Add<IDatabaseService>(new WindowsDatabaseService());
+                ServiceManager.Add<IFileService>(new WindowsFileService());
+                ServiceManager.Add<IInputService>(new WindowsInputService());
+                ServiceManager.Add<IImageService>(new WindowsImageService());
+                ServiceManager.Add<IAudioService>(new WindowsAudioService());
+                ServiceManager.Add<IDeveloperAPIService>(new WindowsDeveloperAPIService());
+                ServiceManager.Add<ITelemetryService>(new WindowsTelemetryService());
 
-                var culture = System.Threading.Thread.CurrentThread.CurrentCulture;
-                if (LanguageMaps.TryGetValue(selectedLanguageTask.Result.LanguageOption, out string locale))
-                {
-                    culture = new System.Globalization.CultureInfo(locale);
-                }
+                ServiceManager.Add(new StreamlabsService(new WindowsSocketIOConnection()));
+                ServiceManager.Add(new RainmakerService(new WindowsSocketIOConnection()));
+                ServiceManager.Add(new StreamElementsService(new WindowsSocketIOConnection()));
+                ServiceManager.Add(new TipeeeStreamService(new WindowsSocketIOConnection()));
+                ServiceManager.Add(new TreatStreamService(new WindowsSocketIOConnection()));
+                ServiceManager.Add<IOvrStreamService>(new WindowsOvrStreamService());
 
-                System.Threading.Thread.CurrentThread.CurrentUICulture = culture;
+                ServiceManager.Add<IOBSStudioService>(new WindowsOBSService());
+                ServiceManager.Add<ITwitterService>(new WindowsTwitterService());
+
+                ChannelSession.Initialize().Wait();
+
+                System.Threading.Thread.CurrentThread.CurrentUICulture = Languages.GetLanguageLocaleCultureInfo();
             }
             catch { }
         }
@@ -136,12 +132,16 @@ namespace MixItUp.WPF
             Application.Current.Resources.MergedDictionaries.Add(newMIUResourceDictionary);
         }
 
-        protected override async void OnStartup(StartupEventArgs e)
+        protected override void OnStartup(StartupEventArgs e)
         {
-            WindowsServicesManager servicesManager = new WindowsServicesManager();
-            servicesManager.Initialize();
+            ActivationProtocolHandler.Initialize();
 
-            FileLoggerHandler.Initialize(servicesManager.FileService);
+            RegistryHelpers.RegisterFileAssociation();
+            RegistryHelpers.RegisterURIActivationProtocol();
+            // Disabled for now until we can figure out why anti-virus hates it
+            // RegistryHelpers.RegisterUninstaller();
+
+            FileLoggerHandler.Initialize();
 
             DispatcherHelper.RegisterDispatcher(new WindowsDispatcher(this.Dispatcher));
 
@@ -150,12 +150,17 @@ namespace MixItUp.WPF
             Application.Current.DispatcherUnhandledException += Current_DispatcherUnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
-            await ChannelSession.Initialize(servicesManager);
+            try
+            {
+                WindowsIdentity id = WindowsIdentity.GetCurrent();
+                ChannelSession.IsElevated = id.Owner != id.User;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(ex);
+            }
 
-            WindowsIdentity id = WindowsIdentity.GetCurrent();
-            ChannelSession.IsElevated = id.Owner != id.User;
-
-            Logger.ForceLog(LogLevel.Information, "Application Version: " + ChannelSession.Services.FileService.GetApplicationVersion());
+            Logger.ForceLog(LogLevel.Information, "Application Version: " + ServiceManager.Get<IFileService>().GetApplicationVersion());
             if (ChannelSession.IsDebug() || ChannelSession.AppSettings.DiagnosticLogging)
             {
                 Logger.SetLogLevel(LogLevel.Debug);
@@ -168,6 +173,13 @@ namespace MixItUp.WPF
             this.SwitchTheme(ChannelSession.AppSettings.ColorScheme, ChannelSession.AppSettings.BackgroundColor, ChannelSession.AppSettings.FullThemeName);
 
             base.OnStartup(e);
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            ActivationProtocolHandler.Close();
+
+            base.OnExit(e);
         }
 
         private void Current_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e) { this.HandleCrash(e.Exception); }
@@ -184,9 +196,9 @@ namespace MixItUp.WPF
 
                 this.crashObtained = true;
 
-                if (ChannelSession.Services.Telemetry != null)
+                if (ServiceManager.Has<ITelemetryService>())
                 {
-                    ChannelSession.Services.Telemetry.TrackException(ex);
+                    ServiceManager.Get<ITelemetryService>().TrackException(ex);
                 }
 
                 try
@@ -205,7 +217,7 @@ namespace MixItUp.WPF
                 }
                 catch (Exception) { }
 
-                ProcessHelper.LaunchProgram("MixItUp.Reporter.exe", string.Format("{0} {1} {2} {3}", FileLoggerHandler.CurrentLogFilePath, (int)StreamingPlatformTypeEnum.Twitch, ChannelSession.TwitchUserNewAPI?.id, ChannelSession.TwitchUserNewAPI?.login));
+                ProcessHelper.LaunchProgram("MixItUp.Reporter.exe", $"{FileLoggerHandler.CurrentLogFilePath} {ChannelSession.Settings?.Name ?? "NONE"}");
 
                 Task.Delay(3000).Wait();
             }

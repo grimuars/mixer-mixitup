@@ -1,4 +1,7 @@
-﻿using MixItUp.Base.Util;
+﻿using MixItUp.Base.Model;
+using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Util;
+using MixItUp.Base.ViewModel.Chat;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json.Linq;
 using StreamingClient.Base.Util;
@@ -28,7 +31,7 @@ namespace MixItUp.Base.Services.External
         {
             get
             {
-                var field = this.fields.FirstOrDefault(f => f.name.Equals("giftee"));
+                var field = this.fields.FirstOrDefault(f => f.name.Equals("giftee", StringComparison.OrdinalIgnoreCase));
                 return (field != null) ? field.value : string.Empty;
             }
         }
@@ -37,7 +40,7 @@ namespace MixItUp.Base.Services.External
         {
             get
             {
-                var field = this.fields.FirstOrDefault(f => f.name.Equals("quantity"));
+                var field = this.fields.FirstOrDefault(f => f.name.Equals("quantity", StringComparison.OrdinalIgnoreCase));
                 return (field != null) ? int.Parse(field.value) : 0;
             }
         }
@@ -47,7 +50,7 @@ namespace MixItUp.Base.Services.External
         {
             get
             {
-                var field = this.fields.FirstOrDefault(f => f.name.Equals("username"));
+                var field = this.fields.FirstOrDefault(f => f.name.Equals("username", StringComparison.OrdinalIgnoreCase));
                 return (field != null) ? field.value : string.Empty;
             }
         }
@@ -59,19 +62,21 @@ namespace MixItUp.Base.Services.External
         public string imageUrl { get; set; }
         public string videoUrl { get; set; }
         public string soundUrl { get; set; }
+        public string message { get; set; }
         public StreamlootsCardDataModel data { get; set; }
     }
 
     public class StreamlootsCardDataModel
     {
         public string cardName { get; set; }
+        public string description { get; set; }
         public List<StreamlootsDataFieldModel> fields { get; set; }
 
         public string Message
         {
             get
             {
-                StreamlootsDataFieldModel field = this.fields.FirstOrDefault(f => f.name.Equals("message"));
+                StreamlootsDataFieldModel field = this.fields.FirstOrDefault(f => f.name.Equals("message", StringComparison.OrdinalIgnoreCase));
                 return (field != null) ? field.value : string.Empty;
             }
         }
@@ -80,7 +85,7 @@ namespace MixItUp.Base.Services.External
         {
             get
             {
-                StreamlootsDataFieldModel field = this.fields.FirstOrDefault(f => f.name.Equals("longMessage"));
+                StreamlootsDataFieldModel field = this.fields.FirstOrDefault(f => f.name.Equals("longmessage", StringComparison.OrdinalIgnoreCase));
                 return (field != null) ? field.value : string.Empty;
             }
         }
@@ -89,7 +94,7 @@ namespace MixItUp.Base.Services.External
         {
             get
             {
-                StreamlootsDataFieldModel field = this.fields.FirstOrDefault(f => f.name.Equals("username"));
+                StreamlootsDataFieldModel field = this.fields.FirstOrDefault(f => f.name.Equals("username", StringComparison.OrdinalIgnoreCase));
                 return (field != null) ? field.value : string.Empty;
             }
         }
@@ -101,20 +106,18 @@ namespace MixItUp.Base.Services.External
         public string value { get; set; }
     }
 
-    public interface IStreamlootsService : IOAuthExternalService
-    {
-    }
-
-    public class StreamlootsService : OAuthExternalServiceBase, IStreamlootsService
+    public class StreamlootsService : OAuthExternalServiceBase
     {
         private WebRequest webRequest;
         private Stream responseStream;
 
         private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
 
+        public event EventHandler OnStreamlootsConnectionChanged = delegate { };
+
         public StreamlootsService() : base("") { }
 
-        public override string Name { get { return "Streamloots"; } }
+        public override string Name { get { return MixItUp.Base.Resources.Streamloots; } }
 
         public override Task<Result> Connect()
         {
@@ -135,7 +138,10 @@ namespace MixItUp.Base.Services.External
                 this.responseStream.Close();
                 this.responseStream = null;
             }
-            return Task.FromResult(0);
+
+            this.OnStreamlootsConnectionChanged(this, new EventArgs());
+
+            return Task.CompletedTask;
         }
 
         protected override Task<Result> InitializeInternal()
@@ -143,11 +149,15 @@ namespace MixItUp.Base.Services.External
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             Task.Run(this.BackgroundCheck, this.cancellationTokenSource.Token);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+
             this.TrackServiceTelemetry("Streamloots");
+
+            this.OnStreamlootsConnectionChanged(this, new EventArgs());
+
             return Task.FromResult(new Result());
         }
 
-        protected override Task RefreshOAuthToken() { return Task.FromResult(0); }
+        protected override Task RefreshOAuthToken() { return Task.CompletedTask; }
 
         protected override void DisposeInternal()
         {
@@ -196,6 +206,7 @@ namespace MixItUp.Base.Services.External
                                         JObject jobj = JObject.Parse("{ " + textBuffer + " }");
                                         if (jobj != null && jobj.ContainsKey("data"))
                                         {
+                                            Logger.Log(LogLevel.Debug, "Streamloots Full Packet Received: " + textBuffer);
                                             textBuffer = string.Empty;
                                             if (jobj.Value<JObject>("data").ContainsKey("data") && jobj.Value<JObject>("data").Value<JObject>("data").ContainsKey("type"))
                                             {
@@ -251,19 +262,31 @@ namespace MixItUp.Base.Services.External
             var purchase = jobj["data"].ToObject<StreamlootsPurchaseModel>();
             if (purchase != null)
             {
-                UserViewModel user = this.GetUser(purchase.data.Username);
-                UserViewModel giftee = (string.IsNullOrEmpty(purchase.data.Giftee)) ? null : this.GetUser(purchase.data.Giftee);
+                UserV2ViewModel user = this.GetUser(purchase.data.Username);
+                UserV2ViewModel giftee = (string.IsNullOrEmpty(purchase.data.Giftee)) ? null : this.GetUser(purchase.data.Giftee);
 
-                EventTrigger trigger = new EventTrigger(EventTypeEnum.StreamlootsPackPurchased, user);
-                trigger.SpecialIdentifiers["streamlootspurchasequantity"] = purchase.data.Quantity.ToString();
+                CommandParametersModel parameters = new CommandParametersModel(user);
+                parameters.SpecialIdentifiers["streamlootspurchasequantity"] = purchase.data.Quantity.ToString();
                 if (giftee != null)
                 {
-                    trigger.Type = EventTypeEnum.StreamlootsPackGifted;
-                    trigger.Arguments.Add(giftee.Username);
+                    parameters.Arguments.Add(giftee.Username);
+                    await ServiceManager.Get<EventService>().PerformEvent(EventTypeEnum.StreamlootsPackGifted, parameters);
                 }
-                await ChannelSession.Services.Events.PerformEvent(trigger);
+                else
+                {
+                    await ServiceManager.Get<EventService>().PerformEvent(EventTypeEnum.StreamlootsPackPurchased, parameters);
+                }
 
-                GlobalEvents.StreamlootsPurchaseOccurred(new Tuple<UserViewModel, int>(user, purchase.data.Quantity));
+                GlobalEvents.StreamlootsPurchaseOccurred(new Tuple<UserV2ViewModel, int>(user, purchase.data.Quantity));
+
+                if (giftee != null)
+                {
+                    await ServiceManager.Get<AlertsService>().AddAlert(new AlertChatMessageViewModel(user, string.Format(MixItUp.Base.Resources.StreamlootsGiftedPacksAlert, user.FullDisplayName, purchase.data.Quantity, giftee.Username), ChannelSession.Settings.AlertStreamlootsColor));
+                }
+                else
+                {
+                    await ServiceManager.Get<AlertsService>().AddAlert(new AlertChatMessageViewModel(user, string.Format(MixItUp.Base.Resources.StreamlootsPurchasedPacksAlert, user.FullDisplayName, purchase.data.Quantity), ChannelSession.Settings.AlertStreamlootsColor));
+                }
             }
         }
 
@@ -271,34 +294,51 @@ namespace MixItUp.Base.Services.External
         {
             string cardData = string.Empty;
             StreamlootsCardModel card = jobj["data"].ToObject<StreamlootsCardModel>();
-            if (card != null)
+            if (card != null && !string.IsNullOrEmpty(card.data?.cardName))
             {
-                UserViewModel user = this.GetUser(card.data.Username);
+                UserV2ViewModel user = this.GetUser(card.data.Username);
 
-                EventTrigger trigger = new EventTrigger(EventTypeEnum.StreamlootsCardRedeemed, user);
-                trigger.SpecialIdentifiers["streamlootscardname"] = card.data.cardName;
-                trigger.SpecialIdentifiers["streamlootscardimage"] = card.imageUrl;
-                trigger.SpecialIdentifiers["streamlootscardhasvideo"] = (!string.IsNullOrEmpty(card.videoUrl)).ToString();
-                trigger.SpecialIdentifiers["streamlootscardvideo"] = card.videoUrl;
-                trigger.SpecialIdentifiers["streamlootscardsound"] = card.soundUrl;
+                Dictionary<string, string> specialIdentifiers = new Dictionary<string, string>();
+                specialIdentifiers["streamlootscardname"] = card.data.cardName;
+                specialIdentifiers["streamlootscarddescription"] = card.data.description;
+                specialIdentifiers["streamlootscardimage"] = card.imageUrl;
+                specialIdentifiers["streamlootscardhasvideo"] = (!string.IsNullOrEmpty(card.videoUrl)).ToString();
+                specialIdentifiers["streamlootscardvideo"] = card.videoUrl;
+                specialIdentifiers["streamlootscardsound"] = card.soundUrl;
+                specialIdentifiers["streamlootscardalertmessage"] = card.message;
 
                 string message = card.data.Message;
                 if (string.IsNullOrEmpty(message))
                 {
                     message = card.data.LongMessage;
                 }
-                trigger.SpecialIdentifiers["streamlootsmessage"] = message;
+                specialIdentifiers["streamlootsmessage"] = message;
 
-                await ChannelSession.Services.Events.PerformEvent(trigger);
+                List<string> arguments = new List<string>();
+                if (!string.IsNullOrEmpty(message))
+                {
+                    arguments = new List<string>(message.Split(' '));
+                }
+
+                await ServiceManager.Get<EventService>().PerformEvent(EventTypeEnum.StreamlootsCardRedeemed, new CommandParametersModel(user, arguments, specialIdentifiers));
+
+                StreamlootsCardCommandModel command = ServiceManager.Get<CommandService>().StreamlootsCardCommands.FirstOrDefault(c => string.Equals(c.Name, card.data.cardName, StringComparison.CurrentCultureIgnoreCase));
+                if (command != null)
+                {
+                    Dictionary<string, string> cardsCommandSpecialIdentifiers = new Dictionary<string, string>(specialIdentifiers);
+                    await ServiceManager.Get<CommandService>().Queue(command, new CommandParametersModel(user, platform: user.Platform, arguments: arguments, specialIdentifiers: cardsCommandSpecialIdentifiers));
+                }
+
+                await ServiceManager.Get<AlertsService>().AddAlert(new AlertChatMessageViewModel(user, string.Format(MixItUp.Base.Resources.StreamlootsRedeemedCardAlert, user.FullDisplayName, card.data.cardName), ChannelSession.Settings.AlertStreamlootsColor));
             }
         }
 
-        private UserViewModel GetUser(string username)
+        private UserV2ViewModel GetUser(string username)
         {
-            UserViewModel user = ChannelSession.Services.User.GetUserByUsername(username);
+            UserV2ViewModel user = ServiceManager.Get<UserService>().GetActiveUserByPlatformUsername(StreamingPlatformTypeEnum.All, username);
             if (user == null)
             {
-                user = new UserViewModel(username);
+                user = UserV2ViewModel.CreateUnassociated(username);
             }
             return user;
         }

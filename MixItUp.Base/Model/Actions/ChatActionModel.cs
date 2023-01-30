@@ -1,4 +1,6 @@
 ﻿using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Services;
+using System;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
@@ -27,34 +29,24 @@ namespace MixItUp.Base.Model.Actions
             this.WhisperUserName = whisperUserName;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal ChatActionModel(MixItUp.Base.Actions.ChatAction action)
-            : base(ActionTypeEnum.Chat)
-        {
-            this.ChatText = action.ChatText;
-            this.SendAsStreamer = action.SendAsStreamer;
-            this.IsWhisper = action.IsWhisper;
-            this.WhisperUserName = action.WhisperUserName;
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private ChatActionModel() { }
+        [Obsolete]
+        public ChatActionModel() { }
 
         protected override async Task PerformInternal(CommandParametersModel parameters)
         {
-            string message = await this.ReplaceStringWithSpecialModifiers(this.ChatText, parameters);
+            string message = await ReplaceStringWithSpecialModifiers(this.ChatText, parameters);
             if (this.IsWhisper)
             {
                 string whisperUserName = parameters.User.Username;
                 if (!string.IsNullOrEmpty(this.WhisperUserName))
                 {
-                    whisperUserName = await this.ReplaceStringWithSpecialModifiers(this.WhisperUserName, parameters);
+                    whisperUserName = await ReplaceStringWithSpecialModifiers(this.WhisperUserName, parameters);
                 }
-                await ChannelSession.Services.Chat.Whisper(StreamingPlatformTypeEnum.All, whisperUserName, message, this.SendAsStreamer);
+                await ServiceManager.Get<ChatService>().Whisper(whisperUserName, parameters.Platform, message, this.SendAsStreamer);
             }
             else
             {
-                await ChannelSession.Services.Chat.SendMessage(message, this.SendAsStreamer);
+                await ServiceManager.Get<ChatService>().SendMessage(message, parameters, this.SendAsStreamer);
             }
         }
     }

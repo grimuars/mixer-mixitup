@@ -26,14 +26,17 @@ namespace MixItUp.WPF.Controls.MainControls
 
             services.Add(new ServiceContainerControl(this.Window, new OverlayServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new OBSStudioServiceControl()));
-            services.Add(new ServiceContainerControl(this.Window, new StreamlabsOBSServiceControl()));
+            services.Add(new ServiceContainerControl(this.Window, new StreamlabsDesktopServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new XSplitServiceControl()));
-            services.Add(new ServiceContainerControl(this.Window, new OvrStreamServiceControl()));
+            services.Add(new ServiceContainerControl(this.Window, new PolyPopServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new StreamlabsServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new StreamElementsServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new TipeeeStreamServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new TreatStreamServiceControl()));
-            services.Add(new ServiceContainerControl(this.Window, new StreamJarServiceControl()));
+            services.Add(new ServiceContainerControl(this.Window, new RainmakerServiceControl()));
+            services.Add(new ServiceContainerControl(this.Window, new PixelChatServiceControl()));
+            services.Add(new ServiceContainerControl(this.Window, new VoicemodServiceControl()));
+            services.Add(new ServiceContainerControl(this.Window, new VTubeStudioServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new PatreonServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new StreamlootsServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new TiltifyServiceControl()));
@@ -44,6 +47,7 @@ namespace MixItUp.WPF.Controls.MainControls
             services.Add(new ServiceContainerControl(this.Window, new StreamDeckServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new IFTTTServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new StreamAvatarsServiceControl()));
+            services.Add(new ServiceContainerControl(this.Window, new OvrStreamServiceControl()));
             services.Add(new ServiceContainerControl(this.Window, new DeveloperAPIServiceControl()));
 
             this.services.ClearAndAddRange(services);

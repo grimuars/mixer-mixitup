@@ -7,7 +7,6 @@ using MixItUp.Base.Util;
 using MixItUp.Base.ViewModels;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -82,7 +81,7 @@ namespace MixItUp.Base.ViewModel.Currency
             }
         }
         private string name;
-        public IEnumerable<UserRoleEnum> Permissions { get; private set; } = UserDataModel.GetSelectableUserRoles();
+        public IEnumerable<UserRoleEnum> Permissions { get; private set; } = UserRoles.All;
         public UserRoleEnum Permission
         {
             get { return this.permission; }
@@ -261,7 +260,7 @@ namespace MixItUp.Base.ViewModel.Currency
 
         public StreamPassWindowViewModel()
         {
-            this.ManualResetCommand = this.CreateCommand(async (parameter) =>
+            this.ManualResetCommand = this.CreateCommand(async () =>
             {
                 if (await DialogHelper.ShowConfirmation(Resources.ResetAllProgressPrompt))
                 {
@@ -281,7 +280,7 @@ namespace MixItUp.Base.ViewModel.Currency
             this.StreamPass = seasonPass;
 
             this.Name = this.StreamPass.Name;
-            this.Permission = this.StreamPass.Permission;
+            this.Permission = this.StreamPass.UserPermission;
             this.MaxLevel = this.StreamPass.MaxLevel;
             this.PointsForLevelUp = this.StreamPass.PointsForLevelUp;
             this.SubMultiplier = this.StreamPass.SubMultiplier;
@@ -312,19 +311,19 @@ namespace MixItUp.Base.ViewModel.Currency
         {
             if (this.CustomLevelUpNumber <= 0)
             {
-                await DialogHelper.ShowMessage("You must specify a number greater than 0");
+                await DialogHelper.ShowMessage(Resources.CustomLevelGreaterThanZero);
                 return false;
             }
 
             if (this.CustomLevelUpNumber > this.MaxLevel)
             {
-                await DialogHelper.ShowMessage("You must specify a number less than or equal to the Max Level");
+                await DialogHelper.ShowMessage(Resources.LessThanMaxLevel);
                 return false;
             }
 
             if (this.CustomLevelUpCommands.Any(c => c.Level == this.CustomLevelUpNumber))
             {
-                await DialogHelper.ShowMessage("There already exists a custom command for this level");
+                await DialogHelper.ShowMessage(Resources.CustomCommandAlreadyExists);
                 return false;
             }
 
@@ -350,104 +349,104 @@ namespace MixItUp.Base.ViewModel.Currency
         {
             if (string.IsNullOrEmpty(this.Name))
             {
-                await DialogHelper.ShowMessage("A valid name must be specified");
+                await DialogHelper.ShowMessage(Resources.StreamPassNameRequired);
                 return false;
             }
 
             if (this.Name.Any(c => !char.IsLetterOrDigit(c) && c != ' '))
             {
-                await DialogHelper.ShowMessage("The name can only contain letters, numbers, or spaces");
+                await DialogHelper.ShowMessage(Resources.StreamPassNameInvalid);
                 return false;
             }
 
             StreamPassModel dupeStreamPass = ChannelSession.Settings.StreamPass.Values.FirstOrDefault(s => s.Name.Equals(this.Name));
             if (dupeStreamPass != null && (this.StreamPass == null || !this.StreamPass.ID.Equals(dupeStreamPass.ID)))
             {
-                await DialogHelper.ShowMessage("There already exists a Stream Pass with this name");
+                await DialogHelper.ShowMessage(Resources.StreamPassNameDuplicate);
                 return false;
             }
 
             if (this.MaxLevel <= 0)
             {
-                await DialogHelper.ShowMessage("The Max Level must be greater than 0");
+                await DialogHelper.ShowMessage(Resources.MaxLevelGreaterThanZero);
                 return false;
             }
 
             if (this.PointsForLevelUp <= 0)
             {
-                await DialogHelper.ShowMessage("The Points for Level Up must be greater than 0");
+                await DialogHelper.ShowMessage(Resources.PointsForLevelUpGreaterThanZero);
                 return false;
             }
 
             if (this.SubMultiplier < 1.0)
             {
-                await DialogHelper.ShowMessage("The Sub Multiplier must be greater than or equal to 1.0");
+                await DialogHelper.ShowMessage(Resources.SubMultiplierOneOrMore);
                 return false;
             }
 
             if (this.StartDate >= this.EndDate)
             {
-                await DialogHelper.ShowMessage("The End Date must be after the Start Date");
+                await DialogHelper.ShowMessage(Resources.EndDateInvalid);
                 return false;
             }
 
             if (this.ViewingRateAmount < 0)
             {
-                await DialogHelper.ShowMessage("The Viewing Rate Amount must be greater than or equal to 0");
+                await DialogHelper.ShowMessage(Resources.ViewingRateAmountZeroOrMore);
                 return false;
             }
 
             if (this.ViewingRateMinutes < 0)
             {
-                await DialogHelper.ShowMessage("The Viewing Rate Minutes must be greater than or equal to 0");
+                await DialogHelper.ShowMessage(Resources.ViewingRateMinutesZeroOrMore);
                 return false;
             }
 
             if (this.ViewingRateAmount == 0 ^ this.ViewingRateMinutes == 0)
             {
-                await DialogHelper.ShowMessage("The Viewing Rate Amount & Minutes must both be greater than 0 or both equal to 0");
+                await DialogHelper.ShowMessage(Resources.ViewingRateMinutesInvalid);
                 return false;
             }
 
             if (this.FollowBonus < 0)
             {
-                await DialogHelper.ShowMessage("The Follow Bonus must be greater than or equal to 0");
+                await DialogHelper.ShowMessage(Resources.FollowBonusZeroOrMore);
                 return false;
             }
 
             if (this.HostBonus < 0)
             {
-                await DialogHelper.ShowMessage("The Host Bonus must be greater than or equal to 0");
+                await DialogHelper.ShowMessage(Resources.HostBonusZeroOrMore);
                 return false;
             }
 
             if (this.SubscribeBonus < 0)
             {
-                await DialogHelper.ShowMessage("The Subscribe Bonus must be greater than or equal to 0");
+                await DialogHelper.ShowMessage(Resources.SubscriberBonusZeroOrMore);
                 return false;
             }
 
             if (this.DonationBonus < 0)
             {
-                await DialogHelper.ShowMessage("The Donation Bonus must be greater than or equal to 0");
+                await DialogHelper.ShowMessage(Resources.DonationBonusZeroOrMore);
                 return false;
             }
 
             if (this.BitsBonus < 0)
             {
-                await DialogHelper.ShowMessage("The Bits Bonus must be greater than or equal to 0");
+                await DialogHelper.ShowMessage(Resources.BitsBonusZeroOrMore);
                 return false;
             }
 
             if (this.CustomLevelUpCommands.GroupBy(c => c.Level).Any(c => c.Count() > 1))
             {
-                await DialogHelper.ShowMessage("There can only be 1 custom level up command per individual level");
+                await DialogHelper.ShowMessage(Resources.OneCustomLevelCommand);
                 return false;
             }
 
             if (this.CustomLevelUpCommands.Any(c => c.Level > this.MaxLevel))
             {
-                await DialogHelper.ShowMessage("There can not be any custom level up commands that are greater than the Max Level");
+                await DialogHelper.ShowMessage(Resources.MaxCustomLevelCommand);
                 return false;
             }
 
@@ -462,9 +461,9 @@ namespace MixItUp.Base.ViewModel.Currency
                 ChannelSession.Settings.StreamPass[this.StreamPass.ID] = this.StreamPass;
             }
 
-            this.StreamPass.Name = this.Name;
+            this.StreamPass.Name = this.Name.Trim();
             this.StreamPass.SpecialIdentifier = SpecialIdentifierStringBuilder.ConvertToSpecialIdentifier(this.Name, maxLength: 15);
-            this.StreamPass.Permission = this.Permission;
+            this.StreamPass.UserPermission = this.Permission;
             this.StreamPass.MaxLevel = this.MaxLevel;
             this.StreamPass.PointsForLevelUp = this.PointsForLevelUp;
             this.StreamPass.SubMultiplier = this.SubMultiplier;
@@ -496,31 +495,31 @@ namespace MixItUp.Base.ViewModel.Currency
             List<NewAutoChatCommandModel> commandsToAdd = new List<NewAutoChatCommandModel>();
             if (this.StreamPass != null)
             {
-                ChatCommandModel statusCommand = new ChatCommandModel("User " + this.StreamPass.Name, new HashSet<string>() { this.StreamPass.SpecialIdentifier });
+                ChatCommandModel statusCommand = new ChatCommandModel($"{MixItUp.Base.Resources.User} {this.StreamPass.Name}", new HashSet<string>() { this.StreamPass.SpecialIdentifier });
                 statusCommand.Requirements.AddBasicRequirements();
-                statusCommand.Requirements.Role.Role = UserRoleEnum.User;
+                statusCommand.Requirements.Role.UserRole = UserRoleEnum.User;
                 statusCommand.Requirements.Cooldown.Type = CooldownTypeEnum.Standard;
                 statusCommand.Requirements.Cooldown.IndividualAmount = 5;
-                statusCommand.Actions.Add(new ChatActionModel(string.Format("@$username is level ${0} with ${1} points!", this.StreamPass.UserLevelSpecialIdentifier, this.StreamPass.UserAmountSpecialIdentifier)));
-                commandsToAdd.Add(new NewAutoChatCommandModel(string.Format("!{0} - {1}", statusCommand.Triggers.First(), "Shows User's Amount"), statusCommand));
+                statusCommand.Actions.Add(new ChatActionModel(string.Format(MixItUp.Base.Resources.ConsumablesStreamPassCommandDefault, this.StreamPass.UserLevelSpecialIdentifier, this.StreamPass.UserAmountSpecialIdentifier)));
+                commandsToAdd.Add(new NewAutoChatCommandModel(string.Format("!{0} - {1}", statusCommand.Triggers.First(), MixItUp.Base.Resources.ShowsUsersAmount), statusCommand));
 
-                ChatCommandModel addCommand = new ChatCommandModel("Add " + this.StreamPass.Name, new HashSet<string>() { "add" + this.StreamPass.SpecialIdentifier });
+                ChatCommandModel addCommand = new ChatCommandModel($"{MixItUp.Base.Resources.Add} {this.StreamPass.Name}", new HashSet<string>() { MixItUp.Base.Resources.Add.ToLower() + this.StreamPass.SpecialIdentifier });
                 addCommand.Requirements.AddBasicRequirements();
-                addCommand.Requirements.Role.Role = UserRoleEnum.Mod;
+                addCommand.Requirements.Role.UserRole = UserRoleEnum.Moderator;
                 addCommand.Requirements.Cooldown.Type = CooldownTypeEnum.Standard;
                 addCommand.Requirements.Cooldown.IndividualAmount = 5;
-                addCommand.Actions.Add(new ConsumablesActionModel(this.StreamPass, ConsumablesActionTypeEnum.AddToSpecificUser, "$arg2text", username: "$targetusername"));
-                addCommand.Actions.Add(new ChatActionModel(string.Format("@$targetusername received $arg2text points for {0}!", this.StreamPass.Name)));
-                commandsToAdd.Add(new NewAutoChatCommandModel(string.Format("!{0} - {1}", addCommand.Triggers.First(), "Adds Amount To Specified User"), addCommand));
+                addCommand.Actions.Add(new ConsumablesActionModel(this.StreamPass, ConsumablesActionTypeEnum.AddToSpecificUser, usersMustBePresent:true, "$arg2text", username: "$targetusername"));
+                addCommand.Actions.Add(new ChatActionModel(string.Format(MixItUp.Base.Resources.ConsumablesStreamPassAddCommandDefault, this.StreamPass.Name)));
+                commandsToAdd.Add(new NewAutoChatCommandModel(string.Format("!{0} - {1}", addCommand.Triggers.First(), MixItUp.Base.Resources.AddsAmountToSpecifiedUser), addCommand));
 
-                ChatCommandModel addAllCommand = new ChatCommandModel("Add All " + this.StreamPass.Name, new HashSet<string>() { "addall" + this.StreamPass.SpecialIdentifier });
+                ChatCommandModel addAllCommand = new ChatCommandModel($"{MixItUp.Base.Resources.AddAll} {this.StreamPass.Name}", new HashSet<string>() { MixItUp.Base.Resources.AddAll.ToLower() + this.StreamPass.SpecialIdentifier });
                 addAllCommand.Requirements.AddBasicRequirements();
-                addAllCommand.Requirements.Role.Role = UserRoleEnum.Mod;
+                addAllCommand.Requirements.Role.UserRole = UserRoleEnum.Moderator;
                 addAllCommand.Requirements.Cooldown.Type = CooldownTypeEnum.Standard;
                 addAllCommand.Requirements.Cooldown.IndividualAmount = 5;
-                addAllCommand.Actions.Add(new ConsumablesActionModel(this.StreamPass, ConsumablesActionTypeEnum.AddToAllChatUsers, "$arg1text"));
-                addAllCommand.Actions.Add(new ChatActionModel(string.Format("Everyone got $arg1text points for {0}!", this.StreamPass.Name)));
-                commandsToAdd.Add(new NewAutoChatCommandModel(string.Format("!{0} - {1}", addAllCommand.Triggers.First(), "Adds Amount To All Chat Users"), addAllCommand));
+                addAllCommand.Actions.Add(new ConsumablesActionModel(this.StreamPass, ConsumablesActionTypeEnum.AddToAllChatUsers, usersMustBePresent: true, "$arg1text"));
+                addAllCommand.Actions.Add(new ChatActionModel(string.Format(MixItUp.Base.Resources.ConsumablesStreamPassAddAllCommandDefault, this.StreamPass.Name)));
+                commandsToAdd.Add(new NewAutoChatCommandModel(string.Format("!{0} - {1}", addAllCommand.Triggers.First(), MixItUp.Base.Resources.AddsAmountToAllChatUsers), addAllCommand));
             }
             return commandsToAdd;
         }

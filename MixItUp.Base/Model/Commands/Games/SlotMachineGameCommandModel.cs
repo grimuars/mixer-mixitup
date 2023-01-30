@@ -1,4 +1,5 @@
 ﻿using MixItUp.Base.Model.User;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -22,16 +23,8 @@ namespace MixItUp.Base.Model.Commands.Games
             this.AnyOrder = anyOrder;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal SlotMachineGameOutcomeModel(Base.Commands.SlotsGameOutcome outcome)
-            : base(outcome)
-        {
-            this.Symbols = new List<string>() { outcome.Symbol1, outcome.Symbol2, outcome.Symbol3 };
-            this.AnyOrder = outcome.AnyOrder;
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private SlotMachineGameOutcomeModel() { }
+        [Obsolete]
+        public SlotMachineGameOutcomeModel() : base() { }
 
         public bool ValidateSymbols(List<string> inputSymbols)
         {
@@ -84,17 +77,8 @@ namespace MixItUp.Base.Model.Commands.Games
             this.Outcomes = new List<SlotMachineGameOutcomeModel>(outcomes);
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal SlotMachineGameCommandModel(Base.Commands.SlotMachineGameCommand command)
-            : base(command, GameCommandTypeEnum.SlotMachine)
-        {
-            this.Symbols = new List<string>(command.AllSymbols);
-            this.FailureCommand = new CustomCommandModel(command.FailureOutcomeCommand) { IsEmbedded = true };
-            this.Outcomes = new List<SlotMachineGameOutcomeModel>(command.Outcomes.Select(o => new SlotMachineGameOutcomeModel((Base.Commands.SlotsGameOutcome)o)));
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private SlotMachineGameCommandModel() { }
+        [Obsolete]
+        public SlotMachineGameCommandModel() : base() { }
 
         public override IEnumerable<CommandModelBase> GetInnerCommands()
         {
@@ -103,7 +87,7 @@ namespace MixItUp.Base.Model.Commands.Games
             return commands;
         }
 
-        protected override async Task PerformInternal(CommandParametersModel parameters)
+        public override async Task CustomRun(CommandParametersModel parameters)
         {
             List<string> symbols = new List<string>();
             symbols.Add(this.Symbols[this.GenerateRandomNumber(this.Symbols.Count)]);
@@ -116,11 +100,11 @@ namespace MixItUp.Base.Model.Commands.Games
             {
                 if (outcome.ValidateSymbols(symbols))
                 {
-                    await this.PerformOutcome(parameters, outcome);
+                    await this.RunOutcome(parameters, outcome);
                     return;
                 }
             }
-            await this.FailureCommand.Perform(parameters);
+            await this.RunSubCommand(this.FailureCommand, parameters);
         }
     }
 }

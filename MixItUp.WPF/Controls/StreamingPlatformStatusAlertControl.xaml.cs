@@ -1,5 +1,6 @@
 ﻿using MixItUp.Base;
 using MixItUp.Base.Services;
+using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModels;
 using StreamingClient.Base.Util;
@@ -14,7 +15,7 @@ namespace MixItUp.WPF.Controls
 {
     public class StreamingPlatformStatusAlertViewModel : UIViewModelBase
     {
-        public bool Show { get { return this.incidents.Count > 0; } }
+        public bool Show { get { return !string.IsNullOrWhiteSpace(this.ToolTipText); } }
 
         public string ToolTipText
         {
@@ -36,15 +37,19 @@ namespace MixItUp.WPF.Controls
         {
             this.LaunchStatusPageCommand = this.CreateCommand((parameter) =>
             {
-                if (this.Show && !string.IsNullOrEmpty(this.incidents.FirstOrDefault().Link))
+                if (this.Show)
                 {
-                    ProcessHelper.LaunchLink(this.incidents.FirstOrDefault().Link);
+                    StreamingPlatformStatusModel status = this.incidents.FirstOrDefault();
+                    if (status != null && !string.IsNullOrEmpty(status.Link))
+                    {
+                        ProcessHelper.LaunchLink(status.Link);
+                    }
                 }
-                return Task.FromResult(0);
+                return Task.CompletedTask;
             });
         }
 
-        protected override Task OnLoadedInternal()
+        protected override Task OnOpenInternal()
         {
             Task.Run(async () =>
             {
@@ -54,7 +59,7 @@ namespace MixItUp.WPF.Controls
                     {
                         List<Task<IEnumerable<StreamingPlatformStatusModel>>> incidentTasks = new List<Task<IEnumerable<StreamingPlatformStatusModel>>>();
 
-                        incidentTasks.Add(ChannelSession.Services.TwitchStatus.GetCurrentIncidents());
+                        incidentTasks.Add(ServiceManager.Get<TwitchStatusService>().GetCurrentIncidents());
 
                         await Task.WhenAll(incidentTasks);
 
@@ -79,13 +84,27 @@ namespace MixItUp.WPF.Controls
                         {
                             this.ToolTipText = string.Empty;
                         }
+
+                        if (ChannelSession.AppSettings.DiagnosticLogging)
+                        {
+                            if (!string.IsNullOrWhiteSpace(this.ToolTipText))
+                            {
+                                this.ToolTipText += Environment.NewLine + Environment.NewLine;
+                            }
+                            this.ToolTipText += MixItUp.Base.Resources.DiagnosticLoggingEnabledWarningTooltip;
+                        }
                     }
                     catch (Exception ex) { Logger.Log(ex); }
 
                     await Task.Delay(60000);
                 }
             });
-            return Task.FromResult(0);
+            return Task.CompletedTask;
+        }
+
+        private void GlobalEvents_OnRefreshWarningUI(object sender, EventArgs e)
+        {
+            throw new NotImplementedException();
         }
     }
 
@@ -107,7 +126,7 @@ namespace MixItUp.WPF.Controls
 
         private async void StreamingPlatformStatusAlertControl_Loaded(object sender, System.Windows.RoutedEventArgs e)
         {
-            await this.viewModel.OnLoaded();
+            await this.viewModel.OnOpen();
         }
     }
 }

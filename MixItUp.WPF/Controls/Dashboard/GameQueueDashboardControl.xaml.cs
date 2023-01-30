@@ -21,7 +21,7 @@ namespace MixItUp.WPF.Controls.Dashboard
         protected override async Task InitializeInternal()
         {
             this.DataContext = this.viewModel = new GameQueueMainControlViewModel(this.Window.ViewModel);
-            await this.viewModel.OnLoaded();
+            await this.viewModel.OnOpen();
         }
 
         private async void MoveUpButton_Click(object sender, System.Windows.RoutedEventArgs e)
@@ -33,14 +33,14 @@ namespace MixItUp.WPF.Controls.Dashboard
                     QueueUser queueUser = FrameworkElementHelpers.GetDataContext<QueueUser>(sender);
                     if (queueUser != null)
                     {
-                        this.viewModel.MoveUpCommand.Execute(queueUser.user);
+                        this.viewModel.MoveUpCommand.Execute(queueUser);
                     }
                 }
                 catch (Exception ex)
                 {
                     Logger.Log(ex);
                 }
-                return Task.FromResult(0);
+                return Task.CompletedTask;
             });
         }
 
@@ -53,14 +53,14 @@ namespace MixItUp.WPF.Controls.Dashboard
                     QueueUser queueUser = FrameworkElementHelpers.GetDataContext<QueueUser>(sender);
                     if (queueUser != null)
                     {
-                        this.viewModel.MoveDownCommand.Execute(queueUser.user);
+                        this.viewModel.MoveDownCommand.Execute(queueUser);
                     }
                 }
                 catch (Exception ex)
                 {
                     Logger.Log(ex);
                 }
-                return Task.FromResult(0);
+                return Task.CompletedTask;
             });
         }
 
@@ -73,14 +73,14 @@ namespace MixItUp.WPF.Controls.Dashboard
                     QueueUser queueUser = FrameworkElementHelpers.GetDataContext<QueueUser>(sender);
                     if (queueUser != null)
                     {
-                        this.viewModel.DeleteCommand.Execute(queueUser.user);
+                        this.viewModel.DeleteCommand.Execute(queueUser);
                     }
                 }
                 catch (Exception ex)
                 {
                     Logger.Log(ex);
                 }
-                return Task.FromResult(0);
+                return Task.CompletedTask;
             });
         }
     }

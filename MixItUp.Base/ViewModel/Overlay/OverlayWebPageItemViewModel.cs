@@ -1,4 +1,5 @@
 ﻿using MixItUp.Base.Model.Overlay;
+using MixItUp.Base.Services;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
@@ -45,14 +46,13 @@ namespace MixItUp.Base.ViewModel.Overlay
 
         public OverlayWebPageItemViewModel()
         {
-            this.BrowseFilePathCommand = this.CreateCommand((parameter) =>
+            this.BrowseFilePathCommand = this.CreateCommand(() =>
             {
-                string filePath = ChannelSession.Services.FileService.ShowOpenFileDialog(ChannelSession.Services.FileService.HTMLFileFilter());
+                string filePath = ServiceManager.Get<IFileService>().ShowOpenFileDialog(ServiceManager.Get<IFileService>().HTMLFileFilter());
                 if (!string.IsNullOrEmpty(filePath))
                 {
                     this.URL = filePath;
                 }
-                return Task.FromResult(0);
             });
         }
 

@@ -6,6 +6,17 @@ namespace MixItUp.Base.Util
 {
     public static class ListExtensions
     {
+        public static bool TryGetValue<T>(this IList<T> list, int index, out T value)
+        {
+            value = default(T);
+            if (list != null && list.Count > index)
+            {
+                value = list[index];
+                return true;
+            }
+            return false;
+        }
+
         public static void MoveUp<T>(this IList<T> list, T item)
         {
             int index = list.IndexOf(item) - 1;
@@ -40,6 +51,13 @@ namespace MixItUp.Base.Util
                 l.Add(key, i);
             }
             return l.Values;
+        }
+
+        public static T RemoveFirst<T>(this IList<T> list)
+        {
+            T result = list.FirstOrDefault();
+            list.Remove(result);
+            return result;
         }
 
         public static T Random<T>(this IEnumerable<T> list)
@@ -100,6 +118,22 @@ namespace MixItUp.Base.Util
                 }
             }
             return result;
+        }
+
+        public static void AddRange<T>(this HashSet<T> list, IEnumerable<T> items)
+        {
+            foreach (T item in items)
+            {
+                list.Add(item);
+            }
+        }
+
+        public static void RemoveRange<T>(this List<T> list, IEnumerable<T> items)
+        {
+            foreach (T item in items)
+            {
+                list.Remove(item);
+            }
         }
     }
 }

@@ -18,11 +18,11 @@
             </ResourceDictionary.MergedDictionaries>
 
             <ContextMenu x:Key="ChatListContextMenu">
-                <MenuItem x:Name="MessageCopyMenuItem" Header="Copy Message" Click="MessageCopyMenuItem_Click" />
-                <MenuItem x:Name="MessageDeleteMenuItem" Header="Delete Message" Click="MessageDeleteMenuItem_Click" />
+                <MenuItem x:Name="MessageCopyMenuItem" Header="{x:Static resx:Resources.CopyMessage}" Click="MessageCopyMenuItem_Click" />
+                <MenuItem x:Name="MessageDeleteMenuItem" Header="{x:Static resx:Resources.DeleteMessage}" Click="MessageDeleteMenuItem_Click" />
+                <MenuItem x:Name="GoToLinkMenuItem" Visibility="Collapsed" Header="{x:Static resx:Resources.GoToLink}" Click="GoToLinkMenuItem_Click" />
                 <Separator />
-                <MenuItem x:Name="MessageWhisperUserMenuItem" Header="Whisper User" Click="MessageWhisperUserMenuItem_Click" />
-                <MenuItem x:Name="UserInformationMenuItem" Header="User Info" Click="UserInformationMenuItem_Click" />
+                <MenuItem x:Name="UserInformationMenuItem" Header="{x:Static resx:Resources.UserInfo}" Click="UserInformationMenuItem_Click" />
             </ContextMenu>
 
         </ResourceDictionary>
@@ -35,7 +35,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <ListView x:Name="ChatList" ItemsSource="{Binding Messages}" Grid.Row="0" ContextMenu="{StaticResource ChatListContextMenu}" AlternationCount="{Binding AlternationCount}" ScrollViewer.VerticalScrollBarVisibility="Hidden" ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" ScrollViewer.ScrollChanged="ChatList_ScrollChanged">
+            <ListView x:Name="ChatList" ItemsSource="{Binding Messages}" Grid.Row="0" ContextMenu="{StaticResource ChatListContextMenu}" SelectionChanged="ChatList_SelectionChanged" AlternationCount="{Binding AlternationCount}" ScrollViewer.VerticalScrollBarVisibility="Hidden" ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" ScrollViewer.ScrollChanged="ChatList_ScrollChanged">
                 <ListView.Resources>
                     <Style TargetType="ListViewItem">
                         <Setter Property="Width" Value="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ScrollContentPresenter}, Path=ActualWidth}" />
@@ -62,7 +62,7 @@
             </ListView>
 
             <Button x:Name="ChatLockButton" ToolTip="{x:Static resx:Resources.LockChatScrolling}" Margin="0,0,20,0" Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}" HorizontalAlignment="Right" Grid.Row="0" VerticalAlignment="Bottom" Opacity="0.3" Command="{Binding ScrollingLockCommand}" MouseEnter="ChatLockButton_MouseEnter" MouseLeave="ChatLockButton_MouseLeave">
-                <MaterialDesign:PackIcon x:Name="ChatLockButtonIcon" Kind="LockOutline" Height="24" Width="24" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{Binding LockIconColor}" />
+                <MaterialDesign:PackIcon x:Name="ChatLockButtonIcon" Style="{StaticResource ButtonIcon}" Kind="LockOutline" Foreground="{Binding LockIconColor}" />
             </Button>
 
             <Grid Grid.Row="1" Margin="5">

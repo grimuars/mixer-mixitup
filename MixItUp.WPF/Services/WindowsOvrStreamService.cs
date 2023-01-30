@@ -1,4 +1,5 @@
 ﻿using MixItUp.Base;
+using MixItUp.Base.Services;
 using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
 using ovrstream_client_csharp;
@@ -35,16 +36,16 @@ namespace MixItUp.WPF.Services
                     await this.connection.ConnectAsync(CancellationToken.None);
 
                     this.connection.OnDisconnected += Connection_OnDisconnected;
-                    GlobalEvents.ServiceReconnect("OvrStream");
+                    ChannelSession.ReconnectionOccurred(MixItUp.Base.Resources.OvrStream);
 
                     this.IsConnected = true;
-                    ChannelSession.Services.Telemetry.TrackService("OvrStream");
+                    ServiceManager.Get<ITelemetryService>().TrackService("OvrStream");
 
                     return new Result();
                 }
             }
             catch (Exception ex) { Logger.Log(ex); }
-            return new Result("Invalid address specified");
+            return new Result(Resources.OvrStreamInvalidAddress);
         }
 
         public async Task Disconnect()
@@ -130,7 +131,7 @@ namespace MixItUp.WPF.Services
 
         private async void Connection_OnDisconnected(object sender, EventArgs e)
         {
-            GlobalEvents.ServiceDisconnect("OvrStream");
+            ChannelSession.DisconnectionOccurred(MixItUp.Base.Resources.OvrStream);
 
             Result result;
             do
@@ -141,7 +142,7 @@ namespace MixItUp.WPF.Services
             }
             while (!result.Success);
 
-            GlobalEvents.ServiceReconnect("OvrStream");
+            ChannelSession.ReconnectionOccurred(MixItUp.Base.Resources.OvrStream);
         }
     }
 }

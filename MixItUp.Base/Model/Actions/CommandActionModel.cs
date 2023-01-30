@@ -1,4 +1,5 @@
 ﻿using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Services;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
@@ -15,6 +16,10 @@ namespace MixItUp.Base.Model.Actions
         EnableCommand,
         DisableCommandGroup,
         EnableCommandGroup,
+        CancelAllCommands,
+        PauseAllCommands,
+        UnpauseAllCommands,
+        ToggleCommand,
     }
 
     [DataContract]
@@ -37,9 +42,8 @@ namespace MixItUp.Base.Model.Actions
         public string CommandGroupName { get; set; }
 
         public CommandActionModel(CommandActionTypeEnum commandActionType, CommandModelBase command, string commandArguments, bool waitForCommandToFinish)
-            : base(ActionTypeEnum.Command)
+            : this(commandActionType)
         {
-            this.ActionType = commandActionType;
             if (command is PreMadeChatCommandModelBase)
             {
                 this.PreMadeType = command.GetType();
@@ -55,42 +59,19 @@ namespace MixItUp.Base.Model.Actions
         }
 
         public CommandActionModel(CommandActionTypeEnum commandActionType, string groupName)
-            : base(ActionTypeEnum.Command)
+            : this(commandActionType)
         {
-            this.ActionType = commandActionType;
             this.CommandGroupName = groupName;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal CommandActionModel(MixItUp.Base.Actions.CommandAction action)
+        public CommandActionModel(CommandActionTypeEnum commandActionType)
             : base(ActionTypeEnum.Command)
         {
-            this.ActionType = (CommandActionTypeEnum)(int)action.CommandActionType;
-            this.CommandID = action.CommandID;
-            if (!string.IsNullOrEmpty(action.PreMadeType))
-            {
-                string typeName = action.PreMadeType.Replace("ChatCommand", "PreMadeChatCommandModel");
-                typeName = typeName.Replace("MixItUp.Base.Commands", "MixItUp.Base.Model.Commands");
-                try
-                {
-                    Type type = System.Type.GetType(typeName);
-                    if (type != null)
-                    {
-                        this.PreMadeType = type;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log(ex);
-                }
-            }
-            this.Arguments = action.CommandArguments;
-            this.WaitForCommandToFinish = false;
-            this.CommandGroupName = action.GroupName;
+            this.ActionType = commandActionType;
         }
-#pragma warning restore CS0612 // Type or member is obsolete
 
-        private CommandActionModel() { }
+        [Obsolete]
+        public CommandActionModel() { }
 
         public CommandModelBase Command
         {
@@ -98,11 +79,11 @@ namespace MixItUp.Base.Model.Actions
             {
                 if (this.PreMadeType != null)
                 {
-                    return ChannelSession.PreMadeChatCommands.FirstOrDefault(c => c.GetType().Equals(this.PreMadeType));
+                    return ServiceManager.Get<CommandService>().PreMadeChatCommands.FirstOrDefault(c => c.GetType().Equals(this.PreMadeType));
                 }
                 else
                 {
-                    return ChannelSession.AllCommands.FirstOrDefault(c => c.ID.Equals(this.CommandID));
+                    return ServiceManager.Get<CommandService>().AllCommands.FirstOrDefault(c => c.ID.Equals(this.CommandID));
                 }
             }
         }
@@ -111,7 +92,7 @@ namespace MixItUp.Base.Model.Actions
         {
             get
             {
-                return ChannelSession.AllCommands.Where(c => string.Equals(this.CommandGroupName, c.GroupName)).ToList();
+                return ServiceManager.Get<CommandService>().AllCommands.Where(c => string.Equals(this.CommandGroupName, c.GroupName)).ToList();
             }
         }
 
@@ -122,10 +103,15 @@ namespace MixItUp.Base.Model.Actions
             {
                 if (command != null)
                 {
+                    if (this.Command.ID == parameters.InitialCommandID)
+                    {
+                        Logger.Log(LogLevel.Error, "Command Action calling in to itself, possible endless loop - Command ID: " + parameters.InitialCommandID);
+                    }
+
                     List<string> newArguments = new List<string>();
                     if (!string.IsNullOrEmpty(this.Arguments))
                     {
-                        string processedMessage = await this.ReplaceStringWithSpecialModifiers(this.Arguments, parameters);
+                        string processedMessage = await ReplaceStringWithSpecialModifiers(this.Arguments, parameters);
                         newArguments = processedMessage.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries).ToList();
                     }
                     else
@@ -135,16 +121,40 @@ namespace MixItUp.Base.Model.Actions
 
                     CommandParametersModel copyParameters = parameters.Duplicate();
                     copyParameters.Arguments = newArguments;
-                    copyParameters.WaitForCommandToFinish = copyParameters.DontLockCommand = this.WaitForCommandToFinish;
-                    await command.Perform(copyParameters);
+
+                    CommandInstanceModel commandInstance = new CommandInstanceModel(command, copyParameters);
+                    if (this.WaitForCommandToFinish)
+                    {
+                        await ServiceManager.Get<CommandService>().RunDirectlyWithValidation(commandInstance);
+                    }
+                    else
+                    {
+                        await ServiceManager.Get<CommandService>().Queue(commandInstance);
+                    }
                 }
             }
-            else if (this.ActionType == CommandActionTypeEnum.DisableCommand || this.ActionType == CommandActionTypeEnum.EnableCommand)
+            else if (this.ActionType == CommandActionTypeEnum.DisableCommand || this.ActionType == CommandActionTypeEnum.EnableCommand ||
+                this.ActionType == CommandActionTypeEnum.ToggleCommand)
             {
                 if (command != null)
                 {
-                    command.IsEnabled = (this.ActionType == CommandActionTypeEnum.EnableCommand) ? true : false;
-                    ChannelSession.Services.Chat.RebuildCommandTriggers();
+                    if (this.ActionType == CommandActionTypeEnum.ToggleCommand)
+                    {
+                        command.IsEnabled = !command.IsEnabled;
+                    }
+                    else
+                    {
+                        command.IsEnabled = (this.ActionType == CommandActionTypeEnum.EnableCommand) ? true : false;
+                    }
+
+                    if (command is ChatCommandModel)
+                    {
+                        ServiceManager.Get<ChatService>().RebuildCommandTriggers();
+                    }
+                    else if (command is TimerCommandModel)
+                    {
+                        await ServiceManager.Get<TimerService>().RebuildTimerGroups();
+                    }
                 }
             }
             else if (this.ActionType == CommandActionTypeEnum.DisableCommandGroup || this.ActionType == CommandActionTypeEnum.EnableCommandGroup)
@@ -152,13 +162,47 @@ namespace MixItUp.Base.Model.Actions
                 IEnumerable<CommandModelBase> commands = this.CommandGroup;
                 if (commands != null)
                 {
+                    bool chatCommand = false;
+                    bool timerCommand = false;
                     foreach (CommandModelBase cmd in commands)
                     {
                         cmd.IsEnabled = (this.ActionType == CommandActionTypeEnum.EnableCommandGroup) ? true : false;
                         ChannelSession.Settings.Commands.ManualValueChanged(cmd.ID);
+
+                        if (cmd is ChatCommandModel)
+                        {
+                            chatCommand = true;
+                        }
+                        else if (command is TimerCommandModel)
+                        {
+                            timerCommand = true;
+                        }
                     }
-                    ChannelSession.Services.Chat.RebuildCommandTriggers();
+
+                    if (chatCommand)
+                    {
+                        ServiceManager.Get<ChatService>().RebuildCommandTriggers();
+                    }
+                    if (timerCommand)
+                    {
+                        await ServiceManager.Get<TimerService>().RebuildTimerGroups();
+                    }
                 }
+            }
+            else if (this.ActionType == CommandActionTypeEnum.CancelAllCommands)
+            {
+                foreach (CommandInstanceModel commandInstance in ServiceManager.Get<CommandService>().CommandInstances.Where(c => c.State == CommandInstanceStateEnum.Pending || c.State == CommandInstanceStateEnum.Running))
+                {
+                    ServiceManager.Get<CommandService>().Cancel(commandInstance);
+                }
+            }
+            else if (this.ActionType == CommandActionTypeEnum.PauseAllCommands)
+            {
+                await ServiceManager.Get<CommandService>().Pause();
+            }
+            else if (this.ActionType == CommandActionTypeEnum.UnpauseAllCommands)
+            {
+                await ServiceManager.Get<CommandService>().Unpause();
             }
         }
     }

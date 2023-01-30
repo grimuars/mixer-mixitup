@@ -1,13 +1,11 @@
 ﻿using MixItUp.Base;
 using MixItUp.Base.Model.Commands;
-using MixItUp.Base.Model.Currency;
 using MixItUp.Base.Model.User;
+using MixItUp.Base.Services;
 using MixItUp.Base.ViewModel.User;
-using MixItUp.WPF.Controls.Currency;
 using MixItUp.WPF.Util;
 using MixItUp.WPF.Windows.Commands;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -18,12 +16,12 @@ namespace MixItUp.WPF.Windows.Users
     /// </summary>
     public partial class UserDataEditorWindow : LoadingWindowBase
     {
-        private UserViewModel user;
+        private UserV2ViewModel user;
         private UserDataEditorWindowViewModel viewModel;
 
-        public UserDataEditorWindow(UserDataModel userData)
+        public UserDataEditorWindow(UserV2Model userData)
         {
-            this.user = new UserViewModel(userData);
+            this.user = new UserV2ViewModel(userData);
             this.DataContext = this.viewModel = new UserDataEditorWindowViewModel(userData);
 
             InitializeComponent();
@@ -36,18 +34,6 @@ namespace MixItUp.WPF.Windows.Users
         protected override async Task OnLoaded()
         {
             await this.viewModel.Load();
-
-            this.CurrencyRankStackPanel.Children.Clear();
-            foreach (CurrencyModel currency in ChannelSession.Settings.Currency.Values.ToList())
-            {
-                this.CurrencyRankStackPanel.Children.Add(new UserCurrencyIndividualEditorControl(this.user.Data, currency));
-            }
-
-            this.InventoryStackPanel.Children.Clear();
-            foreach (InventoryModel inventory in ChannelSession.Settings.Inventory.Values.ToList())
-            {
-                this.InventoryStackPanel.Children.Add(new UserInventoryEditorControl(this.user.Data, inventory));
-            }
         }
 
         private void AddUserOnlyCommandButton_Click(object sender, RoutedEventArgs e)
@@ -58,14 +44,14 @@ namespace MixItUp.WPF.Windows.Users
                 this.viewModel.AddUserOnlyChatCommand((UserOnlyChatCommandModel)command);
                 this.viewModel.RefreshUserOnlyChatCommands();
             };
-            window.Show();
+            window.ForceShow();
         }
 
         private void UserOnlyChatCommandButtons_EditClicked(object sender, RoutedEventArgs e)
         {
-            CommandEditorWindow window = new CommandEditorWindow(FrameworkElementHelpers.GetDataContext<UserOnlyChatCommandModel>(sender));
+            CommandEditorWindow window = CommandEditorWindow.GetCommandEditorWindow(FrameworkElementHelpers.GetDataContext<UserOnlyChatCommandModel>(sender));
             window.CommandSaved += (object s, CommandModelBase command) => { this.viewModel.RefreshUserOnlyChatCommands(); };
-            window.Show();
+            window.ForceShow();
         }
 
         private async void UserOnlyChatCommandButtons_DeleteClicked(object sender, RoutedEventArgs e)
@@ -74,27 +60,27 @@ namespace MixItUp.WPF.Windows.Users
             {
                 this.viewModel.RemoveUserOnlyChatCommand(FrameworkElementHelpers.GetDataContext<UserOnlyChatCommandModel>(sender));
                 await ChannelSession.SaveSettings();
-                ChannelSession.Services.Chat.RebuildCommandTriggers();
+                ServiceManager.Get<ChatService>().RebuildCommandTriggers();
             });
         }
 
         private void UserOnlyChatCommandButtons_EnableDisableToggled(object sender, RoutedEventArgs e)
         {
-            ChannelSession.Services.Chat.RebuildCommandTriggers();
+            ServiceManager.Get<ChatService>().RebuildCommandTriggers();
         }
 
         private void NewEntranceCommandButton_Click(object sender, RoutedEventArgs e)
         {
             CommandEditorWindow window = new CommandEditorWindow(CommandTypeEnum.Custom, UserDataEditorWindowViewModel.UserEntranceCommandName);
             window.CommandSaved += (object s, CommandModelBase command) => { this.viewModel.EntranceCommand = command; };
-            window.Show();
+            window.ForceShow();
         }
 
         private void ExistingEntranceCommandButtons_EditClicked(object sender, RoutedEventArgs e)
         {
-            CommandEditorWindow window = new CommandEditorWindow(FrameworkElementHelpers.GetDataContext<CommandModelBase>(sender));
+            CommandEditorWindow window = CommandEditorWindow.GetCommandEditorWindow(FrameworkElementHelpers.GetDataContext<CommandModelBase>(sender));
             window.CommandSaved += (object s, CommandModelBase command) => { this.viewModel.EntranceCommand = command; };
-            window.Show();
+            window.ForceShow();
         }
 
         private async void ExistingEntranceCommandButtons_DeleteClicked(object sender, RoutedEventArgs e)
@@ -108,7 +94,7 @@ namespace MixItUp.WPF.Windows.Users
 
         private void UserDataEditorWindow_Closed(object sender, EventArgs e)
         {
-            ChannelSession.Settings.UserData.ManualValueChanged(this.user.ID);
+            ChannelSession.Settings.Users.ManualValueChanged(this.user.ID);
         }
     }
 }

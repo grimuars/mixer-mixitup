@@ -1,4 +1,5 @@
 ﻿using Jace;
+using MixItUp.Base.Model.Settings;
 using StreamingClient.Base.Util;
 using System;
 
@@ -19,9 +20,12 @@ namespace MixItUp.Base.Util
                 equation = equation.Replace("random(", "customrandom(");
 
                 // Process Math
-                CalculationEngine engine = new CalculationEngine(new System.Globalization.CultureInfo("en-US"));
+                CalculationEngine engine = new CalculationEngine(Languages.GetLanguageLocaleCultureInfo());
                 engine.AddFunction("customrandom", Random);
                 engine.AddFunction("randomrange", RandomRange);
+
+                // If they used +1, then trim it off
+                equation = equation.TrimStart(' ', '+');
 
                 result = engine.Calculate(equation);
             }

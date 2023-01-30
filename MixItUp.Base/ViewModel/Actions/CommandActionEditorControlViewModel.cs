@@ -1,5 +1,6 @@
 ﻿using MixItUp.Base.Model.Actions;
 using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Services;
 using MixItUp.Base.Util;
 using StreamingClient.Base.Util;
 using System.Collections.Generic;
@@ -28,7 +29,14 @@ namespace MixItUp.Base.ViewModel.Actions
         }
         private CommandActionTypeEnum selectedActionType;
 
-        public bool ShowCommandsSection { get { return this.SelectedActionType == CommandActionTypeEnum.RunCommand || this.SelectedActionType == CommandActionTypeEnum.EnableCommand || this.SelectedActionType == CommandActionTypeEnum.DisableCommand; } }
+        public bool ShowCommandsSection
+        {
+            get
+            {
+                return this.SelectedActionType == CommandActionTypeEnum.RunCommand || this.SelectedActionType == CommandActionTypeEnum.EnableCommand ||
+                    this.SelectedActionType == CommandActionTypeEnum.DisableCommand || this.SelectedActionType == CommandActionTypeEnum.ToggleCommand;
+            }
+        }
 
         public IEnumerable<CommandTypeEnum> CommandTypes
         {
@@ -37,7 +45,7 @@ namespace MixItUp.Base.ViewModel.Actions
                 List<CommandTypeEnum> types = new List<CommandTypeEnum>(EnumHelper.GetEnumList<CommandTypeEnum>());
                 types.Remove(CommandTypeEnum.UserOnlyChat);
                 types.Remove(CommandTypeEnum.Custom);
-                return types;
+                return types.OrderBy(c => EnumLocalizationHelper.GetLocalizedName(c));
             }
         }
 
@@ -60,11 +68,11 @@ namespace MixItUp.Base.ViewModel.Actions
             {
                 if (this.SelectedCommandType == CommandTypeEnum.PreMade)
                 {
-                    return ChannelSession.PreMadeChatCommands.OrderBy(c => c.Name);
+                    return ServiceManager.Get<CommandService>().PreMadeChatCommands.OrderBy(c => c.Name);
                 }
                 else
                 {
-                    return ChannelSession.AllCommands.Where(c => c.Type == this.SelectedCommandType).OrderBy(c => c.Name);
+                    return ServiceManager.Get<CommandService>().AllCommands.Where(c => c.Type == this.SelectedCommandType).OrderBy(c => c.Name);
                 }
             }
         }
@@ -170,7 +178,10 @@ namespace MixItUp.Base.ViewModel.Actions
             {
                 return Task.FromResult<ActionModelBase>(new CommandActionModel(this.SelectedActionType, this.SelectedCommandGroup));
             }
-            return Task.FromResult<ActionModelBase>(null);
+            else
+            {
+                return Task.FromResult<ActionModelBase>(new CommandActionModel(this.SelectedActionType));
+            }
         }
     }
 }

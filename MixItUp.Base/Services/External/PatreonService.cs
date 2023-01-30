@@ -1,4 +1,5 @@
 ﻿using MixItUp.Base.Model;
+using MixItUp.Base.Model.Commands;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
@@ -51,7 +52,7 @@ namespace MixItUp.Base.Services.External
                 {
                     return StreamingPlatformTypeEnum.Twitch;
                 }
-                return StreamingPlatformTypeEnum.All;
+                return StreamingPlatformTypeEnum.None;
             }
         }
 
@@ -349,19 +350,7 @@ namespace MixItUp.Base.Services.External
         public override int GetHashCode() { return this.ID.GetHashCode(); }
     }
 
-    public interface IPatreonService : IOAuthExternalService
-    {
-        PatreonCampaign Campaign { get; }
-        IEnumerable<PatreonCampaignMember> CampaignMembers { get; }
-
-        Task<PatreonUser> GetCurrentUser();
-
-        Task<PatreonCampaign> GetCampaign();
-
-        Task<IEnumerable<PatreonCampaignMember>> GetCampaignMembers();
-    }
-
-    public class PatreonService : OAuthExternalServiceBase, IPatreonService
+    public class PatreonService : OAuthExternalServiceBase
     {
         private const string BaseAddress = "https://www.patreon.com/api/oauth2/v2/";
 
@@ -381,7 +370,7 @@ namespace MixItUp.Base.Services.External
 
         public PatreonService() : base(PatreonService.BaseAddress) { }
 
-        public override string Name { get { return "Patreon"; } }
+        public override string Name { get { return MixItUp.Base.Resources.Patreon; } }
 
         public override async Task<Result> Connect()
         {
@@ -394,12 +383,12 @@ namespace MixItUp.Base.Services.External
                     {
                         new KeyValuePair<string, string>("grant_type", "authorization_code"),
                         new KeyValuePair<string, string>("client_id", PatreonService.ClientID),
-                        new KeyValuePair<string, string>("client_secret", ChannelSession.Services.Secrets.GetSecret("PatreonSecret")),
+                        new KeyValuePair<string, string>("client_secret", ServiceManager.Get<SecretsService>().GetSecret("PatreonSecret")),
                         new KeyValuePair<string, string>("redirect_uri", OAuthExternalServiceBase.DEFAULT_OAUTH_LOCALHOST_URL),
                         new KeyValuePair<string, string>("code", authorizationCode),
                     };
 
-                    this.token = await this.GetWWWFormUrlEncodedOAuthToken(PatreonService.TokenUrl, PatreonService.ClientID, ChannelSession.Services.Secrets.GetSecret("PatreonSecret"), body);
+                    this.token = await this.GetWWWFormUrlEncodedOAuthToken(PatreonService.TokenUrl, PatreonService.ClientID, ServiceManager.Get<SecretsService>().GetSecret("PatreonSecret"), body);
                     if (this.token != null)
                     {
                         token.authorizationCode = authorizationCode;
@@ -420,7 +409,7 @@ namespace MixItUp.Base.Services.External
         {
             this.cancellationTokenSource.Cancel();
             this.token = null;
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
 
         public async Task<PatreonUser> GetCurrentUser()
@@ -640,11 +629,11 @@ namespace MixItUp.Base.Services.External
                 {
                     new KeyValuePair<string, string>("grant_type", "refresh_token"),
                     new KeyValuePair<string, string>("client_id", PatreonService.ClientID),
-                    new KeyValuePair<string, string>("client_secret", ChannelSession.Services.Secrets.GetSecret("PatreonSecret")),
+                    new KeyValuePair<string, string>("client_secret", ServiceManager.Get<SecretsService>().GetSecret("PatreonSecret")),
                     new KeyValuePair<string, string>("refresh_token", this.token.refreshToken),
                 };
 
-                this.token = await this.GetWWWFormUrlEncodedOAuthToken(PatreonService.TokenUrl, PatreonService.ClientID, ChannelSession.Services.Secrets.GetSecret("PatreonSecret"), body);
+                this.token = await this.GetWWWFormUrlEncodedOAuthToken(PatreonService.TokenUrl, PatreonService.ClientID, ServiceManager.Get<SecretsService>().GetSecret("PatreonSecret"), body);
             }
         }
 
@@ -680,9 +669,9 @@ namespace MixItUp.Base.Services.External
                     this.TrackServiceTelemetry("Patreon");
                     return new Result();
                 }
-                return new Result("Failed to get Campaign data");
+                return new Result(Resources.PatreonCampaignDataFailed);
             }
-            return new Result("Failed to get User data");
+            return new Result(Resources.PatreonUserDataFailed);
         }
 
         private async Task BackgroundDonationCheck(CancellationToken token)
@@ -698,22 +687,22 @@ namespace MixItUp.Base.Services.External
                         PatreonTier tier = this.Campaign.GetTier(member.TierID);
                         if (tier != null)
                         {
-                            EventTrigger trigger = new EventTrigger(EventTypeEnum.PatreonSubscribed);
+                            CommandParametersModel parameters = new CommandParametersModel();
 
-                            trigger.User = ChannelSession.Services.User.GetUserFullSearch(member.User.Platform, member.User.PlatformUserID, member.User.PlatformUsername);
-                            if (trigger.User != null)
+                            parameters.User = await ServiceManager.Get<UserService>().GetUserByPlatformID(member.User.Platform, member.User.PlatformUserID);
+                            if (parameters.User != null)
                             {
-                                trigger.User.Data.PatreonUserID = member.UserID;
+                                parameters.User.PatreonUser = member;
                             }
                             else
                             {
-                                trigger.User = new UserViewModel(member.User.PlatformUsername);
+                                parameters.User = UserV2ViewModel.CreateUnassociated(member.User.PlatformUsername);
                             }
 
-                            trigger.SpecialIdentifiers[SpecialIdentifierStringBuilder.PatreonTierNameSpecialIdentifier] = tier.Title;
-                            trigger.SpecialIdentifiers[SpecialIdentifierStringBuilder.PatreonTierAmountSpecialIdentifier] = tier.Amount.ToString();
-                            trigger.SpecialIdentifiers[SpecialIdentifierStringBuilder.PatreonTierImageSpecialIdentifier] = tier.ImageUrl;
-                            await ChannelSession.Services.Events.PerformEvent(trigger);
+                            parameters.SpecialIdentifiers[SpecialIdentifierStringBuilder.PatreonTierNameSpecialIdentifier] = tier.Title;
+                            parameters.SpecialIdentifiers[SpecialIdentifierStringBuilder.PatreonTierAmountSpecialIdentifier] = tier.Amount.ToString();
+                            parameters.SpecialIdentifiers[SpecialIdentifierStringBuilder.PatreonTierImageSpecialIdentifier] = tier.ImageUrl;
+                            await ServiceManager.Get<EventService>().PerformEvent(EventTypeEnum.PatreonSubscribed, parameters);
                         }
                     }
                     this.currentMembersAndTiers[member.UserID] = member.TierID;

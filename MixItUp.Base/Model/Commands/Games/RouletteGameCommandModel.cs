@@ -1,4 +1,5 @@
-﻿using MixItUp.Base.Util;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
 using System;
@@ -51,7 +52,7 @@ namespace MixItUp.Base.Model.Commands.Games
         [JsonIgnore]
         private CommandParametersModel runParameters;
         [JsonIgnore]
-        private Dictionary<UserViewModel, CommandParametersModel> runUsers = new Dictionary<UserViewModel, CommandParametersModel>();
+        private Dictionary<UserV2ViewModel, CommandParametersModel> runUsers = new Dictionary<UserV2ViewModel, CommandParametersModel>();
 
         public RouletteGameCommandModel(string name, HashSet<string> triggers, int minimumParticipants, int timeLimit, RouletteGameCommandBetType betType, HashSet<string> betOptions, CustomCommandModel startedCommand,
             CustomCommandModel userJoinCommand, CustomCommandModel notEnoughPlayersCommand, GameOutcomeModel userSuccessOutcome, CustomCommandModel userFailureCommand, CustomCommandModel gameCompleteCommand)
@@ -69,24 +70,8 @@ namespace MixItUp.Base.Model.Commands.Games
             this.GameCompleteCommand = gameCompleteCommand;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal RouletteGameCommandModel(Base.Commands.RouletteGameCommand command)
-            : base(command, GameCommandTypeEnum.Roulette)
-        {
-            this.MinimumParticipants = command.MinimumParticipants;
-            this.TimeLimit = command.TimeLimit;
-            this.BetType = command.IsNumberRange ? RouletteGameCommandBetType.NumberRange : RouletteGameCommandBetType.Custom;
-            this.BetOptions = new HashSet<string>(command.ValidBetTypes);
-            this.StartedCommand = new CustomCommandModel(command.StartedCommand) { IsEmbedded = true };
-            this.UserJoinCommand = new CustomCommandModel(command.UserJoinCommand) { IsEmbedded = true };
-            this.NotEnoughPlayersCommand = new CustomCommandModel(command.NotEnoughPlayersCommand) { IsEmbedded = true };
-            this.UserSuccessOutcome = new GameOutcomeModel(command.UserSuccessOutcome);
-            this.UserFailureCommand = new CustomCommandModel(command.UserFailOutcome.Command) { IsEmbedded = true };
-            this.GameCompleteCommand = new CustomCommandModel(command.GameCompleteCommand) { IsEmbedded = true };
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private RouletteGameCommandModel() { }
+        [Obsolete]
+        public RouletteGameCommandModel() : base() { }
 
         public override IEnumerable<CommandModelBase> GetInnerCommands()
         {
@@ -100,20 +85,22 @@ namespace MixItUp.Base.Model.Commands.Games
             return commands;
         }
 
-        protected override async Task<bool> ValidateRequirements(CommandParametersModel parameters)
+        public override Task<Result> CustomValidation(CommandParametersModel parameters)
         {
             this.SetPrimaryCurrencyRequirementArgumentIndex(argumentIndex: 1);
 
-            if (parameters.Arguments.Count > 0 && IsValidBetTypes(parameters.Arguments[0]))
+            if (parameters.Arguments.Count == 0 || !this.IsValidBetTypes(parameters.Arguments[0]))
             {
-                return await base.ValidateRequirements(parameters);
+                return Task.FromResult(new Result(string.Format(MixItUp.Base.Resources.GameCommandRouletteValidBetTypes, this.GetValidBetTypes())));
             }
-            await ChannelSession.Services.Chat.SendMessage(string.Format(MixItUp.Base.Resources.GameCommandRouletteValidBetTypes, this.GetValidBetTypes()));
-            return false;
+
+            return Task.FromResult(new Result());
         }
 
-        protected override async Task PerformInternal(CommandParametersModel parameters)
+        public override async Task CustomRun(CommandParametersModel parameters)
         {
+            await this.RefundCooldown(parameters);
+
             if (!this.runUsers.ContainsKey(parameters.User))
             {
                 string betType = parameters.Arguments[0].ToLower();
@@ -130,7 +117,7 @@ namespace MixItUp.Base.Model.Commands.Games
 
                         if (this.runUsers.Count < this.MinimumParticipants)
                         {
-                            await this.NotEnoughPlayersCommand.Perform(this.runParameters);
+                            await this.RunSubCommand(this.NotEnoughPlayersCommand, this.runParameters);
                             foreach (var kvp in this.runUsers.ToList())
                             {
                                 await this.Requirements.Refund(kvp.Value);
@@ -141,6 +128,11 @@ namespace MixItUp.Base.Model.Commands.Games
                         }
 
                         string winningBetType = this.BetOptions.Random();
+                        if (this.BetType == RouletteGameCommandBetType.NumberRange)
+                        {
+                            IEnumerable<int> minMaxNumbers = this.BetOptions.Select(s => int.Parse(s));
+                            winningBetType = RandomHelper.GenerateRandomNumber(minMaxNumbers.Min(), minMaxNumbers.Max()).ToString();
+                        }
 
                         List<CommandParametersModel> winners = new List<CommandParametersModel>();
                         int totalPayout = 0;
@@ -150,20 +142,19 @@ namespace MixItUp.Base.Model.Commands.Games
                             if (string.Equals(winningBetType, participant.Arguments[0], StringComparison.CurrentCultureIgnoreCase))
                             {
                                 winners.Add(participant);
-                                totalPayout += await this.PerformOutcome(participant, this.UserSuccessOutcome);
+                                totalPayout += await this.RunOutcome(participant, this.UserSuccessOutcome);
                             }
                             else
                             {
-                                await this.UserFailureCommand.Perform(participant);
+                                await this.RunSubCommand(this.UserFailureCommand, participant);
                             }
                         }
 
-                        this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersCountSpecialIdentifier] = winners.Count.ToString();
-                        this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersSpecialIdentifier] = string.Join(", ", winners.Select(u => "@" + u.User.Username));
+                        this.SetGameWinners(this.runParameters, winners);
                         this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameAllPayoutSpecialIdentifier] = totalPayout.ToString();
                         this.runParameters.SpecialIdentifiers[RouletteGameCommandModel.GameRouletteWinningBetTypeSpecialIdentifier] = winningBetType;
 
-                        await this.GameCompleteCommand.Perform(this.runParameters);
+                        await this.RunSubCommand(this.GameCompleteCommand, this.runParameters);
 
                         await this.PerformCooldown(this.runParameters);
                         this.ClearData();
@@ -171,16 +162,16 @@ namespace MixItUp.Base.Model.Commands.Games
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
                     this.runParameters.SpecialIdentifiers[RouletteGameCommandModel.GameRouletteValidBetTypesSpecialIdentifier] = this.GetValidBetTypes();
-                    await this.StartedCommand.Perform(this.runParameters);
+                    await this.RunSubCommand(this.StartedCommand, this.runParameters);
                 }
 
                 parameters.SpecialIdentifiers[RouletteGameCommandModel.GameRouletteBetTypeSpecialIdentifier] = betType;
-                await this.UserJoinCommand.Perform(parameters);
+                await this.RunSubCommand(this.UserJoinCommand, parameters);
                 return;
             }
             else
             {
-                await ChannelSession.Services.Chat.SendMessage(MixItUp.Base.Resources.GameCommandAlreadyUnderway);
+                await ServiceManager.Get<ChatService>().SendMessage(MixItUp.Base.Resources.GameCommandAlreadyUnderway, parameters);
             }
             await this.Requirements.Refund(parameters);
         }

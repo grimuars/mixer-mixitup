@@ -6,7 +6,6 @@ using MixItUp.Base.Util;
 using MixItUp.Base.ViewModels;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -207,7 +206,7 @@ namespace MixItUp.Base.ViewModel.Currency
 
         public ICommand HelpCommand { get; private set; }
 
-        private Dictionary<UserDataModel, int> userImportData = new Dictionary<UserDataModel, int>();
+        private Dictionary<UserV2Model, int> userImportData = new Dictionary<UserV2Model, int>();
 
         public InventoryWindowViewModel(InventoryModel inventory)
             : this()
@@ -235,39 +234,39 @@ namespace MixItUp.Base.ViewModel.Currency
             this.DefaultItemMaxAmount = 99;
 
             CustomCommandModel buyCommand = new CustomCommandModel(MixItUp.Base.Resources.InventoryItemsBoughtCommandName);
-            buyCommand.Actions.Add(new ChatActionModel("You bought $itemtotal $itemname for $itemcost $currencyname", sendAsStreamer: false));
+            buyCommand.Actions.Add(new ChatActionModel(MixItUp.Base.Resources.InventoryBuyCommandDefault, sendAsStreamer: false));
             this.ShopBuyCommand = buyCommand;
             CustomCommandModel sellCommand = new CustomCommandModel(MixItUp.Base.Resources.InventoryItemsSoldCommandName);
-            sellCommand.Actions.Add(new ChatActionModel("You sold $itemtotal $itemname for $itemcost $currencyname", sendAsStreamer: false));
+            sellCommand.Actions.Add(new ChatActionModel(MixItUp.Base.Resources.InventorySellCommandDefault, sendAsStreamer: false));
             this.ShopSellCommand = sellCommand;
 
             CustomCommandModel tradeCommand = new CustomCommandModel(MixItUp.Base.Resources.InventoryItemsTradedCommandName);
-            tradeCommand.Actions.Add(new ChatActionModel("@$username traded $itemtotal $itemname to @$targetusername for $targetitemtotal $targetitemname", sendAsStreamer: false));
+            tradeCommand.Actions.Add(new ChatActionModel(MixItUp.Base.Resources.InventoryTradeCommandDefault, sendAsStreamer: false));
             this.TradeCommand = tradeCommand;
 
-            this.SaveItemCommand = this.CreateCommand(async (parameter) =>
+            this.SaveItemCommand = this.CreateCommand(async () =>
             {
                 if (string.IsNullOrEmpty(this.ItemName))
                 {
-                    await DialogHelper.ShowMessage("You must specify a name for the item");
+                    await DialogHelper.ShowMessage(Resources.ItemNameRequired);
                     return;
                 }
 
                 if (this.ItemMaxAmount < 0)
                 {
-                    await DialogHelper.ShowMessage("The item max amount must be either blank or a number greater than 0");
+                    await DialogHelper.ShowMessage(Resources.ItemMaxAmountZeroOrMore);
                     return;
                 }
 
                 if (this.ItemBuyAmount < 0)
                 {
-                    await DialogHelper.ShowMessage("The item buy amount must be either blank or a number greater than 0");
+                    await DialogHelper.ShowMessage(Resources.ItemBuyAmountZeroOrMore);
                     return;
                 }
 
                 if (this.ItemSellAmount < 0)
                 {
-                    await DialogHelper.ShowMessage("The item sell amount must be either blank or a number greater than 0");
+                    await DialogHelper.ShowMessage(Resources.ItemSellAmountZeroOrMore);
                     return;
                 }
 
@@ -276,7 +275,7 @@ namespace MixItUp.Base.ViewModel.Currency
                     InventoryItemModel existingItem = this.Items.FirstOrDefault(i => i.Name.Equals(this.ItemName, StringComparison.CurrentCultureIgnoreCase));
                     if (existingItem != null)
                     {
-                        await DialogHelper.ShowMessage("An item with the same name already exists");
+                        await DialogHelper.ShowMessage(Resources.DuplicateItemName);
                         return;
                     }
 
@@ -284,7 +283,7 @@ namespace MixItUp.Base.ViewModel.Currency
                 }
                 else
                 {
-                    this.SelectedItem.Name = this.ItemName;
+                    this.SelectedItem.Name = this.ItemName.Trim();
                     this.SelectedItem.MaxAmount = this.ItemMaxAmount;
                     this.SelectedItem.BuyAmount = this.ItemBuyAmount;
                     this.SelectedItem.SellAmount = this.ItemSellAmount;
@@ -296,7 +295,7 @@ namespace MixItUp.Base.ViewModel.Currency
                 this.SelectedItem = null;
             });
 
-            this.ManualResetCommand = this.CreateCommand(async (parameter) =>
+            this.ManualResetCommand = this.CreateCommand(async () =>
             {
                 if (this.Inventory != null)
                 {
@@ -307,10 +306,9 @@ namespace MixItUp.Base.ViewModel.Currency
                 }
             });
 
-            this.HelpCommand = this.CreateCommand((parameter) =>
+            this.HelpCommand = this.CreateCommand(() =>
             {
-                ProcessHelper.LaunchLink("https://github.com/SaviorXTanren/mixer-mixitup/wiki/Currency,-Rank,-&-Inventory");
-                return Task.FromResult(0);
+                ProcessHelper.LaunchLink("https://wiki.mixitupapp.com/consumables/inventory");
             });
         }
 
@@ -318,33 +316,33 @@ namespace MixItUp.Base.ViewModel.Currency
         {
             if (string.IsNullOrEmpty(this.Name))
             {
-                await DialogHelper.ShowMessage("An inventory name must be specified");
+                await DialogHelper.ShowMessage(Resources.InventoryNameRequired);
                 return false;
             }
 
             InventoryModel dupeInventory = ChannelSession.Settings.Inventory.Values.FirstOrDefault(c => c.Name.Equals(this.Name));
             if (dupeInventory != null && (this.inventory == null || !this.inventory.ID.Equals(dupeInventory.ID)))
             {
-                await DialogHelper.ShowMessage("There already exists an inventory with this name");
+                await DialogHelper.ShowMessage(Resources.InventoryNameDuplicate);
                 return false;
             }
 
             CurrencyModel dupeCurrency = ChannelSession.Settings.Currency.Values.FirstOrDefault(c => c.Name.Equals(this.Name));
             if (dupeCurrency != null)
             {
-                await DialogHelper.ShowMessage("There already exists a currency or rank system with this name");
+                await DialogHelper.ShowMessage(Resources.CurrencyRankNameDuplicate);
                 return false;
             }
 
             if (this.DefaultItemMaxAmount <= 0)
             {
-                await DialogHelper.ShowMessage("The default max amount must be greater than 0");
+                await DialogHelper.ShowMessage(Resources.DefaultMaxGreaterThanZero);
                 return false;
             }
 
             if (this.Items.Count() == 0)
             {
-                await DialogHelper.ShowMessage("At least 1 item must be added");
+                await DialogHelper.ShowMessage(Resources.OneItemRequired);
                 return false;
             }
 
@@ -352,14 +350,26 @@ namespace MixItUp.Base.ViewModel.Currency
             {
                 if (string.IsNullOrEmpty(this.ShopCommandText))
                 {
-                    await DialogHelper.ShowMessage("A command name must be specified for the shop");
+                    await DialogHelper.ShowMessage(Resources.CommandNameRequiredForShop);
                     return false;
                 }
 
                 if (this.SelectedShopCurrency == null)
                 {
-                    await DialogHelper.ShowMessage("A currency must be specified for the shop");
+                    await DialogHelper.ShowMessage(Resources.ShopCurrencyRequired);
                     return false;
+                }
+
+                foreach (InventoryModel otherInventory in ChannelSession.Settings.Inventory.Values)
+                {
+                    if (this.inventory == null || !this.inventory.ID.Equals(otherInventory.ID))
+                    {
+                        if (otherInventory.ShopEnabled && string.Equals(this.shopCommandText, otherInventory.ShopCommand, StringComparison.OrdinalIgnoreCase))
+                        {
+                            await DialogHelper.ShowMessage(Resources.InventoryShopDuplicateCommand);
+                            return false;
+                        }
+                    }
                 }
             }
 
@@ -367,7 +377,7 @@ namespace MixItUp.Base.ViewModel.Currency
             {
                 if (string.IsNullOrEmpty(this.TradeCommandText))
                 {
-                    await DialogHelper.ShowMessage("A command name must be specified for trading");
+                    await DialogHelper.ShowMessage(Resources.TradingCommandRequired);
                     return false;
                 }
             }
@@ -383,7 +393,7 @@ namespace MixItUp.Base.ViewModel.Currency
                 ChannelSession.Settings.Inventory[this.inventory.ID] = this.inventory;
             }
 
-            this.inventory.Name = this.Name;
+            this.inventory.Name = this.Name.Trim();
             this.inventory.DefaultMaxAmount = this.DefaultItemMaxAmount;
             this.inventory.SpecialIdentifier = SpecialIdentifierStringBuilder.ConvertToSpecialIdentifier(this.inventory.Name);
             this.inventory.Items = new Dictionary<Guid, InventoryItemModel>(this.Items.ToDictionary(i => i.ID, i => i));

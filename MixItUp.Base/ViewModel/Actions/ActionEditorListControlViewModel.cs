@@ -4,7 +4,6 @@ using MixItUp.Base.Util;
 using MixItUp.Base.ViewModels;
 using StreamingClient.Base.Util;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -40,7 +39,7 @@ namespace MixItUp.Base.ViewModel.Actions
 
             this.ActionTypes.AddRange(actionTypes.OrderBy(a => a.ToString()));
 
-            this.AddCommand = this.CreateCommand(async (parameter) =>
+            this.AddCommand = this.CreateCommand(async () =>
             {
                 if (this.ActionTypes.Contains(this.SelectedActionType))
                 {
@@ -61,14 +60,19 @@ namespace MixItUp.Base.ViewModel.Actions
                         case ActionTypeEnum.Moderation: editorViewModel = new ModerationActionEditorControlViewModel(); break;
                         case ActionTypeEnum.Overlay: editorViewModel = new OverlayActionEditorControlViewModel(); break;
                         case ActionTypeEnum.OvrStream: editorViewModel = new OvrStreamActionEditorControlViewModel(); break;
+                        case ActionTypeEnum.PixelChat: editorViewModel = new PixelChatActionEditorControlViewModel(); break;
+                        case ActionTypeEnum.PolyPop: editorViewModel = new PolyPopActionEditorControlViewModel(); break;
                         case ActionTypeEnum.Serial: editorViewModel = new SerialActionEditorControlViewModel(); break;
                         case ActionTypeEnum.Sound: editorViewModel = new SoundActionEditorControlViewModel(); break;
                         case ActionTypeEnum.SpecialIdentifier: editorViewModel = new SpecialIdentifierActionEditorControlViewModel(); break;
                         case ActionTypeEnum.StreamingSoftware: editorViewModel = new StreamingSoftwareActionEditorControlViewModel(); break;
                         case ActionTypeEnum.Streamlabs: editorViewModel = new StreamlabsActionEditorControlViewModel(); break;
                         case ActionTypeEnum.TextToSpeech: editorViewModel = new TextToSpeechActionEditorControlViewModel(); break;
+                        case ActionTypeEnum.Trovo: editorViewModel = new TrovoActionEditorControlViewModel(); break;
                         case ActionTypeEnum.Twitch: editorViewModel = new TwitchActionEditorControlViewModel(); break;
                         case ActionTypeEnum.Twitter: editorViewModel = new TwitterActionEditorControlViewModel(); break;
+                        case ActionTypeEnum.Voicemod: editorViewModel = new VoicemodActionEditorControlViewModel(); break;
+                        case ActionTypeEnum.VTubeStudio: editorViewModel = new VTubeStudioActionEditorControlViewModel(); break;
                         case ActionTypeEnum.Wait: editorViewModel = new WaitActionEditorControlViewModel(); break;
                         case ActionTypeEnum.WebRequest: editorViewModel = new WebRequestActionEditorControlViewModel(); break;
                     }
@@ -136,14 +140,19 @@ namespace MixItUp.Base.ViewModel.Actions
                 case ActionTypeEnum.Moderation: editorViewModel = new ModerationActionEditorControlViewModel((ModerationActionModel)action); break;
                 case ActionTypeEnum.Overlay: editorViewModel = new OverlayActionEditorControlViewModel((OverlayActionModel)action); break;
                 case ActionTypeEnum.OvrStream: editorViewModel = new OvrStreamActionEditorControlViewModel((OvrStreamActionModel)action); break;
+                case ActionTypeEnum.PixelChat: editorViewModel = new PixelChatActionEditorControlViewModel((PixelChatActionModel)action); break;
+                case ActionTypeEnum.PolyPop: editorViewModel = new PolyPopActionEditorControlViewModel((PolyPopActionModel)action); break;
                 case ActionTypeEnum.Serial: editorViewModel = new SerialActionEditorControlViewModel((SerialActionModel)action); break;
                 case ActionTypeEnum.Sound: editorViewModel = new SoundActionEditorControlViewModel((SoundActionModel)action); break;
                 case ActionTypeEnum.SpecialIdentifier: editorViewModel = new SpecialIdentifierActionEditorControlViewModel((SpecialIdentifierActionModel)action); break;
                 case ActionTypeEnum.StreamingSoftware: editorViewModel = new StreamingSoftwareActionEditorControlViewModel((StreamingSoftwareActionModel)action); break;
                 case ActionTypeEnum.Streamlabs: editorViewModel = new StreamlabsActionEditorControlViewModel((StreamlabsActionModel)action); break;
                 case ActionTypeEnum.TextToSpeech: editorViewModel = new TextToSpeechActionEditorControlViewModel((TextToSpeechActionModel)action); break;
+                case ActionTypeEnum.Trovo: editorViewModel = new TrovoActionEditorControlViewModel((TrovoActionModel)action); break;
                 case ActionTypeEnum.Twitch: editorViewModel = new TwitchActionEditorControlViewModel((TwitchActionModel)action); break;
                 case ActionTypeEnum.Twitter: editorViewModel = new TwitterActionEditorControlViewModel((TwitterActionModel)action); break;
+                case ActionTypeEnum.Voicemod: editorViewModel = new VoicemodActionEditorControlViewModel((VoicemodActionModel)action); break;
+                case ActionTypeEnum.VTubeStudio: editorViewModel = new VTubeStudioActionEditorControlViewModel((VTubeStudioActionModel)action); break;
                 case ActionTypeEnum.Wait: editorViewModel = new WaitActionEditorControlViewModel((WaitActionModel)action); break;
                 case ActionTypeEnum.WebRequest: editorViewModel = new WebRequestActionEditorControlViewModel((WebRequestActionModel)action); break;
             }
@@ -184,7 +193,7 @@ namespace MixItUp.Base.ViewModel.Actions
             if (editorViewModel != null)
             {
                 editorViewModel.Initialize(this);
-                await editorViewModel.OnLoaded();
+                await editorViewModel.OnOpen();
                 this.Actions.Add(editorViewModel);
             }
         }

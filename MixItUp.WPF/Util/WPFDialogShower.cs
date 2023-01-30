@@ -1,4 +1,5 @@
 ﻿using MaterialDesignThemes.Wpf;
+using MixItUp.Base.Model.Commands;
 using MixItUp.Base.Util;
 using MixItUp.WPF.Controls.Dialogs;
 using MixItUp.WPF.Windows;
@@ -35,12 +36,22 @@ namespace MixItUp.WPF.Util
             return bool.Equals(await this.ShowDialogWrapper(new ConfirmationDialogControl(message)), true);
         }
 
-        public async Task<string> ShowTextEntry(string message, string defaultValue = null)
+        public async Task<string> ShowTextEntry(string message, string defaultValue = null, string description = null)
         {
-            BasicTextEntryDialogControl dialog = new BasicTextEntryDialogControl(message, defaultValue);
+            BasicTextEntryDialogControl dialog = new BasicTextEntryDialogControl(message, defaultValue, description);
             if (bool.Equals(await this.ShowDialogWrapper(dialog), true))
             {
                 return dialog.TextEntry;
+            }
+            return null;
+        }
+
+        public async Task<CommandParametersModel> ShowEditTestCommandParametersDialog(CommandParametersModel parameters)
+        {
+            EditTestCommandParametersDialogControl dialogControl = new EditTestCommandParametersDialogControl(parameters);
+            if (bool.Equals(await DialogHelper.ShowCustom(dialogControl), true))
+            {
+                return dialogControl.GetCommandParameters();
             }
             return null;
         }

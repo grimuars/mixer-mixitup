@@ -24,21 +24,21 @@ namespace MixItUp.WPF.Controls.MainControls
         protected override async Task InitializeInternal()
         {
             this.DataContext = this.viewModel = new GameQueueMainControlViewModel((MainWindowViewModel)this.Window.ViewModel);
-            await this.viewModel.OnLoaded();
+            await this.viewModel.OnOpen();
         }
 
         private void UserJoinedCommand_EditClicked(object sender, System.Windows.RoutedEventArgs e)
         {
-            CommandEditorWindow window = new CommandEditorWindow(FrameworkElementHelpers.GetDataContext<CustomCommandModel>(sender));
+            CommandEditorWindow window = CommandEditorWindow.GetCommandEditorWindow(FrameworkElementHelpers.GetDataContext<CustomCommandModel>(sender));
             window.CommandSaved += (object s, CommandModelBase command) => { ((GameQueueMainControlViewModel)this.DataContext).GameQueueUserJoinedCommand = command; };
-            window.Show();
+            window.ForceShow();
         }
 
         private void UserSelectedCommand_EditClicked(object sender, System.Windows.RoutedEventArgs e)
         {
-            CommandEditorWindow window = new CommandEditorWindow(FrameworkElementHelpers.GetDataContext<CustomCommandModel>(sender));
+            CommandEditorWindow window = CommandEditorWindow.GetCommandEditorWindow(FrameworkElementHelpers.GetDataContext<CustomCommandModel>(sender));
             window.CommandSaved += (object s, CommandModelBase command) => { ((GameQueueMainControlViewModel)this.DataContext).GameQueueUserSelectedCommand = command; };
-            window.Show();
+            window.ForceShow();
         }
 
         private async void MoveUpButton_Click(object sender, System.Windows.RoutedEventArgs e)
@@ -48,10 +48,10 @@ namespace MixItUp.WPF.Controls.MainControls
                 try
                 {
                     QueueUser queueUser = FrameworkElementHelpers.GetDataContext<QueueUser>(sender);
-                    this.viewModel.MoveUpCommand.Execute(queueUser.user);
+                    this.viewModel.MoveUpCommand.Execute(queueUser);
                 }
                 catch (Exception ex) { Logger.Log(ex); }
-                return Task.FromResult(0);
+                return Task.CompletedTask;
             });
         }
 
@@ -62,10 +62,10 @@ namespace MixItUp.WPF.Controls.MainControls
                 try
                 {
                     QueueUser queueUser = FrameworkElementHelpers.GetDataContext<QueueUser>(sender);
-                    this.viewModel.MoveDownCommand.Execute(queueUser.user);
+                    this.viewModel.MoveDownCommand.Execute(queueUser);
                 }
                 catch (Exception ex) { Logger.Log(ex); }
-                return Task.FromResult(0);
+                return Task.CompletedTask;
             });
         }
 
@@ -76,10 +76,10 @@ namespace MixItUp.WPF.Controls.MainControls
                 try
                 {
                     QueueUser queueUser = FrameworkElementHelpers.GetDataContext<QueueUser>(sender);
-                    this.viewModel.DeleteCommand.Execute(queueUser.user);
+                    this.viewModel.DeleteCommand.Execute(queueUser);
                 }
                 catch (Exception ex) { Logger.Log(ex); }
-                return Task.FromResult(0);
+                return Task.CompletedTask;
             });
         }
     }

@@ -1,22 +1,25 @@
-﻿using MixItUp.Base.Services.External;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
 using System.Windows.Input;
 
 namespace MixItUp.Base.ViewModel.Services
 {
-    public class StreamlabsOBSServiceControlViewModel : StreamingServiceControlViewModelBase
+    public class StreamlabsDesktopServiceControlViewModel : StreamingServiceControlViewModelBase
     {
         public ICommand ConnectCommand { get; set; }
         public ICommand DisconnectCommand { get; set; }
         public ICommand TestConnectionCommand { get; set; }
 
-        public StreamlabsOBSServiceControlViewModel()
-            : base(Resources.StreamlabsOBS)
+        public override string WikiPageName { get { return "streamlabs-desktop"; } }
+
+        public StreamlabsDesktopServiceControlViewModel()
+            : base(Resources.StreamlabsDesktop)
         {
-            this.ConnectCommand = this.CreateCommand(async (parameter) =>
+            this.ConnectCommand = this.CreateCommand(async () =>
             {
                 ChannelSession.Settings.EnableStreamlabsOBSConnection = false;
-                Result result = await ChannelSession.Services.StreamlabsOBS.Connect();
+                Result result = await ServiceManager.Get<StreamlabsDesktopService>().Connect();
                 if (result.Success)
                 {
                     this.IsConnected = true;
@@ -29,26 +32,26 @@ namespace MixItUp.Base.ViewModel.Services
                 }
             });
 
-            this.DisconnectCommand = this.CreateCommand(async (parameter) =>
+            this.DisconnectCommand = this.CreateCommand(async () =>
             {
-                await ChannelSession.Services.StreamlabsOBS.Disconnect();
+                await ServiceManager.Get<StreamlabsDesktopService>().Disconnect();
                 ChannelSession.Settings.EnableStreamlabsOBSConnection = false;
                 this.IsConnected = false;
             });
 
-            this.TestConnectionCommand = this.CreateCommand(async (parameter) =>
+            this.TestConnectionCommand = this.CreateCommand(async () =>
             {
-                if (await ChannelSession.Services.StreamlabsOBS.TestConnection())
+                if (await ServiceManager.Get<StreamlabsDesktopService>().TestConnection())
                 {
-                    await DialogHelper.ShowMessage(Resources.StreamlabsOBSConnectionSuccess);
+                    await DialogHelper.ShowMessage(Resources.StreamlabsDesktopConnectionSuccess);
                 }
                 else
                 {
-                    await DialogHelper.ShowMessage(Resources.StreamlabsOBSConnectionFailed);
+                    await DialogHelper.ShowMessage(Resources.StreamlabsDesktopConnectionFailed);
                 }
             });
 
-            this.IsConnected = ChannelSession.Services.StreamlabsOBS.IsConnected;
+            this.IsConnected = ServiceManager.Get<StreamlabsDesktopService>().IsConnected;
         }
     }
 }

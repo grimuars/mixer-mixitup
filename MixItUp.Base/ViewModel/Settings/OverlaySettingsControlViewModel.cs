@@ -15,7 +15,7 @@ namespace MixItUp.Base.ViewModel.Settings
 
         public string Address { get { return string.Format(OverlayEndpointService.RegularOverlayHttpListenerServerAddressFormat, this.Port); } }
 
-        public bool CanDelete { get { return !ChannelSession.Services.Overlay.DefaultOverlayName.Equals(this.Name); } }
+        public bool CanDelete { get { return !ServiceManager.Get<OverlayService>().DefaultOverlayName.Equals(this.Name); } }
 
         public ICommand DeleteCommand { get; set; }
 
@@ -27,10 +27,10 @@ namespace MixItUp.Base.ViewModel.Settings
             this.Name = name;
             this.Port = port;
 
-            this.DeleteCommand = this.CreateCommand(async (parameter) =>
+            this.DeleteCommand = this.CreateCommand(async () =>
             {
                 ChannelSession.Settings.OverlayCustomNameAndPorts.Remove(this.Name);
-                await ChannelSession.Services.Overlay.RemoveOverlay(this.Name);
+                await ServiceManager.Get<OverlayService>().RemoveOverlay(this.Name);
                 this.viewModel.Endpoints.Remove(this);
             });
         }
@@ -55,7 +55,7 @@ namespace MixItUp.Base.ViewModel.Settings
 
         public OverlaySettingsControlViewModel()
         {
-            this.AddCommand = this.CreateCommand(async (parameter) =>
+            this.AddCommand = this.CreateCommand(async () =>
             {
                 if (!string.IsNullOrEmpty(this.NewEndpointName))
                 {
@@ -65,7 +65,7 @@ namespace MixItUp.Base.ViewModel.Settings
                         OverlayEndpointListingViewModel overlay = new OverlayEndpointListingViewModel(this, this.NewEndpointName, port);
 
                         ChannelSession.Settings.OverlayCustomNameAndPorts[overlay.Name] = overlay.Port;
-                        await ChannelSession.Services.Overlay.AddOverlay(overlay.Name, overlay.Port);
+                        await ServiceManager.Get<OverlayService>().AddOverlay(overlay.Name, overlay.Port);
                         this.Endpoints.Add(overlay);
                     }
                 }
@@ -73,10 +73,10 @@ namespace MixItUp.Base.ViewModel.Settings
             });
         }
 
-        protected override Task OnLoadedInternal()
+        protected override Task OnOpenInternal()
         {
-            this.Endpoints.ClearAndAddRange(ChannelSession.Services.Overlay.AllOverlayNameAndPorts.OrderBy(kvp => kvp.Value).Select(kvp => new OverlayEndpointListingViewModel(this, kvp.Key, kvp.Value)));
-            return Task.FromResult(0);
+            this.Endpoints.ClearAndAddRange(ServiceManager.Get<OverlayService>().AllOverlayNameAndPorts.OrderBy(kvp => kvp.Value).Select(kvp => new OverlayEndpointListingViewModel(this, kvp.Key, kvp.Value)));
+            return Task.CompletedTask;
         }
     }
 }

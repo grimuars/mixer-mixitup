@@ -8,6 +8,8 @@
              xmlns:local="clr-namespace:MixItUp.WPF.Controls.Actions"
              xmlns:Util="clr-namespace:MixItUp.WPF.Util"
              xmlns:MaterialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ActionControls="clr-namespace:MixItUp.WPF.Controls.Actions"
+             xmlns:TwitchControls="clr-namespace:MixItUp.WPF.Controls.Twitch"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
     <local:ActionEditorControlBase.Resources>
@@ -19,6 +21,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="20" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -34,6 +37,14 @@
             <TextBox Text="{Binding Username}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Username}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
         </Grid>
 
+        <Grid Grid.Row="2" Visibility="{Binding ShowTextGrid, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <TextBox Text="{Binding Text}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Name}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+        </Grid>
+
+        <Grid Grid.Row="2" Visibility="{Binding ShowSetCustomTagsGrid, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <TwitchControls:TwitchTagEditorControl DataContext="{Binding TagEditor}" />
+        </Grid>
+
         <Grid Grid.Row="2" Visibility="{Binding ShowAdGrid, Converter={StaticResource BooleanToVisibilityConverter}}">
             <ComboBox ItemsSource="{Binding AdLengths}" SelectedItem="{Binding SelectedAdLength}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.AmountSeconds}" Style="{StaticResource MaterialDesignFloatingHintComboBox}" />
         </Grid>
@@ -43,11 +54,11 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="5" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="50" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="5" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="50" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="5" />
                 <ColumnDefinition Width="Auto" />
@@ -60,22 +71,187 @@
             <ToggleButton Grid.Column="6" VerticalAlignment="Center" IsChecked="{Binding ShowInfoInChat}" />
 
             <TextBlock Grid.Column="8" VerticalAlignment="Center" Text="{Binding Source={x:Static resx:Resources.Result}, StringFormat={x:Static resx:Resources.ColumnHeaderFormat}}" />
-            <TextBlock Grid.Column="10" VerticalAlignment="Center" Text="$clipurl" />
+            <TextBox Grid.Column="10" VerticalAlignment="Center" Text="$clipurl" Style="{StaticResource TextBoxReadOnlySelectable}" />
         </Grid>
 
-        <Grid Grid.Row="2" Visibility="{Binding ShowStreamMarkerGrid, Converter={StaticResource BooleanToVisibilityConverter}}" HorizontalAlignment="Center">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="40" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="5" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <TextBox Grid.Column="0" Text="{Binding StreamMarkerDescription}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.DescriptionOptional}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Width="500" />
-
-            <TextBlock Grid.Column="2" VerticalAlignment="Center" Text="{Binding Source={x:Static resx:Resources.ShowInfoInChat}, StringFormat={x:Static resx:Resources.ColumnHeaderFormat}}"/>
-            <ToggleButton Grid.Column="4" VerticalAlignment="Center" IsChecked="{Binding ShowInfoInChat}" />
+        <Grid Grid.Row="2" Visibility="{Binding ShowStreamMarkerGrid, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <TextBox Text="{Binding StreamMarkerDescription}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.DescriptionOptional}" Style="{StaticResource MaterialDesignFloatingHintTextBox}"/>
         </Grid>
+
+        <Grid Grid.Row="2" Visibility="{Binding ShowUpdateChannelPointRewardGrid, Converter={StaticResource BooleanToVisibilityConverter}}" HorizontalAlignment="Center">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Foreground="Red" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{x:Static resx:Resources.TwitchActionChannelPointRewardMustBeCreatedInMixItUp}"/>
+
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="5" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                
+                <ComboBox Grid.Column="0" ItemsSource="{Binding ChannelPointRewards}" SelectedItem="{Binding ChannelPointReward}" DisplayMemberPath="title" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.ChannelPoints}" Style="{StaticResource MaterialDesignFloatingHintComboBox}" />
+
+                <TextBlock Grid.Column="2" Margin="0,10,0,0" VerticalAlignment="Center" Text="{Binding Source={x:Static resx:Resources.Enable}, StringFormat={x:Static resx:Resources.ColumnHeaderFormat}}"/>
+                <ToggleButton Grid.Column="4" Margin="0,10,0,0" VerticalAlignment="Center" IsChecked="{Binding ChannelPointRewardState}" />
+
+                <TextBox Grid.Column="6" Text="{Binding ChannelPointRewardCost}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Cost}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Width="150" />
+            </Grid>
+
+            <TextBox Grid.Row="4" Text="{Binding ChannelPointRewardName}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Name}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+            <TextBox Grid.Row="6" Text="{Binding ChannelPointRewardDescription}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Description}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+            <Grid Grid.Row="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="5" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Margin="0,10,0,0" VerticalAlignment="Center" Text="{Binding Source={x:Static resx:Resources.ChannelPointRewardUpdateCooldownAndLimits}, StringFormat={x:Static resx:Resources.ColumnHeaderFormat}}"/>
+                <ToggleButton Grid.Column="2" Margin="0,10,0,0" VerticalAlignment="Center" IsChecked="{Binding ChannelPointRewardUpdateCooldownsAndLimits}" />
+
+                <TextBox Grid.Column="4" Text="{Binding ChannelPointRewardMaxPerStream}" IsEnabled="{Binding ChannelPointRewardUpdateCooldownsAndLimits}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.ChannelPointsRewardMaxPerStream}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Width="120" />
+
+                <TextBox Grid.Column="6" Text="{Binding ChannelPointRewardMaxPerUser}" IsEnabled="{Binding ChannelPointRewardUpdateCooldownsAndLimits}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.ChannelPointsRewardMaxPerUser}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Width="120" />
+
+                <TextBox Grid.Column="8" Text="{Binding ChannelPointRewardGlobalCooldown}" IsEnabled="{Binding ChannelPointRewardUpdateCooldownsAndLimits}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.ChannelPointsRewardGlobalCooldown}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Width="160" />
+            </Grid>
+        </Grid>
+
+        <Grid Grid.Row="2" Visibility="{Binding ShowPollGrid, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBox Grid.Row="0" Text="{Binding PollTitle}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Title}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0" Text="{Binding PollDurationSeconds}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.DurationSec}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+                <TextBox Grid.Column="2" Text="{Binding PollChannelPointsCost}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.ChannelPointsCostOptional}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+                <TextBox Grid.Column="4" Text="{Binding PollBitsCost}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.BitsCostOptional}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+            </Grid>
+
+            <Grid Grid.Row="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0" Text="{Binding PollChoice1}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Choice1}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+                <TextBox Grid.Column="2" Text="{Binding PollChoice2}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Choice2}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+            </Grid>
+
+            <Grid Grid.Row="6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0" Text="{Binding PollChoice3}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Choice3}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+                <TextBox Grid.Column="2" Text="{Binding PollChoice4}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Choice4}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+            </Grid>
+        </Grid>
+
+        <Grid Grid.Row="2" Visibility="{Binding ShowPredictionGrid, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0" Text="{Binding PredictionTitle}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Title}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+                <TextBox Grid.Column="2" Text="{Binding PredictionDurationSeconds}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.DurationSec}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" Width="150" />
+            </Grid>
+
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0" Text="{Binding PredictionOutcome1}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Outcome1}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+                <TextBox Grid.Column="2" Text="{Binding PredictionOutcome2}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Outcome2}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+            </Grid>
+        </Grid>
+
+        <Grid Grid.Row="2" Visibility="{Binding ShowFollowersGrid, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <TextBox Text="{Binding TimeLength}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Minutes}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+        </Grid>
+
+        <Grid Grid.Row="2" Visibility="{Binding ShowSlowChatGrid, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <TextBox Text="{Binding TimeLength}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Seconds}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+        </Grid>
+
+        <Grid Grid.Row="2" Visibility="{Binding ShowSendAnnouncementGrid, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBox Grid.Row="0" Text="{Binding Message}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Message}" Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+            <ComboBox Grid.Row="2" ItemsSource="{Binding AnnouncementColors}" SelectedItem="{Binding SelectedAnnouncementColor}" MaterialDesign:HintAssist.Hint="{x:Static resx:Resources.Color}" Style="{StaticResource MaterialDesignFloatingHintComboBox}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Converter={StaticResource LocalizationConverter}}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </Grid>
+
+        <ActionControls:SubActionContainerControl Grid.Row="3" Visibility="{Binding ShowSubActions, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,20,0,0" />
     </Grid>
 </local:ActionEditorControlBase>

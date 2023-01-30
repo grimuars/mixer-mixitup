@@ -1,4 +1,5 @@
-﻿using MixItUp.Base.Services.External;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
 using System.Windows.Input;
 
@@ -53,10 +54,12 @@ namespace MixItUp.Base.ViewModel.Services
         public ICommand LogInCommand { get; set; }
         public ICommand LogOutCommand { get; set; }
 
+        public override string WikiPageName { get { return "discord"; } }
+
         public DiscordServiceControlViewModel()
             : base(Resources.Discord)
         {
-            this.LogInCommand = this.CreateCommand(async (parameter) =>
+            this.LogInCommand = this.CreateCommand(async () =>
             {
                 ChannelSession.Settings.DiscordCustomClientID = null;
                 ChannelSession.Settings.DiscordCustomClientSecret = null;
@@ -87,7 +90,7 @@ namespace MixItUp.Base.ViewModel.Services
                     ChannelSession.Settings.DiscordCustomBotToken = this.CustomBotToken;
                 }
 
-                Result result = await ChannelSession.Services.Discord.Connect();
+                Result result = await ServiceManager.Get<DiscordService>().Connect();
                 if (result.Success)
                 {
                     this.IsConnected = true;
@@ -98,9 +101,9 @@ namespace MixItUp.Base.ViewModel.Services
                 }
             });
 
-            this.LogOutCommand = this.CreateCommand(async (parameter) =>
+            this.LogOutCommand = this.CreateCommand(async () =>
             {
-                await ChannelSession.Services.Discord.Disconnect();
+                await ServiceManager.Get<DiscordService>().Disconnect();
 
                 ChannelSession.Settings.DiscordOAuthToken = null;
                 ChannelSession.Settings.DiscordServer = null;
@@ -111,7 +114,7 @@ namespace MixItUp.Base.ViewModel.Services
                 this.IsConnected = false;
             });
 
-            this.IsConnected = ChannelSession.Services.Discord.IsConnected;
+            this.IsConnected = ServiceManager.Get<DiscordService>().IsConnected;
         }
     }
 }

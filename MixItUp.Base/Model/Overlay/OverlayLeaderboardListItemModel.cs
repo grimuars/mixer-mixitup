@@ -1,7 +1,7 @@
-﻿using MixItUp.Base.Commands;
-using MixItUp.Base.Model.Commands;
+﻿using MixItUp.Base.Model.Commands;
 using MixItUp.Base.Model.Currency;
 using MixItUp.Base.Model.User;
+using MixItUp.Base.Services;
 using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
@@ -14,7 +14,6 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using Twitch.Base.Models.NewAPI.Bits;
-using Twitch.Base.Models.V5.Users;
 using Twitch.Base.Services.NewAPI;
 
 namespace MixItUp.Base.Model.Overlay
@@ -48,11 +47,11 @@ namespace MixItUp.Base.Model.Overlay
         {
             public string ID { get; set; }
 
-            public UserViewModel User { get; set; }
+            public UserV2ViewModel User { get; set; }
 
             public string Hash { get; set; }
 
-            public OverlayLeaderboardItem(UserViewModel user, string hash)
+            public OverlayLeaderboardItem(UserV2ViewModel user, string hash)
                 : this(user.DisplayName, hash)
             {
                 this.User = user;
@@ -79,10 +78,6 @@ namespace MixItUp.Base.Model.Overlay
 
         [DataMember]
         public Guid CurrencyID { get; set; }
-
-        [Obsolete]
-        [DataMember]
-        public CustomCommand NewLeaderCommand { get; set; }
 
         [DataMember]
         public Guid LeaderChangedCommandID { get; set; }
@@ -153,8 +148,7 @@ namespace MixItUp.Base.Model.Overlay
 
         public override Task LoadTestData()
         {
-            UserViewModel user = ChannelSession.GetCurrentUser();
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
 
         public override async Task Enable()
@@ -162,27 +156,20 @@ namespace MixItUp.Base.Model.Overlay
             if (this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.Subscribers)
             {
                 this.userSubDates.Clear();
-                IEnumerable<UserSubscriptionModel> subscribers = await ChannelSession.TwitchUserConnection.GetSubscribersV5(ChannelSession.TwitchChannelV5, int.MaxValue);
 
-                foreach (UserSubscriptionModel subscriber in subscribers)
-                {
-                    UserViewModel user = null;
-                    UserDataModel userData = ChannelSession.Settings.GetUserDataByTwitchID(subscriber.user.id);
-                    if (userData != null)
-                    {
-                        user = new UserViewModel(userData);
-                    }
-                    else
-                    {
-                        user = new UserViewModel(subscriber.user);
-                    }
+                // TODO
 
-                    DateTimeOffset? subDate = TwitchPlatformService.GetTwitchDateTime(subscriber.created_at);
-                    if (subDate.HasValue && this.ShouldIncludeUser(user))
-                    {
-                        this.userSubDates[user.ID] = subDate.GetValueOrDefault();
-                    }
-                }
+                //foreach (UserSubscriptionModel subscriber in subscribers)
+                //{
+                //    UserV2ViewModel user = await UserV2ViewModel.Create(subscriber.user);
+                //    DateTimeOffset? subDate = TwitchPlatformService.GetTwitchDateTime(subscriber.created_at);
+                //    if (subDate.HasValue && this.ShouldIncludeUser(user))
+                //    {
+                //        this.userSubDates[user.ID] = subDate.GetValueOrDefault();
+                //    }
+                //}
+
+                // TODO
 
                 await this.UpdateSubscribers();
 
@@ -218,45 +205,49 @@ namespace MixItUp.Base.Model.Overlay
                 if (ChannelSession.Settings.Currency.ContainsKey(this.CurrencyID))
                 {
                     CurrencyModel currency = ChannelSession.Settings.Currency[this.CurrencyID];
-                    IEnumerable<UserDataModel> userDataList = SpecialIdentifierStringBuilder.GetUserOrderedCurrencyList(currency);
+                    IEnumerable<UserV2Model> userDataList = await SpecialIdentifierStringBuilder.GetUserOrderedCurrencyList(currency);
                     for (int i = 0; i < userDataList.Count() && items.Count < this.TotalToShow; i++)
                     {
-                        UserDataModel userData = userDataList.ElementAt(i);
-                        if (!userData.IsCurrencyRankExempt)
+                        UserV2Model userData = userDataList.ElementAt(i);
+                        if (!userData.IsSpecialtyExcluded)
                         {
-                            items.Add(new OverlayLeaderboardItem(new UserViewModel(userData), currency.GetAmount(userData).ToString()));
+                            UserV2ViewModel user = new UserV2ViewModel(userData);
+                            items.Add(new OverlayLeaderboardItem(user, currency.GetAmount(user).ToString()));
                         }
                     }
                 }
             }
             else if (this.LeaderboardType == OverlayLeaderboardListItemTypeEnum.Bits && this.lastQuery.TotalMinutesFromNow() > 1)
             {
-                BitsLeaderboardModel bitsLeaderboard = null;
-                switch (this.BitsLeaderboardDateRange)
+                if (ServiceManager.Get<TwitchSessionService>().IsConnected)
                 {
-                    case BitsLeaderboardPeriodEnum.Day:
-                        bitsLeaderboard = await ChannelSession.TwitchUserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Day, this.TotalToShow);
-                        break;
-                    case BitsLeaderboardPeriodEnum.Week:
-                        bitsLeaderboard = await ChannelSession.TwitchUserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Week, this.TotalToShow);
-                        break;
-                    case BitsLeaderboardPeriodEnum.Month:
-                        bitsLeaderboard = await ChannelSession.TwitchUserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Month, this.TotalToShow);
-                        break;
-                    case BitsLeaderboardPeriodEnum.Year:
-                        bitsLeaderboard = await ChannelSession.TwitchUserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Year, this.TotalToShow);
-                        break;
-                    case BitsLeaderboardPeriodEnum.All:
-                        bitsLeaderboard = await ChannelSession.TwitchUserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.All, this.TotalToShow);
-                        break;
-                }
-                this.lastQuery = DateTimeOffset.Now;
-
-                if (bitsLeaderboard != null && bitsLeaderboard.users != null)
-                {
-                    foreach (BitsLeaderboardUserModel bitsUser in bitsLeaderboard.users.OrderBy(u => u.rank).Take(this.TotalToShow))
+                    BitsLeaderboardModel bitsLeaderboard = null;
+                    switch (this.BitsLeaderboardDateRange)
                     {
-                        items.Add(new OverlayLeaderboardItem(bitsUser.user_name, bitsUser.score.ToString()));
+                        case BitsLeaderboardPeriodEnum.Day:
+                            bitsLeaderboard = await ServiceManager.Get<TwitchSessionService>().UserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Day, this.TotalToShow);
+                            break;
+                        case BitsLeaderboardPeriodEnum.Week:
+                            bitsLeaderboard = await ServiceManager.Get<TwitchSessionService>().UserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Week, this.TotalToShow);
+                            break;
+                        case BitsLeaderboardPeriodEnum.Month:
+                            bitsLeaderboard = await ServiceManager.Get<TwitchSessionService>().UserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Month, this.TotalToShow);
+                            break;
+                        case BitsLeaderboardPeriodEnum.Year:
+                            bitsLeaderboard = await ServiceManager.Get<TwitchSessionService>().UserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.Year, this.TotalToShow);
+                            break;
+                        case BitsLeaderboardPeriodEnum.All:
+                            bitsLeaderboard = await ServiceManager.Get<TwitchSessionService>().UserConnection.GetBitsLeaderboard(BitsLeaderboardPeriodEnum.All, this.TotalToShow);
+                            break;
+                    }
+                    this.lastQuery = DateTimeOffset.Now;
+
+                    if (bitsLeaderboard != null && bitsLeaderboard.users != null)
+                    {
+                        foreach (BitsLeaderboardUserModel bitsUser in bitsLeaderboard.users.OrderBy(u => u.rank).Take(this.TotalToShow))
+                        {
+                            items.Add(new OverlayLeaderboardItem(bitsUser.user_name, bitsUser.score.ToString()));
+                        }
                     }
                 }
             }
@@ -269,18 +260,18 @@ namespace MixItUp.Base.Model.Overlay
             return await base.GetProcessedItem(parameters);
         }
 
-        private async void GlobalEvents_OnSubscribeOccurred(object sender, UserViewModel user)
+        private async void GlobalEvents_OnSubscribeOccurred(object sender, UserV2ViewModel user)
         {
             userSubDates[user.ID] = DateTimeOffset.Now;
             await this.UpdateSubscribers();
         }
 
-        private async void GlobalEvents_OnResubscribeOccurred(object sender, Tuple<UserViewModel, int> user)
+        private async void GlobalEvents_OnResubscribeOccurred(object sender, Tuple<UserV2ViewModel, int> user)
         {
             await this.UpdateSubscribers();
         }
 
-        private async void GlobalEvents_OnSubscriptionGiftedOccurred(object sender, Tuple<UserViewModel, UserViewModel> e)
+        private async void GlobalEvents_OnSubscriptionGiftedOccurred(object sender, Tuple<UserV2ViewModel, UserV2ViewModel> e)
         {
             await this.UpdateSubscribers();
         }
@@ -293,10 +284,10 @@ namespace MixItUp.Base.Model.Overlay
             for (int i = 0; i < orderedUsers.Count() && items.Count() < this.TotalToShow; i++)
             {
                 var kvp = orderedUsers.ElementAt(i);
-                UserDataModel userData = ChannelSession.Settings.GetUserData(kvp.Key);
-                if (userData != null)
+                UserV2ViewModel user = await ServiceManager.Get<UserService>().GetUserByID(kvp.Key);
+                if (user != null)
                 {
-                    items.Add(new OverlayLeaderboardItem(new UserViewModel(userData), kvp.Value.GetAge()));
+                    items.Add(new OverlayLeaderboardItem(user, kvp.Value.GetAge()));
                 }
             }
 
@@ -306,30 +297,32 @@ namespace MixItUp.Base.Model.Overlay
 
         private async void GlobalEvents_OnDonationOccurred(object sender, UserDonationModel donation)
         {
-            UserViewModel user = donation.User;
-
-            if (!this.userDonations.ContainsKey(user.ID))
+            UserV2ViewModel user = donation.User;
+            if (user != null)
             {
-                this.userDonations[user.ID] = donation.Copy();
-                this.userDonations[user.ID].Amount = 0.0;
-            }
-            this.userDonations[user.ID].Amount += donation.Amount;
-
-            List<OverlayLeaderboardItem> items = new List<OverlayLeaderboardItem>();
-
-            var orderedUsers = this.userDonations.OrderByDescending(kvp => kvp.Value.Amount);
-            for (int i = 0; i < orderedUsers.Count() && items.Count() < this.TotalToShow; i++)
-            {
-                var kvp = orderedUsers.ElementAt(i);
-                UserDataModel userData = ChannelSession.Settings.GetUserData(kvp.Key);
-                if (userData != null)
+                if (!this.userDonations.ContainsKey(user.ID))
                 {
-                    items.Add(new OverlayLeaderboardItem(new UserViewModel(userData), kvp.Value.AmountText));
+                    this.userDonations[user.ID] = donation.Copy();
+                    this.userDonations[user.ID].Amount = 0.0;
                 }
-            }
+                this.userDonations[user.ID].Amount += donation.Amount;
 
-            await this.ProcessLeaderboardItems(items);
-            this.SendUpdateRequired();
+                List<OverlayLeaderboardItem> items = new List<OverlayLeaderboardItem>();
+
+                var orderedUsers = this.userDonations.OrderByDescending(kvp => kvp.Value.Amount);
+                for (int i = 0; i < orderedUsers.Count() && items.Count() < this.TotalToShow; i++)
+                {
+                    var kvp = orderedUsers.ElementAt(i);
+                    UserV2ViewModel dUser = await ServiceManager.Get<UserService>().GetUserByID(kvp.Key);
+                    if (user != null)
+                    {
+                        items.Add(new OverlayLeaderboardItem(dUser, kvp.Value.AmountText));
+                    }
+                }
+
+                await this.ProcessLeaderboardItems(items);
+                this.SendUpdateRequired();
+            }
         }
 
         private async Task ProcessLeaderboardItems(List<OverlayLeaderboardItem> items)
@@ -366,11 +359,11 @@ namespace MixItUp.Base.Model.Overlay
                     // Detect if we had a list before, and we have a list now, and the top user changed, let's trigger the event
                     if (this.lastItems.Count() > 0 && updatedList.Count() > 0)
                     {
-                        UserViewModel previous = this.lastItems.First().GetUser();
-                        UserViewModel current = updatedList.First().GetUser();
+                        UserV2ViewModel previous = await this.lastItems.First().GetUser();
+                        UserV2ViewModel current = await updatedList .First().GetUser();
                         if (previous != null && current != null && !previous.ID.Equals(current.ID))
                         {
-                            await this.LeaderChangedCommand.Perform(new CommandParametersModel(current, new string[] { previous.Username }) { TargetUser = previous });
+                            await ServiceManager.Get<CommandService>().Queue(this.LeaderChangedCommand, new CommandParametersModel(current, new string[] { previous.Username }) { TargetUser = previous });
                         }
                     }
                 }
@@ -379,19 +372,19 @@ namespace MixItUp.Base.Model.Overlay
             }));
         }
 
-        private bool ShouldIncludeUser(UserViewModel user)
+        private bool ShouldIncludeUser(UserV2ViewModel user)
         {
             if (user == null)
             {
                 return false;
             }
 
-            if (user.ID.Equals(ChannelSession.GetCurrentUser()?.ID))
+            if (user.ID.Equals(ChannelSession.User.ID))
             {
                 return false;
             }
 
-            if (ChannelSession.TwitchBotConnection != null && string.Equals(user.TwitchID, ChannelSession.TwitchBotNewAPI?.id))
+            if (user.IsSpecialtyExcluded)
             {
                 return false;
             }

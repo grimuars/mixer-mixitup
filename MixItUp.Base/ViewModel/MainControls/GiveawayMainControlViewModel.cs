@@ -1,12 +1,9 @@
 ﻿using MixItUp.Base.Model.Commands;
-using MixItUp.Base.Model.Requirements;
 using MixItUp.Base.Services;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Requirements;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Windows.Input;
 
 namespace MixItUp.Base.ViewModel.MainControls
@@ -107,23 +104,23 @@ namespace MixItUp.Base.ViewModel.MainControls
         }
         private RequirementsSetViewModel requirements;
 
-        public bool IsRunning { get { return ChannelSession.Services.GiveawayService.IsRunning; } }
+        public bool IsRunning { get { return ServiceManager.Get<GiveawayService>().IsRunning; } }
         public bool IsNotRunning { get { return !this.IsRunning; } }
 
         public string TimeLeft
         {
             get
             {
-                string result = (ChannelSession.Services.GiveawayService.TimeLeft % 60).ToString() + " " + MixItUp.Base.Resources.Seconds;
-                if (ChannelSession.Services.GiveawayService.TimeLeft > 60)
+                string result = (ServiceManager.Get<GiveawayService>().TimeLeft % 60).ToString() + " " + MixItUp.Base.Resources.Seconds;
+                if (ServiceManager.Get<GiveawayService>().TimeLeft > 60)
                 {
-                    result = (ChannelSession.Services.GiveawayService.TimeLeft / 60).ToString() + " " +  MixItUp.Base.Resources.Minutes +" " + result;
+                    result = (ServiceManager.Get<GiveawayService>().TimeLeft / 60).ToString() + " " +  MixItUp.Base.Resources.Minutes +" " + result;
                 }
                 return result;
             }
         }
 
-        public string WinnerUsername { get { return ChannelSession.Services.GiveawayService.Winner?.DisplayName ?? string.Empty; } }
+        public string WinnerUsername { get { return ServiceManager.Get<GiveawayService>().Winner?.FullDisplayName ?? string.Empty; } }
 
         public ThreadSafeObservableCollection<GiveawayUser> EnteredUsers { get; private set; } = new ThreadSafeObservableCollection<GiveawayUser>();
 
@@ -167,12 +164,13 @@ namespace MixItUp.Base.ViewModel.MainControls
             GlobalEvents.OnGiveawaysChangedOccurred += GlobalEvents_OnGiveawaysChangedOccurred;
 
             this.Requirements = new RequirementsSetViewModel(ChannelSession.Settings.GiveawayRequirementsSet);
+            this.Requirements.Currency.RestrictToRequiredAmountOnly = true;
 
             this.GiveawayStartedReminderCommand = ChannelSession.Settings.GetCommand(ChannelSession.Settings.GiveawayStartedReminderCommandID);
             this.GiveawayUserJoinedCommand = ChannelSession.Settings.GetCommand(ChannelSession.Settings.GiveawayUserJoinedCommandID);
             this.GiveawayWinnerSelectedCommand = ChannelSession.Settings.GetCommand(ChannelSession.Settings.GiveawayWinnerSelectedCommandID);
 
-            this.StartGiveawayCommand = this.CreateCommand(async (x) =>
+            this.StartGiveawayCommand = this.CreateCommand(async () =>
             {
                 IEnumerable<Result> requirementsValidation = await this.Requirements.Validate();
                 if (requirementsValidation.Any(r => !r.Success))
@@ -182,7 +180,7 @@ namespace MixItUp.Base.ViewModel.MainControls
                 }
                 ChannelSession.Settings.GiveawayRequirementsSet = this.Requirements.GetRequirements();
 
-                string result = await ChannelSession.Services.GiveawayService.Start(this.Item);
+                string result = await ServiceManager.Get<GiveawayService>().Start(this.Item);
                 if (!string.IsNullOrEmpty(result))
                 {
                     await DialogHelper.ShowMessage(result);
@@ -190,9 +188,9 @@ namespace MixItUp.Base.ViewModel.MainControls
                 this.NotifyPropertyChanges();
             });
 
-            this.EndGiveawayCommand = this.CreateCommand(async (x) =>
+            this.EndGiveawayCommand = this.CreateCommand(async () =>
             {
-                await ChannelSession.Services.GiveawayService.End();
+                await ServiceManager.Get<GiveawayService>().End();
                 this.NotifyPropertyChanges();
             });
         }
@@ -201,7 +199,7 @@ namespace MixItUp.Base.ViewModel.MainControls
         {
             if (usersUpdated)
             {
-                this.EnteredUsers.ClearAndAddRange(ChannelSession.Services.GiveawayService.Users);
+                this.EnteredUsers.ClearAndAddRange(ServiceManager.Get<GiveawayService>().Users);
             }
             this.NotifyPropertyChanges();
         }

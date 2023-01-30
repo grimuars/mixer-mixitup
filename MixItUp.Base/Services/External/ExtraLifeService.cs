@@ -101,12 +101,21 @@ namespace MixItUp.Base.Services.External
                 amount = this.amount.GetValueOrDefault();
             }
 
+            bool isAnonymous = false;
+            string username = this.displayName;
+            if (string.IsNullOrEmpty(username))
+            {
+                username = MixItUp.Base.Resources.Anonymous;
+                isAnonymous = true;
+            }
+
             return new UserDonationModel()
             {
                 Source = UserDonationSourceEnum.ExtraLife,
+                IsAnonymous = isAnonymous,
 
                 ID = this.donationID,
-                Username = this.displayName,
+                Username = username,
                 Message = this.message,
 
                 Amount = Math.Round(amount, 2),
@@ -116,19 +125,7 @@ namespace MixItUp.Base.Services.External
         }
     }
 
-    public interface IExtraLifeService : IOAuthExternalService
-    {
-        Task<ExtraLifeTeam> GetTeam();
-        Task<ExtraLifeTeam> GetTeam(int teamID);
-        Task<IEnumerable<ExtraLifeTeamParticipant>> GetTeamParticipants();
-        Task<IEnumerable<ExtraLifeTeamParticipant>> GetTeamParticipants(int teamID);
-        Task<ExtraLifeTeamParticipant> GetParticipant();
-
-        Task<IEnumerable<ExtraLifeDonation>> GetParticipantDonations();
-        Task<IEnumerable<ExtraLifeDonation>> GetTeamDonations();
-    }
-
-    public class ExtraLifeService : OAuthExternalServiceBase, IExtraLifeService, IDisposable
+    public class ExtraLifeService : OAuthExternalServiceBase, IDisposable
     {
         private const string BaseAddress = "https://www.extra-life.org/api/";
 
@@ -142,9 +139,9 @@ namespace MixItUp.Base.Services.External
 
         public ExtraLifeService() : base(ExtraLifeService.BaseAddress) { }
 
-        public override string Name { get { return "ExtraLife"; } }
+        public override string Name { get { return MixItUp.Base.Resources.ExtraLife; } }
 
-        public override bool IsConnected { get { return ChannelSession.Settings.ExtraLifeTeamID > 0 && ChannelSession.Settings.ExtraLifeParticipantID > 0; } }
+        public override bool IsConnected { get { return ChannelSession.Settings.ExtraLifeParticipantID > 0; } }
 
         public override async Task<Result> Connect()
         {
@@ -152,7 +149,7 @@ namespace MixItUp.Base.Services.External
             {
                 return await this.InitializeInternal();
             }
-            return new Result("Extra Life team ID / participant ID was not set");
+            return new Result(Resources.ExtraLifeTeamNotSet);
         }
 
         public override Task<Result> Connect(OAuthTokenModel token)
@@ -162,12 +159,9 @@ namespace MixItUp.Base.Services.External
 
         public override Task Disconnect()
         {
-            ChannelSession.Settings.ExtraLifeTeamID = 0;
-            ChannelSession.Settings.ExtraLifeParticipantID = 0;
-
             this.cancellationTokenSource.Cancel();
 
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
 
         public async Task<ExtraLifeTeam> GetTeam() { return await this.GetTeam(ChannelSession.Settings.ExtraLifeTeamID); }
@@ -227,24 +221,31 @@ namespace MixItUp.Base.Services.External
         protected override Task RefreshOAuthToken()
         {
             this.token = new OAuthTokenModel() { expiresIn = int.MaxValue };
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
 
         protected override async Task<Result> InitializeInternal()
         {
             this.cancellationTokenSource = new CancellationTokenSource();
 
-            this.team = await this.GetTeam();
+            if (ChannelSession.Settings.ExtraLifeTeamID > 0)
+            {
+                this.team = await this.GetTeam();
+            }
+
             this.participant = await this.GetParticipant();
 
-            if (this.team != null && this.participant != null)
+            if (this.participant != null)
             {
-                IEnumerable<ExtraLifeDonation> donations = (ChannelSession.Settings.ExtraLifeIncludeTeamDonations) ? await this.GetTeamDonations() : await this.GetParticipantDonations();
-                foreach (ExtraLifeDonation donation in donations)
+                IEnumerable<ExtraLifeDonation> donations = await this.GetDonations();
+                if (donations != null)
                 {
-                    if (!string.IsNullOrEmpty(donation.donationID))
+                    foreach (ExtraLifeDonation donation in donations)
                     {
-                        donationsReceived[donation.donationID] = donation;
+                        if (!string.IsNullOrEmpty(donation.donationID))
+                        {
+                            donationsReceived[donation.donationID] = donation;
+                        }
                     }
                 }
 
@@ -255,7 +256,7 @@ namespace MixItUp.Base.Services.External
                 this.TrackServiceTelemetry("ExtraLife");
                 return new Result();
             }
-            return new Result("Could not get Team/Participant data");
+            return new Result(Resources.ExtraLifeTeamDataFailed);
         }
 
         protected override void DisposeInternal()
@@ -265,15 +266,30 @@ namespace MixItUp.Base.Services.External
 
         private async Task BackgroundDonationCheck(CancellationToken token)
         {
-            IEnumerable<ExtraLifeDonation> donations = (ChannelSession.Settings.ExtraLifeIncludeTeamDonations) ? await this.GetTeamDonations() : await this.GetParticipantDonations();
-            foreach (ExtraLifeDonation elDonation in donations)
+            IEnumerable<ExtraLifeDonation> donations = await this.GetDonations();
+            if (donations != null)
             {
-                if (!string.IsNullOrEmpty(elDonation.donationID) && !donationsReceived.ContainsKey(elDonation.donationID) && elDonation.CreatedDate > this.startTime)
+                foreach (ExtraLifeDonation elDonation in donations)
                 {
-                    donationsReceived[elDonation.donationID] = elDonation;
-                    UserDonationModel donation = elDonation.ToGenericDonation();
-                    await EventService.ProcessDonationEvent(EventTypeEnum.ExtraLifeDonation, donation);
+                    if (!string.IsNullOrEmpty(elDonation.donationID) && !donationsReceived.ContainsKey(elDonation.donationID) && elDonation.CreatedDate > this.startTime)
+                    {
+                        donationsReceived[elDonation.donationID] = elDonation;
+                        UserDonationModel donation = elDonation.ToGenericDonation();
+                        await EventService.ProcessDonationEvent(EventTypeEnum.ExtraLifeDonation, donation);
+                    }
                 }
+            }
+        }
+
+        private async Task<IEnumerable<ExtraLifeDonation>> GetDonations()
+        {
+            if (ChannelSession.Settings.ExtraLifeIncludeTeamDonations && this.team != null)
+            {
+                return await this.GetTeamDonations();
+            }
+            else
+            {
+                return await this.GetParticipantDonations();
             }
         }
     }

@@ -1,7 +1,9 @@
 ﻿using MixItUp.Base.Model.Actions;
 using MixItUp.Base.Services;
+using MixItUp.Base.Util;
 using StreamingClient.Base.Util;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace MixItUp.Base.ViewModel.Actions
@@ -14,6 +16,8 @@ namespace MixItUp.Base.ViewModel.Actions
 
     public class InputActionEditorControlViewModel : ActionEditorControlViewModelBase
     {
+        private static IEnumerable<VirtualKeyEnum> keyboardKeys = EnumHelper.GetEnumList<VirtualKeyEnum>().OrderBy(k => EnumLocalizationHelper.GetLocalizedName(k));
+
         public override ActionTypeEnum Type { get { return ActionTypeEnum.Input; } }
 
         public IEnumerable<InputActionDeviceTypeEnum> DeviceTypes { get { return EnumHelper.GetEnumList<InputActionDeviceTypeEnum>(); } }
@@ -31,9 +35,9 @@ namespace MixItUp.Base.ViewModel.Actions
         }
         private InputActionDeviceTypeEnum selectedDeviceType;
 
-        public IEnumerable<InputKeyEnum> KeyboardKeys { get { return EnumHelper.GetEnumList<InputKeyEnum>(); } }
+        public IEnumerable<VirtualKeyEnum> KeyboardKeys { get { return keyboardKeys; } }
 
-        public InputKeyEnum SelectedKeyboardKey
+        public VirtualKeyEnum SelectedKeyboardKey
         {
             get { return this.selectedKeyboardKey; }
             set
@@ -42,7 +46,7 @@ namespace MixItUp.Base.ViewModel.Actions
                 this.NotifyPropertyChanged();
             }
         }
-        private InputKeyEnum selectedKeyboardKey;
+        private VirtualKeyEnum selectedKeyboardKey;
 
         public bool ShowKeyboard { get { return this.SelectedDeviceType == InputActionDeviceTypeEnum.Keyboard; } }
 
@@ -110,10 +114,10 @@ namespace MixItUp.Base.ViewModel.Actions
         public InputActionEditorControlViewModel(InputActionModel action)
             : base(action)
         {
-            if (action.Key != null)
+            if (action.VirtualKey != null)
             {
                 this.SelectedDeviceType = InputActionDeviceTypeEnum.Keyboard;
-                this.SelectedKeyboardKey = action.Key.GetValueOrDefault();
+                this.SelectedKeyboardKey = action.VirtualKey.GetValueOrDefault();
             }
             else if (action.Mouse != null)
             {

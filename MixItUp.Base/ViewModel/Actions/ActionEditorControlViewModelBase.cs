@@ -39,9 +39,15 @@ namespace MixItUp.Base.ViewModel.Actions
             {
                 this.enabled = value;
                 this.NotifyPropertyChanged();
+                this.NotifyPropertyChanged(nameof(Disabled));
             }
         }
         private bool enabled;
+
+        public bool Disabled
+        {
+            get { return !this.enabled; }
+        }
 
         public bool IsMinimized
         {
@@ -75,9 +81,9 @@ namespace MixItUp.Base.ViewModel.Actions
             this.Enabled = true;
         }
 
-        protected override Task OnLoadedInternal()
+        protected override Task OnOpenInternal()
         {
-            this.PlayCommand = this.CreateCommand(async (parameter) =>
+            this.PlayCommand = this.CreateCommand(async () =>
             {
                 ActionModelBase action = await this.ValidateAndGetAction();
                 if (action != null)
@@ -86,36 +92,65 @@ namespace MixItUp.Base.ViewModel.Actions
                 }
             });
 
-            this.MoveUpCommand = this.CreateCommand((parameter) =>
+            this.MoveUpCommand = this.CreateCommand(() =>
             {
                 this.actionEditorListControlViewModel.MoveActionUp(this);
-                return Task.FromResult(0);
             });
 
-            this.MoveDownCommand = this.CreateCommand((parameter) =>
+            this.MoveDownCommand = this.CreateCommand(() =>
             {
                 this.actionEditorListControlViewModel.MoveActionDown(this);
-                return Task.FromResult(0);
             });
 
-            this.CopyCommand = this.CreateCommand(async (parameter) =>
+            this.CopyCommand = this.CreateCommand(async () =>
             {
                 await this.actionEditorListControlViewModel.DuplicateAction(this);
             });
 
-            this.HelpCommand = this.CreateCommand((parameter) =>
+            this.HelpCommand = this.CreateCommand(() =>
             {
-                ProcessHelper.LaunchLink("https://github.com/SaviorXTanren/mixer-mixitup/wiki/Actions#" + this.HelpLinkIdentifier);
-                return Task.FromResult(0);
+                string actionPageName = string.Empty;
+                switch (this.Type)
+                {
+                    case ActionTypeEnum.Chat: actionPageName = "chat-action"; break;
+                    case ActionTypeEnum.Command: actionPageName = "command-action"; break;
+                    case ActionTypeEnum.Conditional: actionPageName = "conditional-action"; break;
+                    case ActionTypeEnum.Consumables: actionPageName = "consumable-action"; break;
+                    case ActionTypeEnum.Counter: actionPageName = "counter-action"; break;
+                    case ActionTypeEnum.Discord: actionPageName = "discord-action"; break;
+                    case ActionTypeEnum.ExternalProgram: actionPageName = "external-program-action"; break;
+                    case ActionTypeEnum.File: actionPageName = "file-action"; break;
+                    case ActionTypeEnum.GameQueue: actionPageName = "game-queue-action"; break;
+                    case ActionTypeEnum.IFTTT: actionPageName = "ifttt-action"; break;
+                    case ActionTypeEnum.Input: actionPageName = "input-action"; break;
+                    case ActionTypeEnum.Moderation: actionPageName = "moderation-action"; break;
+                    case ActionTypeEnum.Overlay: actionPageName = "overlay-action"; break;
+                    case ActionTypeEnum.OvrStream: actionPageName = "ovrstream-action"; break;
+                    case ActionTypeEnum.PixelChat: actionPageName = "pixel-chat-action"; break;
+                    case ActionTypeEnum.PolyPop: actionPageName = "polypop-action"; break;
+                    case ActionTypeEnum.Serial: actionPageName = "serial-action"; break;
+                    case ActionTypeEnum.Sound: actionPageName = "sound-action"; break;
+                    case ActionTypeEnum.SpecialIdentifier: actionPageName = "special-identifier-action"; break;
+                    case ActionTypeEnum.Streamlabs: actionPageName = "streamlabs-action"; break;
+                    case ActionTypeEnum.TextToSpeech: actionPageName = "text-to-speech-action"; break;
+                    case ActionTypeEnum.Trovo: actionPageName = "trovo-action"; break;
+                    case ActionTypeEnum.Twitch: actionPageName = "twitch-action"; break;
+                    case ActionTypeEnum.Twitter: actionPageName = "twitter-action"; break;
+                    case ActionTypeEnum.Voicemod: actionPageName = "voicemod-action"; break;
+                    case ActionTypeEnum.VTubeStudio: actionPageName = "vtube-studio-action"; break;
+                    case ActionTypeEnum.Wait: actionPageName = "wait-action"; break;
+                    case ActionTypeEnum.WebRequest: actionPageName = "web-request-action"; break;
+                }
+
+                ProcessHelper.LaunchLink("https://wiki.mixitupapp.com/actions/" + actionPageName);
             });
 
-            this.DeleteCommand = this.CreateCommand((parameter) =>
+            this.DeleteCommand = this.CreateCommand(() =>
             {
                 this.actionEditorListControlViewModel.DeleteAction(this);
-                return Task.FromResult(0);
             });
 
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
 
         public void Initialize(ActionEditorListControlViewModel actionEditorListControlViewModel)

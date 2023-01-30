@@ -1,37 +1,36 @@
 ﻿using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Services;
 using MixItUp.Base.Util;
-using MixItUp.Base.ViewModel.User;
 using MixItUp.Base.ViewModels;
-using StreamingClient.Base.Util;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Threading.Tasks;
 using System.Windows.Input;
 
 namespace MixItUp.Base.ViewModel.MainControls
 {
     public class QueueUser
     {
-        public UserViewModel user { get; set; }
+        public CommandParametersModel parameters { get; set; }
 
         public int QueuePosition { get; set; }
 
-        public string Username { get { return this.user.DisplayName; } }
+        public string Username { get { return this.parameters.User.FullDisplayName; } }
 
-        public string PrimaryRole { get { return EnumHelper.GetEnumName(this.user.PrimaryRole); } }
+        public string Platform { get { return EnumLocalizationHelper.GetLocalizedName(this.parameters.User.Platform); } }
 
-        public QueueUser(UserViewModel user, int queuePosition)
+        public string PrimaryRole { get { return EnumLocalizationHelper.GetLocalizedName(this.parameters.User.PrimaryRole); } }
+
+        public QueueUser(CommandParametersModel parameters, int queuePosition)
         {
-            this.user = user;
+            this.parameters = parameters;
             this.QueuePosition = queuePosition;
         }
     }
 
     public class GameQueueMainControlViewModel : WindowControlViewModelBase
     {
-        public bool IsEnabled { get { return ChannelSession.Services.GameQueueService.IsEnabled; } }
+        public bool IsEnabled { get { return ServiceManager.Get<GameQueueService>().IsEnabled; } }
 
-        public string EnableDisableButtonText { get { return (this.IsEnabled) ? "Disable" : "Enable"; } }
+        public string EnableDisableButtonText { get { return (this.IsEnabled) ? MixItUp.Base.Resources.Disable : MixItUp.Base.Resources.Enable; } }
 
         public bool SubPriority
         {
@@ -80,42 +79,42 @@ namespace MixItUp.Base.ViewModel.MainControls
             this.GameQueueUserJoinedCommand = ChannelSession.Settings.GetCommand(ChannelSession.Settings.GameQueueUserJoinedCommandID);
             this.GameQueueUserSelectedCommand = ChannelSession.Settings.GetCommand(ChannelSession.Settings.GameQueueUserSelectedCommandID);
 
-            this.EnableDisableCommand = this.CreateCommand(async (x) =>
+            this.EnableDisableCommand = this.CreateCommand(async () =>
             {
                 if (this.IsEnabled)
                 {
-                    await ChannelSession.Services.GameQueueService.Disable();
+                    await ServiceManager.Get<GameQueueService>().Disable();
                 }
                 else
                 {
-                    await ChannelSession.Services.GameQueueService.Enable();
+                    await ServiceManager.Get<GameQueueService>().Enable();
                 }
                 this.NotifyPropertyChanges();
             });
 
             this.MoveUpCommand = this.CreateCommand(async (user) =>
             {
-                await ChannelSession.Services.GameQueueService.MoveUp((UserViewModel)user);
+                await ServiceManager.Get<GameQueueService>().MoveUp(((QueueUser)user).parameters);
                 this.NotifyPropertyChanges();
             });
 
             this.MoveDownCommand = this.CreateCommand(async (user) =>
             {
-                await ChannelSession.Services.GameQueueService.MoveDown((UserViewModel)user);
+                await ServiceManager.Get<GameQueueService>().MoveDown(((QueueUser)user).parameters);
                 this.NotifyPropertyChanges();
             });
 
             this.DeleteCommand = this.CreateCommand(async (user) =>
             {
-                await ChannelSession.Services.GameQueueService.Leave((UserViewModel)user);
+                await ServiceManager.Get<GameQueueService>().Leave(((QueueUser)user).parameters);
                 this.NotifyPropertyChanges();
             });
 
-            this.ClearQueueCommand = this.CreateCommand(async (x) =>
+            this.ClearQueueCommand = this.CreateCommand(async () =>
             {
                 if (await DialogHelper.ShowConfirmation(Resources.ClearGameQueuePrompt))
                 {
-                    await ChannelSession.Services.GameQueueService.Clear();
+                    await ServiceManager.Get<GameQueueService>().Clear();
                     this.NotifyPropertyChanges();
                 }
             });
@@ -125,9 +124,9 @@ namespace MixItUp.Base.ViewModel.MainControls
         {
             List<QueueUser> queue = new List<QueueUser>();
             int position = 1;
-            foreach (UserViewModel user in ChannelSession.Services.GameQueueService.Queue)
+            foreach (CommandParametersModel parameters in ServiceManager.Get<GameQueueService>().Queue)
             {
-                queue.Add(new QueueUser(user, position));
+                queue.Add(new QueueUser(parameters, position));
                 position++;
             }
             this.QueueUsers.ClearAndAddRange(queue);

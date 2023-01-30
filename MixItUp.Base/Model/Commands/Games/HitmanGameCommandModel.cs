@@ -1,4 +1,5 @@
-﻿using MixItUp.Base.Util;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
 using StreamingClient.Base.Util;
@@ -50,7 +51,7 @@ namespace MixItUp.Base.Model.Commands.Games
         [JsonIgnore]
         private int runBetAmount;
         [JsonIgnore]
-        private Dictionary<UserViewModel, CommandParametersModel> runUsers = new Dictionary<UserViewModel, CommandParametersModel>();
+        private Dictionary<UserV2ViewModel, CommandParametersModel> runUsers = new Dictionary<UserV2ViewModel, CommandParametersModel>();
         [JsonIgnore]
         private string runHitmanName;
 
@@ -72,25 +73,8 @@ namespace MixItUp.Base.Model.Commands.Games
             this.UserFailureCommand = userFailureCommand;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal HitmanGameCommandModel(Base.Commands.HitmanGameCommand command)
-            : base(command, GameCommandTypeEnum.Hitman)
-        {
-            this.MinimumParticipants = command.MinimumParticipants;
-            this.TimeLimit = command.TimeLimit;
-            this.HitmanTimeLimit = command.HitmanTimeLimit;
-            this.CustomWordsFilePath = command.CustomWordsFilePath;
-            this.StartedCommand = new CustomCommandModel(command.StartedCommand) { IsEmbedded = true };
-            this.UserJoinCommand = new CustomCommandModel(command.UserJoinCommand) { IsEmbedded = true };
-            this.NotEnoughPlayersCommand = new CustomCommandModel(command.NotEnoughPlayersCommand) { IsEmbedded = true };
-            this.HitmanApproachingCommand = new CustomCommandModel(command.HitmanApproachingCommand) { IsEmbedded = true };
-            this.HitmanAppearsCommand = new CustomCommandModel(command.HitmanAppearsCommand) { IsEmbedded = true };
-            this.UserSuccessCommand = new CustomCommandModel(command.UserSuccessOutcome.Command) { IsEmbedded = true };
-            this.UserFailureCommand = new CustomCommandModel(command.UserFailOutcome.Command) { IsEmbedded = true };
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private HitmanGameCommandModel() { }
+        [Obsolete]
+        public HitmanGameCommandModel() : base() { }
 
         public override IEnumerable<CommandModelBase> GetInnerCommands()
         {
@@ -105,8 +89,9 @@ namespace MixItUp.Base.Model.Commands.Games
             return commands;
         }
 
-        protected override async Task PerformInternal(CommandParametersModel parameters)
+        public override async Task CustomRun(CommandParametersModel parameters)
         {
+            await this.RefundCooldown(parameters);
             if (this.runParameters == null)
             {
                 this.runBetAmount = this.GetPrimaryBetAmount(parameters);
@@ -124,7 +109,7 @@ namespace MixItUp.Base.Model.Commands.Games
 
                     if (this.runUsers.Count < this.MinimumParticipants)
                     {
-                        await this.NotEnoughPlayersCommand.Perform(this.runParameters);
+                        await this.RunSubCommand(this.NotEnoughPlayersCommand, this.runParameters);
                         foreach (var kvp in this.runUsers.ToList())
                         {
                             await this.Requirements.Refund(kvp.Value);
@@ -134,13 +119,13 @@ namespace MixItUp.Base.Model.Commands.Games
                         return;
                     }
 
-                    await this.HitmanApproachingCommand.Perform(this.runParameters);
+                    await this.RunSubCommand(this.HitmanApproachingCommand, this.runParameters);
 
                     await DelayNoThrow(5000, cancellationToken);
 
                     GlobalEvents.OnChatMessageReceived += GlobalEvents_OnChatMessageReceived;
 
-                    await this.HitmanAppearsCommand.Perform(this.runParameters);
+                    await this.RunSubCommand(this.HitmanAppearsCommand, this.runParameters);
 
                     for (int i = 0; i < this.HitmanTimeLimit && this.gameActive; i++)
                     {
@@ -151,7 +136,7 @@ namespace MixItUp.Base.Model.Commands.Games
 
                     if (this.gameActive && !string.IsNullOrEmpty(this.runHitmanName))
                     {
-                        this.UserFailureCommand.Perform(this.runParameters);
+                        await this.RunSubCommand(this.UserFailureCommand, this.runParameters);
                         await this.PerformCooldown(this.runParameters);
                     }
                     this.gameActive = false;
@@ -160,19 +145,19 @@ namespace MixItUp.Base.Model.Commands.Games
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
                 this.gameActive = true;
-                await this.StartedCommand.Perform(this.runParameters);
-                await this.UserJoinCommand.Perform(this.runParameters);
+                await this.RunSubCommand(this.StartedCommand, this.runParameters);
+                await this.RunSubCommand(this.UserJoinCommand, this.runParameters);
                 return;
             }
             else if (string.IsNullOrEmpty(this.runHitmanName) && !this.runUsers.ContainsKey(parameters.User))
             {
                 this.runUsers[parameters.User] = parameters;
-                await this.UserJoinCommand.Perform(parameters);
+                await this.RunSubCommand(this.UserJoinCommand, parameters);
                 return;
             }
             else
             {
-                await ChannelSession.Services.Chat.SendMessage(MixItUp.Base.Resources.GameCommandAlreadyUnderway);
+                await ServiceManager.Get<ChatService>().SendMessage(MixItUp.Base.Resources.GameCommandAlreadyUnderway, parameters);
             }
             await this.Requirements.Refund(parameters);
         }
@@ -191,10 +176,11 @@ namespace MixItUp.Base.Model.Commands.Games
 
                     winner.SpecialIdentifiers[HitmanGameCommandModel.GamePayoutSpecialIdentifier] = payout.ToString();
                     winner.SpecialIdentifiers[HitmanGameCommandModel.GameHitmanNameSpecialIdentifier] = this.runHitmanName;
+                    this.SetGameWinners(this.runParameters, new List<CommandParametersModel>() { this.runParameters });
 
                     await this.PerformCooldown(this.runParameters);
                     this.ClearData();
-                    await this.UserSuccessCommand.Perform(winner);
+                    await this.RunSubCommand(this.UserSuccessCommand, winner);
                 }
             }
             catch (Exception ex)

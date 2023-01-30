@@ -1,6 +1,5 @@
 ﻿using MixItUp.Base.Model.Commands;
 using MixItUp.Base.Util;
-using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -19,6 +18,10 @@ namespace MixItUp.Base.Model.Requirements
     [DataContract]
     public class CooldownRequirementModel : RequirementModelBase
     {
+        private const int InitialCooldownAmount = 5;
+
+        private static DateTimeOffset requirementErrorCooldown = DateTimeOffset.MinValue;
+
         private static Dictionary<string, DateTimeOffset> groupCooldowns = new Dictionary<string, DateTimeOffset>();
 
         [DataMember]
@@ -36,24 +39,16 @@ namespace MixItUp.Base.Model.Requirements
         [JsonIgnore]
         private LockedDictionary<Guid, DateTimeOffset> individualCooldowns = new LockedDictionary<Guid, DateTimeOffset>();
 
-        public CooldownRequirementModel() { }
-
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal CooldownRequirementModel(MixItUp.Base.ViewModel.Requirement.CooldownRequirementViewModel requirement)
-            : this()
-        {
-            this.Type = (CooldownTypeEnum)(int)requirement.Type;
-            this.IndividualAmount = requirement.Amount;
-            this.GroupName = requirement.GroupName;
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
         public CooldownRequirementModel(CooldownTypeEnum type, int amount, string groupName = null)
         {
             this.Type = type;
             this.IndividualAmount = amount;
             this.GroupName = groupName;
         }
+
+        public CooldownRequirementModel() { }
+
+        protected override DateTimeOffset RequirementErrorCooldown { get { return CooldownRequirementModel.requirementErrorCooldown; } set { CooldownRequirementModel.requirementErrorCooldown = value; } }
 
         [JsonIgnore]
         public bool IsGroup { get { return this.Type == CooldownTypeEnum.Group && !string.IsNullOrEmpty(this.GroupName); } }
@@ -117,20 +112,25 @@ namespace MixItUp.Base.Model.Requirements
             await base.Perform(parameters);
 
             int amount = this.Amount;
-            if (this.Type == CooldownTypeEnum.Standard)
+            if (amount > 0)
             {
-                this.globalCooldown = DateTimeOffset.Now.AddSeconds(amount);
-            }
-            else if (this.Type == CooldownTypeEnum.Group)
-            {
-                if (!string.IsNullOrEmpty(this.GroupName))
+                this.individualErrorCooldown = DateTimeOffset.Now.AddSeconds(InitialCooldownAmount);
+
+                if (this.Type == CooldownTypeEnum.Standard)
                 {
-                    CooldownRequirementModel.groupCooldowns[this.GroupName] = DateTimeOffset.Now.AddSeconds(amount);
+                    this.globalCooldown = DateTimeOffset.Now.AddSeconds(amount);
                 }
-            }
-            else if (this.Type == CooldownTypeEnum.PerPerson)
-            {
-                this.individualCooldowns[parameters.User.ID] = DateTimeOffset.Now.AddSeconds(amount);
+                else if (this.Type == CooldownTypeEnum.Group)
+                {
+                    if (!string.IsNullOrEmpty(this.GroupName))
+                    {
+                        CooldownRequirementModel.groupCooldowns[this.GroupName] = DateTimeOffset.Now.AddSeconds(amount);
+                    }
+                }
+                else if (this.Type == CooldownTypeEnum.PerPerson)
+                {
+                    this.individualCooldowns[parameters.User.ID] = DateTimeOffset.Now.AddSeconds(amount);
+                }
             }
         }
 
@@ -151,7 +151,7 @@ namespace MixItUp.Base.Model.Requirements
             {
                 this.individualCooldowns[parameters.User.ID] = DateTimeOffset.MinValue;
             }
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
 
         public override void Reset()

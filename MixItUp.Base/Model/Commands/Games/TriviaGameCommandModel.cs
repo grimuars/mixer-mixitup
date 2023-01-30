@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -27,15 +28,6 @@ namespace MixItUp.Base.Model.Commands.Games
         public string CorrectAnswer { get { return this.Answers[0]; } }
 
         public TriviaGameQuestionModel() { }
-
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal TriviaGameQuestionModel(Base.Commands.TriviaGameQuestion question)
-        {
-            this.Question = question.Question;
-            this.Answers.Add(question.CorrectAnswer);
-            this.Answers.AddRange(question.WrongAnswers);
-        }
-#pragma warning disable CS0612 // Type or member is obsolete
     }
 
     [DataContract]
@@ -99,9 +91,9 @@ namespace MixItUp.Base.Model.Commands.Games
         [JsonIgnore]
         private Dictionary<int, string> numbersToAnswers = new Dictionary<int, string>();
         [JsonIgnore]
-        private Dictionary<UserViewModel, CommandParametersModel> runUsers = new Dictionary<UserViewModel, CommandParametersModel>();
+        private Dictionary<UserV2ViewModel, CommandParametersModel> runUsers = new Dictionary<UserV2ViewModel, CommandParametersModel>();
         [JsonIgnore]
-        private Dictionary<UserViewModel, int> runUserSelections = new Dictionary<UserViewModel, int>();
+        private Dictionary<UserV2ViewModel, int> runUserSelections = new Dictionary<UserV2ViewModel, int>();
 
         public TriviaGameCommandModel(string name, HashSet<string> triggers, int timeLimit, bool useRandomOnlineQuestions, int winAmount, IEnumerable<TriviaGameQuestionModel> customQuestions,
             CustomCommandModel startedCommand, CustomCommandModel userJoinCommand, CustomCommandModel correctAnswerCommand, CustomCommandModel userSuccessCommand, CustomCommandModel userFailureCommand)
@@ -118,23 +110,8 @@ namespace MixItUp.Base.Model.Commands.Games
             this.UserFailureCommand = userFailureCommand;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal TriviaGameCommandModel(Base.Commands.TriviaGameCommand command)
-            : base(command, GameCommandTypeEnum.Trivia)
-        {
-            this.TimeLimit = command.TimeLimit;
-            this.UseRandomOnlineQuestions = command.UseRandomOnlineQuestions;
-            this.WinAmount = command.WinAmount;
-            this.CustomQuestions = new List<TriviaGameQuestionModel>(command.CustomQuestions.Select(q => new TriviaGameQuestionModel(q)));
-            this.StartedCommand = new CustomCommandModel(command.StartedCommand) { IsEmbedded = true };
-            this.UserJoinCommand = new CustomCommandModel(command.UserJoinCommand) { IsEmbedded = true };
-            this.CorrectAnswerCommand = new CustomCommandModel(command.CorrectAnswerCommand) { IsEmbedded = true };
-            this.UserSuccessCommand = new CustomCommandModel(command.UserSuccessOutcome.Command) { IsEmbedded = true };
-            this.UserFailureCommand = new CustomCommandModel(MixItUp.Base.Resources.GameSubCommand) { IsEmbedded = true };
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private TriviaGameCommandModel() { }
+        [Obsolete]
+        public TriviaGameCommandModel() : base() { }
 
         public override IEnumerable<CommandModelBase> GetInnerCommands()
         {
@@ -147,7 +124,16 @@ namespace MixItUp.Base.Model.Commands.Games
             return commands;
         }
 
-        protected override async Task PerformInternal(CommandParametersModel parameters)
+        public override async Task<Result> CustomValidation(CommandParametersModel parameters)
+        {
+            if (this.runParameters != null)
+            {
+                return new Result(MixItUp.Base.Resources.GameCommandAlreadyUnderway);
+            }
+            return await base.CustomValidation(parameters);
+        }
+
+        public override async Task CustomRun(CommandParametersModel parameters)
         {
             this.runParameters = parameters;
 
@@ -215,39 +201,43 @@ namespace MixItUp.Base.Model.Commands.Games
             this.runParameters.SpecialIdentifiers[TriviaGameCommandModel.GameTriviaAnswersSpecialIdentifier] = string.Join(", ", this.numbersToAnswers.OrderBy(a => a.Key).Select(a => $"{a.Key}) {a.Value}"));
             this.runParameters.SpecialIdentifiers[TriviaGameCommandModel.GameTriviaCorrectAnswerSpecialIdentifier] = this.question.CorrectAnswer;
 
-            GlobalEvents.OnChatMessageReceived += GlobalEvents_OnChatMessageReceived;
-
-            await this.StartedCommand.Perform(this.runParameters);
-
-            await Task.Delay(this.TimeLimit * 1000);
-
-            GlobalEvents.OnChatMessageReceived -= GlobalEvents_OnChatMessageReceived;
-
-            List<CommandParametersModel> winners = new List<CommandParametersModel>();
-            foreach (var kvp in this.runUserSelections.ToList())
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+            AsyncRunner.RunAsyncBackground(async (cancellationToken) =>
             {
-                CommandParametersModel participant = this.runUsers[kvp.Key];
-                if (kvp.Value == correctAnswerNumber)
-                {
-                    winners.Add(participant);
-                    this.PerformPrimarySetPayout(participant.User, this.WinAmount);
-                    participant.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = this.WinAmount.ToString();
-                    await this.UserSuccessCommand.Perform(participant);
-                }
-                else
-                {
-                    await this.UserFailureCommand.Perform(participant);
-                }
-            }
+                GlobalEvents.OnChatMessageReceived += GlobalEvents_OnChatMessageReceived;
 
-            this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersCountSpecialIdentifier] = winners.Count.ToString();
-            this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameWinnersSpecialIdentifier] = string.Join(", ", winners.Select(u => "@" + u.User.Username));
-            this.runParameters.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = this.WinAmount.ToString();
-            this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameAllPayoutSpecialIdentifier] = (this.WinAmount * winners.Count).ToString();
-            await this.CorrectAnswerCommand.Perform(this.runParameters);
+                await this.DelayNoThrow(this.TimeLimit * 1000, cancellationToken);
 
-            await this.PerformCooldown(this.runParameters);
-            this.ClearData();
+                GlobalEvents.OnChatMessageReceived -= GlobalEvents_OnChatMessageReceived;
+
+                List<CommandParametersModel> winners = new List<CommandParametersModel>();
+                foreach (var kvp in this.runUserSelections.ToList())
+                {
+                    CommandParametersModel participant = this.runUsers[kvp.Key];
+                    if (kvp.Value == correctAnswerNumber)
+                    {
+                        winners.Add(participant);
+                        this.PerformPrimarySetPayout(participant.User, this.WinAmount);
+                        participant.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = this.WinAmount.ToString();
+                        await this.RunSubCommand(this.UserSuccessCommand, participant);
+                    }
+                    else
+                    {
+                        await this.RunSubCommand(this.UserFailureCommand, participant);
+                    }
+                }
+
+                this.SetGameWinners(this.runParameters, winners);
+                this.runParameters.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = this.WinAmount.ToString();
+                this.runParameters.SpecialIdentifiers[GameCommandModelBase.GameAllPayoutSpecialIdentifier] = (this.WinAmount * winners.Count).ToString();
+                await this.RunSubCommand(this.CorrectAnswerCommand, this.runParameters);
+
+                await this.PerformCooldown(this.runParameters);
+                this.ClearData();
+            }, new CancellationToken());
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+
+            await this.RunSubCommand(this.StartedCommand, this.runParameters);
         }
 
         private async void GlobalEvents_OnChatMessageReceived(object sender, ViewModel.Chat.ChatMessageViewModel message)
@@ -256,10 +246,10 @@ namespace MixItUp.Base.Model.Commands.Games
             {
                 if (!this.runUsers.ContainsKey(message.User) && !string.IsNullOrEmpty(message.PlainTextMessage) && int.TryParse(message.PlainTextMessage, out int choice) && this.numbersToAnswers.ContainsKey(choice))
                 {
-                    CommandParametersModel parameters = new CommandParametersModel(message.User, message.Platform, message.ToArguments());
+                    CommandParametersModel parameters = new CommandParametersModel(message);
                     this.runUsers[message.User] = parameters;
                     this.runUserSelections[message.User] = choice;
-                    await this.UserJoinCommand.Perform(parameters);
+                    await this.RunSubCommand(this.UserJoinCommand, parameters);
                 }
             }
             catch (Exception ex)

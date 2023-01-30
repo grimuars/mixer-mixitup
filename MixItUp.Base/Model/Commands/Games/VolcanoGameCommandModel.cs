@@ -60,7 +60,7 @@ namespace MixItUp.Base.Model.Commands.Games
         [JsonIgnore]
         private bool collectActive = false;
         [JsonIgnore]
-        private HashSet<UserViewModel> collectUsers = new HashSet<UserViewModel>();
+        private HashSet<UserV2ViewModel> collectUsers = new HashSet<UserV2ViewModel>();
 
         public VolcanoGameCommandModel(string name, HashSet<string> triggers, string statusArgument, CustomCommandModel stage1DepositCommand, CustomCommandModel stage1StatusCommand,
             int stage2MinimumAmount, CustomCommandModel stage2DepositCommand, CustomCommandModel stage2StatusCommand,
@@ -89,32 +89,8 @@ namespace MixItUp.Base.Model.Commands.Games
             this.CollectCommand = collectCommand;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal VolcanoGameCommandModel(Base.Commands.VolcanoGameCommand command)
-            : base(command, GameCommandTypeEnum.Volcano)
-        {
-            this.StatusArgument = command.StatusArgument;
-            this.Stage1DepositCommand = new CustomCommandModel(command.Stage1DepositCommand) { IsEmbedded = true };
-            this.Stage1StatusCommand = new CustomCommandModel(command.Stage1StatusCommand) { IsEmbedded = true };
-            this.Stage2MinimumAmount = command.Stage2MinimumAmount;
-            this.Stage2DepositCommand = new CustomCommandModel(command.Stage2DepositCommand) { IsEmbedded = true };
-            this.Stage2StatusCommand = new CustomCommandModel(command.Stage2StatusCommand) { IsEmbedded = true };
-            this.Stage3MinimumAmount = command.Stage3MinimumAmount;
-            this.Stage3DepositCommand = new CustomCommandModel(command.Stage3DepositCommand) { IsEmbedded = true };
-            this.Stage3StatusCommand = new CustomCommandModel(command.Stage3StatusCommand) { IsEmbedded = true };
-            this.PayoutProbability = command.PayoutProbability;
-            this.PayoutMinimumPercentage = command.PayoutPercentageMinimum;
-            this.PayoutMaximumPercentage = command.PayoutPercentageMaximum;
-            this.PayoutCommand = new CustomCommandModel(command.PayoutCommand) { IsEmbedded = true };
-            this.CollectArgument = command.CollectArgument;
-            this.CollectTimeLimit = command.CollectTimeLimit;
-            this.CollectMinimumPercentage = command.CollectPayoutPercentageMinimum;
-            this.CollectMaximumPercentage = command.CollectPayoutPercentageMaximum;
-            this.CollectCommand = new CustomCommandModel(command.CollectArgument) { IsEmbedded = true };
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private VolcanoGameCommandModel() { }
+        [Obsolete]
+        public VolcanoGameCommandModel() : base() { }
 
         public override IEnumerable<CommandModelBase> GetInnerCommands()
         {
@@ -130,7 +106,7 @@ namespace MixItUp.Base.Model.Commands.Games
             return commands;
         }
 
-        protected override async Task<bool> ValidateRequirements(CommandParametersModel parameters)
+        public override async Task<Result> CustomValidation(CommandParametersModel parameters)
         {
             if (this.collectActive)
             {
@@ -143,43 +119,41 @@ namespace MixItUp.Base.Model.Commands.Games
                         this.PerformPrimarySetPayout(parameters.User, payout);
 
                         parameters.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = payout.ToString();
-                        await this.CollectCommand.Perform(parameters);
+                        this.SetGameWinners(parameters, new List<CommandParametersModel>() { parameters });
+                        await this.RunSubCommand(this.CollectCommand, parameters);
                     }
                     else
                     {
-                        await ChannelSession.Services.Chat.SendMessage(MixItUp.Base.Resources.GameCommandVolcanoAlreadyCollected);
+                        return new Result(MixItUp.Base.Resources.GameCommandVolcanoAlreadyCollected);
                     }
                 }
                 else
                 {
-                    await ChannelSession.Services.Chat.SendMessage(MixItUp.Base.Resources.GameCommandVolcanoCollectUnderway);
+                    return new Result(MixItUp.Base.Resources.GameCommandVolcanoCollectUnderway);
                 }
-                return false;
+                return new Result(success: false);
             }
             else if (parameters.Arguments.Count == 1 && string.Equals(parameters.Arguments[0], this.StatusArgument, StringComparison.CurrentCultureIgnoreCase))
             {
                 parameters.SpecialIdentifiers[GameCommandModelBase.GameTotalAmountSpecialIdentifier] = this.TotalAmount.ToString();
                 if (this.TotalAmount >= this.Stage3MinimumAmount)
                 {
-                    await this.Stage3StatusCommand.Perform(parameters);
+                    await this.RunSubCommand(this.Stage3StatusCommand, parameters);
                 }
                 else if (this.TotalAmount >= this.Stage2MinimumAmount)
                 {
-                    await this.Stage2StatusCommand.Perform(parameters);
+                    await this.RunSubCommand(this.Stage2StatusCommand, parameters);
                 }
                 else
                 {
-                    await this.Stage1StatusCommand.Perform(parameters);
+                    await this.RunSubCommand(this.Stage1StatusCommand, parameters);
                 }
-                return false;
+                return new Result(success: false);
             }
-            else
-            {
-                return await base.ValidateRequirements(parameters);
-            }
+            return new Result();
         }
 
-        protected override async Task PerformInternal(CommandParametersModel parameters)
+        public override async Task CustomRun(CommandParametersModel parameters)
         {
             this.TotalAmount += this.GetPrimaryBetAmount(parameters);
             parameters.SpecialIdentifiers[GameCommandModelBase.GameTotalAmountSpecialIdentifier] = this.TotalAmount.ToString();
@@ -191,6 +165,8 @@ namespace MixItUp.Base.Model.Commands.Games
                     this.collectUsers.Add(parameters.User);
                     int payout = this.GenerateRandomNumber(this.TotalAmount, this.PayoutMinimumPercentage / 100.0d, this.PayoutMaximumPercentage / 100.0d);
                     this.PerformPrimarySetPayout(parameters.User, payout);
+
+                    this.SetGameWinners(parameters, new List<CommandParametersModel>() { parameters });
                     parameters.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = payout.ToString();
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
@@ -202,22 +178,24 @@ namespace MixItUp.Base.Model.Commands.Games
                     }, new CancellationToken());
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
-                    await this.PayoutCommand.Perform(parameters);
+                    await this.RunSubCommand(this.PayoutCommand, parameters);
                 }
                 else
                 {
-                    await this.Stage3DepositCommand.Perform(parameters);
+                    await this.RunSubCommand(this.Stage3DepositCommand, parameters);
                 }
             }
             else if (this.TotalAmount >= this.Stage2MinimumAmount)
             {
-                await this.Stage2DepositCommand.Perform(parameters);
+                await this.RunSubCommand(this.Stage2DepositCommand, parameters);
             }
             else
             {
-                await this.Stage1DepositCommand.Perform(parameters);
+                await this.RunSubCommand(this.Stage1DepositCommand, parameters);
             }
             await this.PerformCooldown(parameters);
+
+            ChannelSession.Settings.Commands.ManualValueChanged(this.ID);
         }
 
         private void ClearData()
@@ -225,6 +203,8 @@ namespace MixItUp.Base.Model.Commands.Games
             this.TotalAmount = 0;
             this.collectActive = false;
             this.collectUsers.Clear();
+
+            ChannelSession.Settings.Commands.ManualValueChanged(this.ID);
         }
     }
 }

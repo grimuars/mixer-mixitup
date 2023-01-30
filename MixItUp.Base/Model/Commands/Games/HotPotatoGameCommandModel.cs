@@ -1,5 +1,7 @@
-﻿using MixItUp.Base.Util;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Util;
 using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading;
@@ -50,33 +52,8 @@ namespace MixItUp.Base.Model.Commands.Games
             this.PotatoExplodeCommand = potatoExplodeCommand;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal HotPotatoGameCommandModel(Base.Commands.BeachBallGameCommand command)
-            : base(command, GameCommandTypeEnum.HotPotato)
-        {
-            this.LowerTimeLimit = command.LowerLimit;
-            this.UpperTimeLimit = command.UpperLimit;
-            this.ResetTimeOnToss = true;
-            this.PlayerSelectionType = GamePlayerSelectionType.Targeted;
-            this.StartedCommand = new CustomCommandModel(command.StartedCommand) { IsEmbedded = true };
-            this.TossPotatoCommand = new CustomCommandModel(command.BallHitCommand) { IsEmbedded = true };
-            this.PotatoExplodeCommand = new CustomCommandModel(command.BallMissedCommand) { IsEmbedded = true };
-        }
-
-        internal HotPotatoGameCommandModel(Base.Commands.HotPotatoGameCommand command)
-            : base(command, GameCommandTypeEnum.HotPotato)
-        {
-            this.LowerTimeLimit = command.LowerLimit;
-            this.UpperTimeLimit = command.UpperLimit;
-            this.ResetTimeOnToss = false;
-            this.PlayerSelectionType = GamePlayerSelectionType.Targeted;
-            this.StartedCommand = new CustomCommandModel(command.StartedCommand) { IsEmbedded = true };
-            this.TossPotatoCommand = new CustomCommandModel(command.TossPotatoCommand) { IsEmbedded = true };
-            this.PotatoExplodeCommand = new CustomCommandModel(command.PotatoExplodeCommand) { IsEmbedded = true };
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private HotPotatoGameCommandModel() { }
+        [Obsolete]
+        public HotPotatoGameCommandModel() : base() { }
 
         public override IEnumerable<CommandModelBase> GetInnerCommands()
         {
@@ -87,19 +64,21 @@ namespace MixItUp.Base.Model.Commands.Games
             return commands;
         }
 
-        protected override async Task PerformInternal(CommandParametersModel parameters)
+        public override async Task CustomRun(CommandParametersModel parameters)
         {
+            await this.RefundCooldown(parameters);
+
             var lastTargetUser = this.lastTossParameters?.TargetUser;
             if (this.gameActive && lastTargetUser != parameters.User)
             {
                 // The game is underway and it's not the user's turn
-                await ChannelSession.Services.Chat.SendMessage(MixItUp.Base.Resources.GameCommandAlreadyUnderway);
+                await ServiceManager.Get<ChatService>().SendMessage(MixItUp.Base.Resources.GameCommandAlreadyUnderway, parameters);
                 await this.Requirements.Refund(parameters);
                 return;
             }
 
             await this.SetSelectedUser(this.PlayerSelectionType, parameters);
-            if (parameters.TargetUser != null)
+            if (parameters.TargetUser != null && !parameters.IsTargetUserSelf)
             {
                 if (this.startParameters == null)
                 {
@@ -118,14 +97,15 @@ namespace MixItUp.Base.Model.Commands.Games
                             await DelayNoThrow(1000 * RandomHelper.GenerateRandomNumber(this.LowerTimeLimit, this.UpperTimeLimit), token);
 
                             this.gameActive = false;
-                            await this.PotatoExplodeCommand.Perform(this.lastTossParameters);
+                            this.SetGameWinners(this.lastTossParameters, new List<CommandParametersModel>() { this.lastTossParameters });
+                            await this.RunSubCommand(this.PotatoExplodeCommand, this.lastTossParameters);
 
                             await this.PerformCooldown(this.startParameters);
                             this.ClearData();
                         }, new CancellationToken());
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                     }
-                    await this.StartedCommand.Perform(parameters);
+                    await this.RunSubCommand(this.StartedCommand, parameters);
                 }
                 else
                 {
@@ -133,7 +113,7 @@ namespace MixItUp.Base.Model.Commands.Games
                     {
                         this.RestartTossTime();
                     }
-                    await this.TossPotatoCommand.Perform(parameters);
+                    await this.RunSubCommand(this.TossPotatoCommand, parameters);
                 }
 
                 this.lastTossParameters = parameters;
@@ -141,7 +121,7 @@ namespace MixItUp.Base.Model.Commands.Games
             }
             else
             {
-                await ChannelSession.Services.Chat.SendMessage(MixItUp.Base.Resources.GameCommandCouldNotFindUser);
+                await ServiceManager.Get<ChatService>().SendMessage(MixItUp.Base.Resources.GameCommandCouldNotFindUser, parameters);
             }
 
             await this.Requirements.Refund(parameters);
@@ -164,7 +144,8 @@ namespace MixItUp.Base.Model.Commands.Games
                 if (this.gameActive && !token.IsCancellationRequested)
                 {
                     this.gameActive = false;
-                    await this.PotatoExplodeCommand.Perform(this.lastTossParameters);
+                    this.SetGameWinners(this.lastTossParameters, new List<CommandParametersModel>() { this.lastTossParameters });
+                    await this.RunSubCommand(this.PotatoExplodeCommand, this.lastTossParameters);
                     await this.PerformCooldown(this.lastTossParameters);
                     this.ClearData();
                 }

@@ -1,7 +1,6 @@
-﻿using MixItUp.Base.Services.External;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
-using StreamingClient.Base.Util;
-using System;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
@@ -35,15 +34,17 @@ namespace MixItUp.Base.ViewModel.Services
         public ICommand LogOutCommand { get; set; }
         public ICommand AuthorizePinCommand { get; set; }
 
+        public override string WikiPageName { get { return "twitter"; } }
+
         public TwitterServiceControlViewModel()
             : base(Resources.Twitter)
         {
-            this.LogInCommand = this.CreateCommand((parameter) =>
+            this.LogInCommand = this.CreateCommand(() =>
             {
                 this.AuthorizationInProgress = true;
                 Task.Run(async () =>
                 {
-                    Result result = await ChannelSession.Services.Twitter.Connect();
+                    Result result = await ServiceManager.Get<ITwitterService>().Connect();
                     await DispatcherHelper.Dispatcher.InvokeAsync(async () =>
                     {
                         if (result.Success)
@@ -59,28 +60,26 @@ namespace MixItUp.Base.ViewModel.Services
                         this.AuthorizationPin = string.Empty;
                     });
                 });
-                return Task.FromResult(0);
             });
 
-            this.LogOutCommand = this.CreateCommand(async (parameter) =>
+            this.LogOutCommand = this.CreateCommand(async () =>
             {
-                await ChannelSession.Services.Twitter.Disconnect();
+                await ServiceManager.Get<ITwitterService>().Disconnect();
 
                 ChannelSession.Settings.TwitterOAuthToken = null;
 
                 this.IsConnected = false;
             });
 
-            this.AuthorizePinCommand = this.CreateCommand((parameter) =>
+            this.AuthorizePinCommand = this.CreateCommand(() =>
             {
                 if (!string.IsNullOrEmpty(this.AuthorizationPin))
                 {
-                    ChannelSession.Services.Twitter.SetAuthPin(this.AuthorizationPin);
+                    ServiceManager.Get<ITwitterService>().SetAuthPin(this.AuthorizationPin);
                 }
-                return Task.FromResult(0);
             });
 
-            this.IsConnected = ChannelSession.Services.Twitter.IsConnected;
+            this.IsConnected = ServiceManager.Get<ITwitterService>().IsConnected;
         }
     }
 }

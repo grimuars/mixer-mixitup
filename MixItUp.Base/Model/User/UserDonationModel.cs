@@ -1,10 +1,12 @@
-﻿using MixItUp.Base.Util;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 namespace MixItUp.Base.Model.User
 {
@@ -17,9 +19,11 @@ namespace MixItUp.Base.Model.User
         ExtraLife,
         TipeeeStream,
         TreatStream,
-        StreamJar,
+        Rainmaker,
         JustGiving,
         StreamElements,
+        Glimesh,
+        Twitch,
     }
 
     [DataContract]
@@ -31,9 +35,10 @@ namespace MixItUp.Base.Model.User
         [DataMember]
         public string ID { get; set; }
         [DataMember]
-        public StreamingPlatformTypeEnum Platform { get; set; } = StreamingPlatformTypeEnum.All;
+        public StreamingPlatformTypeEnum Platform { get; set; } = StreamingPlatformTypeEnum.None;
         [DataMember]
-        public string Username { get; set; }
+        public bool IsAnonymous { get; set; }
+
         [DataMember]
         public string Type { get; set; }
         [DataMember]
@@ -47,25 +52,57 @@ namespace MixItUp.Base.Model.User
         [DataMember]
         public DateTimeOffset DateTime { get; set; }
 
-        [JsonIgnore]
-        public string AmountText { get { return string.Format("{0:C}", Math.Round(this.Amount, 2)); } }
-
-        [JsonIgnore]
-        public UserViewModel User
+        public string Username
         {
             get
             {
-                lock (this)
+                if (this.IsAnonymous)
                 {
-                    if (this.user == null)
+                    return MixItUp.Base.Resources.Anonymous;
+                }
+
+                if (this.User != null)
+                {
+                    return this.User.DisplayName;
+                }
+
+                if (!string.IsNullOrWhiteSpace(this.username))
+                {
+                    return this.username;
+                }
+
+                return MixItUp.Base.Resources.Anonymous;
+            }
+            set { this.username = value; }
+        }
+        [DataMember]
+        private string username { get; set; }
+
+        [JsonIgnore]
+        public UserV2ViewModel User { get; set; }
+
+        [JsonIgnore]
+        public string AmountText { get { return this.Amount.ToCurrencyString(); } }
+
+        public async Task AssignUser()
+        {
+            if (this.User == null)
+            {
+                if (this.IsAnonymous)
+                {
+                    this.User = UserV2ViewModel.CreateUnassociated(MixItUp.Base.Resources.Anonymous);
+                }
+
+                if (!string.IsNullOrEmpty(this.username))
+                {
+                    this.User = await ServiceManager.Get<UserService>().GetUserByPlatformUsername(this.Platform, this.username);
+                    if (this.User == null)
                     {
-                        this.user = ChannelSession.Services.User.GetUserFullSearch(this.Platform, null, this.Username);
+                        this.User = UserV2ViewModel.CreateUnassociated(this.username);
                     }
                 }
-                return this.user;
             }
         }
-        private UserViewModel user;
 
         public Dictionary<string, string> GetSpecialIdentifiers()
         {

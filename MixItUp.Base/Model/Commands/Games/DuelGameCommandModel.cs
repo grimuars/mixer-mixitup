@@ -1,4 +1,5 @@
-﻿using MixItUp.Base.Util;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Util;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -47,20 +48,8 @@ namespace MixItUp.Base.Model.Commands.Games
             this.FailedCommand = failedCommand;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal DuelGameCommandModel(Base.Commands.DuelGameCommand command)
-            : base(command, GameCommandTypeEnum.Duel)
-        {
-            this.TimeLimit = command.TimeLimit;
-            this.PlayerSelectionType = GamePlayerSelectionType.Targeted;
-            this.StartedCommand = new CustomCommandModel(command.StartedCommand) { IsEmbedded = true };
-            this.NotAcceptedCommand = new CustomCommandModel(command.NotAcceptedCommand) { IsEmbedded = true };
-            this.SuccessfulOutcome = new GameOutcomeModel(command.SuccessfulOutcome);
-            this.FailedCommand = new CustomCommandModel(command.FailedOutcome.Command) { IsEmbedded = true };
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private DuelGameCommandModel() { }
+        [Obsolete]
+        public DuelGameCommandModel() : base() { }
 
         public override IEnumerable<CommandModelBase> GetInnerCommands()
         {
@@ -72,7 +61,7 @@ namespace MixItUp.Base.Model.Commands.Games
             return commands;
         }
 
-        protected override async Task<bool> ValidateRequirements(CommandParametersModel parameters)
+        public override async Task<Result> CustomValidation(CommandParametersModel parameters)
         {
             this.SetPrimaryCurrencyRequirementArgumentIndex(argumentIndex: 1);
 
@@ -81,41 +70,48 @@ namespace MixItUp.Base.Model.Commands.Games
                 if (parameters.User == this.runParameters.TargetUser)
                 {
                     this.targetParameters = parameters;
+                    this.targetParameters.Arguments = this.runParameters.Arguments;
 
                     this.gameActive = false;
-                    this.runParameters.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = this.GetPrimaryBetAmount(parameters).ToString();
+
+                    this.runParameters.SpecialIdentifiers[GameCommandModelBase.GamePayoutSpecialIdentifier] = this.GetPrimaryBetAmount(this.runParameters).ToString();
+
                     if (this.GenerateProbability() <= this.SuccessfulOutcome.GetRoleProbabilityPayout(this.runParameters.User).Probability)
                     {
+                        this.SetGameWinners(this.runParameters, new List<CommandParametersModel>() { this.runParameters });
+
                         this.PerformPrimaryMultiplierPayout(this.runParameters, 2);
                         this.PerformPrimaryMultiplierPayout(this.targetParameters, -1);
-                        await this.SuccessfulOutcome.Command.Perform(this.runParameters);
+                        await this.RunSubCommand(this.SuccessfulOutcome.Command, this.runParameters);
                     }
                     else
                     {
+                        this.SetGameWinners(this.runParameters, new List<CommandParametersModel>() { this.targetParameters });
+
                         this.PerformPrimaryMultiplierPayout(this.targetParameters, 1);
-                        await this.FailedCommand.Perform(this.runParameters);
+                        await this.RunSubCommand(this.FailedCommand, this.runParameters);
                     }
 
                     await this.PerformCooldown(this.runParameters);
                     this.ClearData();
-                    return false;
+
+                    return new Result(success: false);
                 }
                 else
                 {
-                    await ChannelSession.Services.Chat.SendMessage(MixItUp.Base.Resources.GameCommandAlreadyUnderway);
-                    return false;
+                    return new Result(MixItUp.Base.Resources.GameCommandAlreadyUnderway);
                 }
             }
-            else
-            {
-                return await base.ValidateRequirements(parameters);
-            }
+
+            return new Result();
         }
 
-        protected override async Task PerformInternal(CommandParametersModel parameters)
+        public override async Task CustomRun(CommandParametersModel parameters)
         {
+            await this.RefundCooldown(parameters);
+
             await this.SetSelectedUser(this.PlayerSelectionType, parameters);
-            if (parameters.TargetUser != null)
+            if (parameters.TargetUser != null && !parameters.IsTargetUserSelf)
             {
                 if (await this.ValidateTargetUserPrimaryBetAmount(parameters))
                 {
@@ -130,7 +126,7 @@ namespace MixItUp.Base.Model.Commands.Games
                         if (this.gameActive && cancellationToken != null && !cancellationToken.IsCancellationRequested)
                         {
                             this.gameActive = false;
-                            await this.NotAcceptedCommand.Perform(parameters);
+                            await this.RunSubCommand(this.NotAcceptedCommand, parameters);
                             await this.Requirements.Refund(parameters);
                             await this.PerformCooldown(parameters);
                         }
@@ -139,14 +135,15 @@ namespace MixItUp.Base.Model.Commands.Games
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
                     this.gameActive = true;
-                    await this.StartedCommand.Perform(parameters);
+                    await this.RunSubCommand(this.StartedCommand, parameters);
                     return;
                 }
             }
             else
             {
-                await ChannelSession.Services.Chat.SendMessage(MixItUp.Base.Resources.GameCommandCouldNotFindUser);
+                await ServiceManager.Get<ChatService>().SendMessage(MixItUp.Base.Resources.GameCommandCouldNotFindUser, parameters);
             }
+            await this.Requirements.Refund(parameters);
         }
 
         private void ClearData()

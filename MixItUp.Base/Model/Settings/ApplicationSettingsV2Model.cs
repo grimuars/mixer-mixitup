@@ -1,4 +1,5 @@
-﻿using MixItUp.Base.Util;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Util;
 using Newtonsoft.Json;
 using StreamingClient.Base.Util;
 using System;
@@ -14,8 +15,8 @@ namespace MixItUp.Base.Model.Settings
 
         public static async Task<ApplicationSettingsV2Model> Load()
         {
-            ApplicationSettingsV2Model settings = new ApplicationSettingsV2Model();
-            if (ChannelSession.Services.FileService.FileExists(ApplicationSettingsFileName))
+            ApplicationSettingsV2Model settings = null;
+            if (ServiceManager.Get<IFileService>().FileExists(ApplicationSettingsFileName))
             {
                 try
                 {
@@ -27,11 +28,16 @@ namespace MixItUp.Base.Model.Settings
                 }
             }
 
-            //if (settings.ForceResetPreviewProgram)
-            //{
-            //    settings.ForceResetPreviewProgram = false;
-            //    settings.PreviewProgram = false;
-            //}
+            if (settings == null)
+            {
+                settings = new ApplicationSettingsV2Model();
+            }
+
+            if (settings.ForceResetPreviewProgram)
+            {
+                settings.ForceResetPreviewProgram = false;
+                settings.PreviewProgram = false;
+            }
 
             return settings;
         }
@@ -44,8 +50,8 @@ namespace MixItUp.Base.Model.Settings
 
         [DataMember]
         public bool PreviewProgram { get; set; } = false;
-        //[DataMember]
-        //public bool ForceResetPreviewProgram { get; set; } = true;
+        [DataMember]
+        public bool ForceResetPreviewProgram { get; set; } = true;
 
         [DataMember]
         public bool TestBuild { get; set; } = false;
@@ -76,6 +82,24 @@ namespace MixItUp.Base.Model.Settings
 
         [DataMember]
         public bool IsMaximized { get; set; }
+
+        [DataMember]
+        public double DashboardTop { get; set; }
+
+        [DataMember]
+        public double DashboardLeft { get; set; }
+
+        [DataMember]
+        public double DashboardWidth { get; set; }
+
+        [DataMember]
+        public double DashboardHeight { get; set; }
+
+        [DataMember]
+        public bool IsDashboardMaximized { get; set; }
+
+        [DataMember]
+        public bool IsDashboardPinned { get; set; }
 
         [DataMember]
         public LanguageOptions LanguageOption { get; set; }

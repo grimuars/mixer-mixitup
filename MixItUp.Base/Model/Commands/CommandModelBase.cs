@@ -1,12 +1,12 @@
 ﻿using MixItUp.Base.Model.Actions;
 using MixItUp.Base.Model.Requirements;
+using MixItUp.Base.Services;
 using MixItUp.Base.Util;
 using Newtonsoft.Json;
 using StreamingClient.Base.Util;
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace MixItUp.Base.Model.Commands
@@ -23,9 +23,15 @@ namespace MixItUp.Base.Model.Commands
         Remote = 6,
         TwitchChannelPoints = 7,
         PreMade = 8,
+        StreamlootsCard = 9,
+        Webhook = 10,
+        TrovoSpell = 11,
 
         // Specialty Command Types
         UserOnlyChat = 1000,
+
+        [Obsolete]
+        All = 99999999,
     }
 
     [DataContract]
@@ -40,14 +46,6 @@ namespace MixItUp.Base.Model.Commands
         public CommandGroupSettingsModel() { }
 
         public CommandGroupSettingsModel(string name) { this.Name = name; }
-
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal CommandGroupSettingsModel(MixItUp.Base.Commands.CommandGroupSettings oldGroupSettings)
-        {
-            this.Name = oldGroupSettings.Name;
-            this.TimerInterval = oldGroupSettings.TimerInterval;
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
     }
 
     [DataContract]
@@ -61,30 +59,8 @@ namespace MixItUp.Base.Model.Commands
             types.Remove(CommandTypeEnum.PreMade);
             types.Remove(CommandTypeEnum.UserOnlyChat);
             types.Remove(CommandTypeEnum.Custom);
+            types.Remove(CommandTypeEnum.Webhook);
             return types;
-        }
-
-        public static async Task RunActions(IEnumerable<ActionModelBase> actions, CommandParametersModel parameters)
-        {
-            List<ActionModelBase> actionsToRun = new List<ActionModelBase>(actions);
-            for (int i = 0; i < actionsToRun.Count; i++)
-            {
-                ActionModelBase action = actionsToRun[i];
-                if (action is OverlayActionModel && ChannelSession.Services.Overlay.IsConnected)
-                {
-                    ChannelSession.Services.Overlay.StartBatching();
-                }
-
-                await action.Perform(parameters);
-
-                if (action is OverlayActionModel && ChannelSession.Services.Overlay.IsConnected)
-                {
-                    if (i == (actionsToRun.Count - 1) || !(actionsToRun[i + 1] is OverlayActionModel))
-                    {
-                        await ChannelSession.Services.Overlay.EndBatching();
-                    }
-                }
-            }
         }
 
         public static Dictionary<string, string> GetGeneralTestSpecialIdentifiers() { return new Dictionary<string, string>(); }
@@ -110,6 +86,9 @@ namespace MixItUp.Base.Model.Commands
         [DataMember]
         public string GroupName { get; set; }
 
+        [JsonIgnore]
+        public string GroupDisplayName { get { return (!string.IsNullOrEmpty(this.GroupName)) ? this.GroupName : MixItUp.Base.Resources.Ungrouped; } }
+
         [DataMember]
         public HashSet<string> Triggers { get; set; } = new HashSet<string>();
 
@@ -119,6 +98,9 @@ namespace MixItUp.Base.Model.Commands
         [DataMember]
         public List<ActionModelBase> Actions { get; set; } = new List<ActionModelBase>();
 
+        [JsonIgnore]
+        public DateTimeOffset CommandErrorCooldown = DateTimeOffset.MinValue;
+
         public CommandModelBase(string name, CommandTypeEnum type)
         {
             this.ID = Guid.NewGuid();
@@ -127,38 +109,8 @@ namespace MixItUp.Base.Model.Commands
             this.Type = type;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        protected CommandModelBase(MixItUp.Base.Commands.CommandBase command)
-        {
-            if (command != null)
-            {
-                this.ID = command.ID;
-                this.GroupName = command.GroupName;
-                this.IsEnabled = command.IsEnabled;
-                this.Unlocked = command.Unlocked;
-
-                if (command is MixItUp.Base.Commands.PermissionsCommandBase)
-                {
-                    MixItUp.Base.Commands.PermissionsCommandBase pCommand = (MixItUp.Base.Commands.PermissionsCommandBase)command;
-                    this.Requirements = new RequirementsSetModel(pCommand.Requirements);
-                }
-
-                foreach (MixItUp.Base.Actions.ActionBase action in command.Actions)
-                {
-                    this.Actions.AddRange(ActionModelBase.UpgradeAction(action));
-                }
-            }
-            else
-            {
-                this.ID = Guid.NewGuid();
-            }
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        protected CommandModelBase() { }
-
-        [JsonIgnore]
-        protected abstract SemaphoreSlim CommandLockSemaphore { get; }
+        [Obsolete]
+        public CommandModelBase() { }
 
         public string TriggersString { get { return string.Join(" ", this.Triggers); } }
 
@@ -166,77 +118,95 @@ namespace MixItUp.Base.Model.Commands
 
         public CommandGroupSettingsModel CommandGroupSettings { get { return (!string.IsNullOrEmpty(this.GroupName) && ChannelSession.Settings.CommandGroups.ContainsKey(this.GroupName)) ? ChannelSession.Settings.CommandGroups[this.GroupName] : null; } }
 
-        public bool IsUnlocked { get { return this.Unlocked || ChannelSession.Settings.UnlockAllCommands; } }
+        public bool IsUnlocked { get { return this.Unlocked; } }
+
+        public bool HasWork { get { return this.Actions.Count > 0 || this.HasCustomRun; } }
+
+        public virtual bool HasCustomRun { get { return false; } }
 
         public virtual Dictionary<string, string> GetTestSpecialIdentifiers() { return CommandModelBase.GetGeneralTestSpecialIdentifiers(); }
 
-        public virtual async Task TestPerform()
+        public virtual void TrackTelemetry() { ServiceManager.Get<ITelemetryService>().TrackCommand(this.Type); }
+
+        public virtual HashSet<ActionTypeEnum> GetActionTypesInCommand(HashSet<Guid> commandIDs = null)
         {
-            await this.Perform(CommandParametersModel.GetTestParameters(this.GetTestSpecialIdentifiers()));
-            if (this.Requirements.Cooldown != null)
+            HashSet<ActionTypeEnum> actionTypes = new HashSet<ActionTypeEnum>();
+
+            if (commandIDs == null)
             {
-                this.Requirements.Reset();
+                commandIDs = new HashSet<Guid>();
             }
-        }
 
-        public async Task Perform() { await this.Perform(new CommandParametersModel()); }
-
-        public async Task Perform(CommandParametersModel parameters)
-        {
-            if (this.IsEnabled && this.DoesCommandHaveWork)
+            if (commandIDs.Contains(this.ID))
             {
-                bool waitForFinish = parameters.WaitForCommandToFinish;
-                Task commandTask = Task.Run(async () =>
+                return actionTypes;
+            }
+            commandIDs.Add(this.ID);
+
+            foreach (ActionModelBase action in this.Actions)
+            {
+                if (action.Type == ActionTypeEnum.Command)
                 {
-                    bool lockPerformed = false;
-                    try
+                    CommandActionModel commandAction = (CommandActionModel)action;
+                    CommandModelBase subCommand = ChannelSession.Settings.GetCommand(commandAction.CommandID);
+                    if (subCommand != null)
                     {
-                        Logger.Log(LogLevel.Debug, $"Starting command performing: {this}");
-
-                        if (!this.IsUnlocked && !parameters.DontLockCommand)
+                        foreach (ActionTypeEnum subActionType in subCommand.GetActionTypesInCommand(commandIDs))
                         {
-                            lockPerformed = true;
-                            await this.CommandLockSemaphore.WaitAsync();
-                        }
-
-                        parameters.SpecialIdentifiers[CommandModelBase.CommandNameSpecialIdentifier] = this.Name;
-
-                        if (await this.ValidateRequirements(parameters))
-                        {
-                            List<CommandParametersModel> runnerParameters = new List<CommandParametersModel>() { parameters };
-                            if (this.Requirements != null)
-                            {
-                                await this.PerformRequirements(parameters);
-                                runnerParameters = new List<CommandParametersModel>(this.Requirements.GetPerformingUsers(parameters));
-                            }
-
-                            this.TrackTelemetry();
-
-                            foreach (CommandParametersModel p in runnerParameters)
-                            {
-                                p.WaitForCommandToFinish = true;
-                                p.User.Data.TotalCommandsRun++;
-                                await this.PerformInternal(p);
-                            }
+                            actionTypes.Add(subActionType);
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        Logger.Log(ex);
-                    }
-
-                    if (lockPerformed)
-                    {
-                        this.CommandLockSemaphore.Release();
-                    }
-                });
-
-                if (waitForFinish)
-                {
-                    await commandTask;
                 }
+                else if (action.Type == ActionTypeEnum.Overlay)
+                {
+                    OverlayActionModel overlayAction = (OverlayActionModel)action;
+                    if (overlayAction.OverlayItem.ItemType == Overlay.OverlayItemModelTypeEnum.Video || overlayAction.OverlayItem.ItemType == Overlay.OverlayItemModelTypeEnum.YouTube)
+                    {
+                        actionTypes.Add(ActionTypeEnum.Sound);
+                    }
+                }
+                else if (action.Type == ActionTypeEnum.TextToSpeech)
+                {
+                    actionTypes.Add(ActionTypeEnum.Sound);
+                }
+                else if (action.Type == ActionTypeEnum.Overlay || action.Type == ActionTypeEnum.PolyPop || action.Type == ActionTypeEnum.StreamingSoftware)
+                {
+                    actionTypes.Add(ActionTypeEnum.Sound);
+                    actionTypes.Add(ActionTypeEnum.Overlay);
+                }
+                actionTypes.Add(action.Type);
             }
+
+            actionTypes.Remove(ActionTypeEnum.Command);
+            actionTypes.Remove(ActionTypeEnum.Wait);
+
+            return actionTypes;
         }
+
+        public virtual Task<Result> CustomValidation(CommandParametersModel parameters) { return Task.FromResult(new Result()); }
+
+        public virtual async Task<Result> ValidateRequirements(CommandParametersModel parameters)
+        {
+            if (this.Requirements != null)
+            {
+                if (ChannelSession.Settings.RequirementErrorsCooldownType == RequirementErrorCooldownTypeEnum.PerCommand)
+                {
+                    this.Requirements.SetIndividualErrorCooldown(this.CommandErrorCooldown);
+                }
+                return await this.Requirements.Validate(parameters);
+            }
+            return new Result();
+        }
+
+        public async Task PerformRequirements(CommandParametersModel parameters) { await this.Requirements.Perform(parameters); }
+
+        public IEnumerable<CommandParametersModel> GetPerformingUsers(CommandParametersModel parameters) { return this.Requirements.GetPerformingUsers(parameters); }
+
+        public virtual Task PreRun(CommandParametersModel parameters) { return Task.CompletedTask; }
+
+        public virtual Task CustomRun(CommandParametersModel parameters) { return Task.CompletedTask; }
+
+        public virtual Task PostRun(CommandParametersModel parameters) { return Task.CompletedTask; }
 
         public override string ToString() { return string.Format("{0} - {1}", this.ID, this.Name); }
 
@@ -263,29 +233,5 @@ namespace MixItUp.Base.Model.Commands
         public bool Equals(CommandModelBase other) { return this.ID.Equals(other.ID); }
 
         public override int GetHashCode() { return this.ID.GetHashCode(); }
-
-        public virtual bool DoesCommandHaveWork { get { return this.Actions.Count > 0; } }
-
-        protected virtual async Task<bool> ValidateRequirements(CommandParametersModel parameters)
-        {
-            if (this.Requirements != null)
-            {
-                Result result = await this.Requirements.Validate(parameters);
-                return result.Success;
-            }
-            return true;
-        }
-
-        protected virtual async Task PerformRequirements(CommandParametersModel parameters)
-        {
-            await this.Requirements.Perform(parameters);
-        }
-
-        protected virtual async Task PerformInternal(CommandParametersModel parameters)
-        {
-            await CommandModelBase.RunActions(this.Actions, parameters);
-        }
-
-        protected virtual void TrackTelemetry() { ChannelSession.Services.Telemetry.TrackCommand(this.Type); }
     }
 }

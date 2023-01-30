@@ -44,7 +44,7 @@ namespace MixItUp.WPF.Windows.Overlay
         {
             this.DataContext = this.viewModel;
             this.viewModel.OverlayTypeSelected += ViewModel_OverlayTypeSelected;
-            await this.viewModel.OnLoaded();
+            await this.viewModel.OnOpen();
 
             if (this.viewModel.OverlayWidget != null)
             {
@@ -100,20 +100,20 @@ namespace MixItUp.WPF.Windows.Overlay
                     OverlayItemPositionModel position = this.position.GetPosition();
                     if (position == null)
                     {
-                        await DialogHelper.ShowMessage("A valid position for this overlay widget must be selected");
+                        await DialogHelper.ShowMessage(MixItUp.Base.Resources.InvalidPosition);
                         return;
                     }
 
                     OverlayItemModelBase overlayItem = overlayTypeEditor.GetItem();
                     if (overlayItem == null)
                     {
-                        await DialogHelper.ShowMessage("There are missing details for the overlay item");
+                        await DialogHelper.ShowMessage(MixItUp.Base.Resources.OverlayMissingDetails);
                         return;
                     }
 
                     overlayItem.Position = position;
 
-                    OverlayWidgetModel widget = new OverlayWidgetModel(this.viewModel.Name, this.viewModel.SelectedOverlayEndpoint, overlayItem, (int)this.viewModel.RefreshTime);
+                    OverlayWidgetModel widget = new OverlayWidgetModel(this.viewModel.Name, this.viewModel.SelectedOverlayEndpoint ?? string.Empty, overlayItem, (int)this.viewModel.RefreshTime);
                     if (this.viewModel.OverlayWidget != null)
                     {
                         await this.viewModel.OverlayWidget.Disable();

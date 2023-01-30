@@ -1,4 +1,5 @@
-﻿using MixItUp.Base.Util;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Util;
 using System.Windows.Input;
 
 namespace MixItUp.Base.ViewModel.Services
@@ -7,6 +8,8 @@ namespace MixItUp.Base.ViewModel.Services
     {
         public ICommand ConnectCommand { get; set; }
         public ICommand DisconnectCommand { get; set; }
+
+        public override string WikiPageName { get { return "developer-api"; } }
 
         public bool EnableDeveloperAPIAdvancedMode
         {
@@ -22,10 +25,10 @@ namespace MixItUp.Base.ViewModel.Services
         public DeveloperAPIServiceControlViewModel()
             : base(Resources.DeveloperAPI)
         {
-            this.ConnectCommand = this.CreateCommand(async (parameter) =>
+            this.ConnectCommand = this.CreateCommand(async () =>
             {
                 ChannelSession.Settings.EnableDeveloperAPI = false;
-                Result result = await ChannelSession.Services.DeveloperAPI.Connect();
+                Result result = await ServiceManager.Get<IDeveloperAPIService>().Connect();
                 if (result.Success)
                 {
                     ChannelSession.Settings.EnableDeveloperAPI = true;
@@ -37,14 +40,14 @@ namespace MixItUp.Base.ViewModel.Services
                 }
             });
 
-            this.DisconnectCommand = this.CreateCommand(async (parameter) =>
+            this.DisconnectCommand = this.CreateCommand(async () =>
             {
-                await ChannelSession.Services.DeveloperAPI.Disconnect();
+                await ServiceManager.Get<IDeveloperAPIService>().Disconnect();
                 ChannelSession.Settings.EnableDeveloperAPI = false;
                 this.IsConnected = false;
             });
 
-            this.IsConnected = ChannelSession.Services.DeveloperAPI.IsConnected;
+            this.IsConnected = ServiceManager.Get<IDeveloperAPIService>().IsConnected;
         }
     }
 }

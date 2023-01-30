@@ -1,6 +1,7 @@
 ﻿using MixItUp.Base.Util;
 using Newtonsoft.Json.Linq;
 using StreamingClient.Base.Util;
+using StreamingClient.Base.Web;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -9,18 +10,13 @@ using System.Threading.Tasks;
 
 namespace MixItUp.Base.Services.External
 {
-    public interface IIFTTTService : IOAuthExternalService
-    {
-        Task SendTrigger(string eventName, Dictionary<string, string> values);
-    }
-
-    public class IFTTTService : OAuthExternalServiceBase, IIFTTTService
+    public class IFTTTService : OAuthExternalServiceBase
     {
         private const string WebHookURLFormat = "https://maker.ifttt.com/trigger/{0}/with/key/{1}";
 
         public IFTTTService() : base("") { }
 
-        public override string Name { get { return "IFTTT"; } }
+        public override string Name { get { return MixItUp.Base.Resources.IFTTT; } }
 
         public override Task<Result> Connect()
         {
@@ -29,14 +25,15 @@ namespace MixItUp.Base.Services.External
 
         public override Task Disconnect()
         {
-            return Task.FromResult(0);
+            this.token = null;
+            return Task.CompletedTask;
         }
 
         public async Task SendTrigger(string eventName, Dictionary<string, string> values)
         {
             try
             {
-                using (HttpClient client = new HttpClient())
+                using (AdvancedHttpClient client = new AdvancedHttpClient())
                 {
                     JObject jobj = new JObject();
                     foreach (var kvp in values)
@@ -65,7 +62,7 @@ namespace MixItUp.Base.Services.External
 
         protected override Task RefreshOAuthToken()
         {
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
     }
 }

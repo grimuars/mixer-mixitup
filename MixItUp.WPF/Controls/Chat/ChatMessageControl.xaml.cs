@@ -2,6 +2,8 @@
 using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Chat;
+using MixItUp.Base.ViewModel.Chat.Glimesh;
+using MixItUp.Base.ViewModel.Chat.Trovo;
 using MixItUp.Base.ViewModel.Chat.Twitch;
 using StreamingClient.Base.Util;
 using System;
@@ -9,7 +11,6 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using TwitchV5API = Twitch.Base.Models.V5.Emotes;
 
 namespace MixItUp.WPF.Controls.Chat
 {
@@ -68,9 +69,9 @@ namespace MixItUp.WPF.Controls.Chat
                         string color = alert.Color;
                         try
                         {
-                            if (ColorSchemes.HTMLColorSchemeDictionary.ContainsKey(color))
+                            if (ColorSchemes.HTMLColorSchemeDictionary.TryGetValue(color.Replace(" ", string.Empty), out var colorOverride))
                             {
-                                color = ColorSchemes.HTMLColorSchemeDictionary[color];
+                                color = colorOverride;
                             }
                             foreground = (SolidColorBrush)(new BrushConverter().ConvertFrom(color));
                         }
@@ -113,21 +114,9 @@ namespace MixItUp.WPF.Controls.Chat
                                 string messagePartString = (string)messagePart;
                                 this.AddStringMessage(messagePartString, isHighlighted: highlighted, isItalicized: italics);
                             }
-                            else if (messagePart is TwitchV5API.EmoteModel)
+                            else if (messagePart is ChatEmoteViewModelBase)
                             {
-                                this.MessageWrapPanel.Children.Add(new ChatImageControl((TwitchV5API.EmoteModel)messagePart));
-                            }
-                            else if (messagePart is BetterTTVEmoteModel)
-                            {
-                                this.MessageWrapPanel.Children.Add(new ChatImageControl((BetterTTVEmoteModel)messagePart));
-                            }
-                            else if (messagePart is FrankerFaceZEmoteModel)
-                            {
-                                this.MessageWrapPanel.Children.Add(new ChatImageControl((FrankerFaceZEmoteModel)messagePart));
-                            }
-                            else if (messagePart is TwitchBitsCheerViewModel)
-                            {
-                                this.MessageWrapPanel.Children.Add(new ChatImageControl((TwitchBitsCheerViewModel)messagePart));
+                                this.MessageWrapPanel.Children.Add(new ChatImageControl((ChatEmoteViewModelBase)messagePart));
                             }
                         }
                     }
@@ -148,6 +137,7 @@ namespace MixItUp.WPF.Controls.Chat
                 textBlock.Text = word + " ";
                 textBlock.FontSize = ChannelSession.Settings.ChatFontSize;
                 textBlock.VerticalAlignment = VerticalAlignment.Center;
+                textBlock.TextWrapping = TextWrapping.Wrap;
                 if (foreground != null)
                 {
                     textBlock.FontWeight = FontWeights.Bold;
@@ -186,20 +176,20 @@ namespace MixItUp.WPF.Controls.Chat
                 {
                     if (!string.IsNullOrEmpty(this.Message.ModerationReason))
                     {
-                        this.AddStringMessage(" (" + this.Message.ModerationReason + " By: " + this.Message.DeletedBy + ")");
+                        this.AddStringMessage($" ({this.Message.ModerationReason} {MixItUp.Base.Resources.By}: {this.Message.DeletedBy})");
                     }
                     else
                     {
-                        this.AddStringMessage(" (Deleted By: " + this.Message.DeletedBy + ")");
+                        this.AddStringMessage($" ({MixItUp.Base.Resources.DeletedBy}: {this.Message.DeletedBy})");
                     }
                 }
                 else if (!string.IsNullOrEmpty(this.Message.ModerationReason))
                 {
-                    this.AddStringMessage(" (Auto-Moderated: " + this.Message.ModerationReason + ")");
+                    this.AddStringMessage($" ({MixItUp.Base.Resources.AutoModerated}: {this.Message.ModerationReason})");
                 }
                 else
                 {
-                    this.AddStringMessage(" (Manual Deletion)");
+                    this.AddStringMessage($" ({MixItUp.Base.Resources.ManualDeletion})");
                 }
             });
         }

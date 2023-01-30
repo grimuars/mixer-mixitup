@@ -1,5 +1,9 @@
 ﻿using MixItUp.Base.Model.Commands;
 using MixItUp.Base.Model.User;
+using MixItUp.Base.Services;
+using MixItUp.Base.Services.Glimesh;
+using MixItUp.Base.Services.Trovo;
+using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.User;
 using Newtonsoft.Json;
@@ -80,12 +84,14 @@ namespace MixItUp.Base.Model.Currency
         }
 
         public int Compare(RankModel x, RankModel y) { return x.CompareTo(y); }
+
+        public override string ToString() { return this.Name; }
     }
 
     [DataContract]
     public class CurrencyModel : IEquatable<CurrencyModel>
     {
-        public static RankModel NoRank = new RankModel("No Rank", 0);
+        public static RankModel NoRank = new RankModel(MixItUp.Base.Resources.NoRank, 0);
 
         [DataMember]
         public Guid ID { get; set; }
@@ -102,11 +108,6 @@ namespace MixItUp.Base.Model.Currency
         public int AcquireInterval { get; set; }
         [DataMember]
         public int MinimumActiveRate { get; set; }
-
-        [DataMember]
-        public int OfflineAcquireAmount { get; set; }
-        [DataMember]
-        public int OfflineAcquireInterval { get; set; }
 
         [DataMember]
         public int MaxAmount { get; set; }
@@ -156,7 +157,7 @@ namespace MixItUp.Base.Model.Currency
         }
 
         [JsonIgnore]
-        public bool IsActive { get { return !(this.IsOnlineIntervalDisabled && this.IsOfflineIntervalDisabled); } }
+        public bool IsActive { get { return !this.IsOnlineIntervalDisabled; } }
 
         [JsonIgnore]
         public bool IsRank { get { return this.Ranks.Count > 0; } }
@@ -169,15 +170,6 @@ namespace MixItUp.Base.Model.Currency
 
         [JsonIgnore]
         public bool IsOnlineIntervalDisabled { get { return this.AcquireAmount == 0 && this.AcquireInterval == 0; } }
-
-        [JsonIgnore]
-        public bool IsOfflineIntervalMinutes { get { return this.OfflineAcquireAmount == 1 && this.OfflineAcquireInterval == 1; } }
-
-        [JsonIgnore]
-        public bool IsOfflineIntervalHours { get { return this.OfflineAcquireAmount == 1 && this.OfflineAcquireInterval == 60; } }
-
-        [JsonIgnore]
-        public bool IsOfflineIntervalDisabled { get { return this.OfflineAcquireAmount == 0 && this.OfflineAcquireInterval == 0; } }
 
         [JsonIgnore]
         public bool HasMinimumActiveRate { get { return this.MinimumActiveRate > 0; } }
@@ -202,6 +194,12 @@ namespace MixItUp.Base.Model.Currency
 
         [JsonIgnore]
         public string UserRankNextNameSpecialIdentifier { get { return string.Format("{0}nextrank", this.UserAmountSpecialIdentifier); } }
+
+        [JsonIgnore]
+        public string AllTotalAmountSpecialIdentifier { get { return string.Format("{0}alltotal", this.SpecialIdentifier); } }
+
+        [JsonIgnore]
+        public string AllTotalAmountDisplaySpecialIdentifier { get { return string.Format("{0}display", this.AllTotalAmountSpecialIdentifier); } }
 
         [JsonIgnore]
         public string TopRegexSpecialIdentifier { get { return string.Format("{0}\\d+{1}", SpecialIdentifierStringBuilder.TopSpecialIdentifierHeader, this.SpecialIdentifier); } }
@@ -253,7 +251,7 @@ namespace MixItUp.Base.Model.Currency
             }
         }
 
-        public int GetAmount(UserDataModel user)
+        public int GetAmount(UserV2ViewModel user)
         {
             if (user.CurrencyAmounts.ContainsKey(this.ID))
             {
@@ -262,58 +260,99 @@ namespace MixItUp.Base.Model.Currency
             return 0;
         }
 
-        public bool HasAmount(UserDataModel user, int amount)
+        public int GetAmount(UserV2Model user)
         {
-            return (user.IsCurrencyRankExempt || this.GetAmount(user) >= amount);
+            if (user.CurrencyAmounts.ContainsKey(this.ID))
+            {
+                return user.CurrencyAmounts[this.ID];
+            }
+            return 0;
         }
 
-        public void SetAmount(UserDataModel user, int amount)
+        public bool HasAmount(UserV2ViewModel user, int amount)
+        {
+            return (user.IsSpecialtyExcluded || this.GetAmount(user) >= amount);
+        }
+
+        public void SetAmount(UserV2ViewModel user, int amount)
         {
             RankModel prevRank = this.GetRank(user);
 
             user.CurrencyAmounts[this.ID] = Math.Min(Math.Max(amount, 0), this.MaxAmount);
             if (ChannelSession.Settings != null)
             {
-                ChannelSession.Settings.UserData.ManualValueChanged(user.ID);
+                ChannelSession.Settings.Users.ManualValueChanged(user.ID);
             }
 
             RankModel newRank = this.GetRank(user);
 
-            UserViewModel userViewModel = ChannelSession.Services.User.GetUserByID(user.ID);
-            if (userViewModel == null)
-            {
-                userViewModel = new UserViewModel(user);
-            }
-
             if (newRank.Amount > prevRank.Amount && this.RankChangedCommand != null)
             {
-                AsyncRunner.RunAsyncBackground((cancellationToken) => this.RankChangedCommand.Perform(new CommandParametersModel(userViewModel)), new CancellationToken());
+                AsyncRunner.RunAsyncBackground((cancellationToken) => ServiceManager.Get<CommandService>().Queue(this.RankChangedCommand, new CommandParametersModel(user)), new CancellationToken());
             }
             else if (newRank.Amount < prevRank.Amount && this.RankDownCommand != null)
             {
-                AsyncRunner.RunAsyncBackground((cancellationToken) => this.RankDownCommand.Perform(new CommandParametersModel(userViewModel)), new CancellationToken());
+                AsyncRunner.RunAsyncBackground((cancellationToken) => ServiceManager.Get<CommandService>().Queue(this.RankDownCommand, new CommandParametersModel(user)), new CancellationToken());
             }
         }
 
-        public void AddAmount(UserDataModel user, int amount)
+        public void SetAmount(UserV2Model user, int amount)
         {
-            if (!user.IsCurrencyRankExempt && amount > 0)
+            RankModel prevRank = this.GetRank(user);
+
+            user.CurrencyAmounts[this.ID] = Math.Min(Math.Max(amount, 0), this.MaxAmount);
+            if (ChannelSession.Settings != null)
+            {
+                ChannelSession.Settings.Users.ManualValueChanged(user.ID);
+            }
+
+            RankModel newRank = this.GetRank(user);
+
+            if (newRank.Amount > prevRank.Amount && this.RankChangedCommand != null)
+            {
+                AsyncRunner.RunAsyncBackground(async (cancellationToken) =>
+                {
+                    UserV2ViewModel userVM = await ServiceManager.Get<UserService>().GetUserByID(user.ID);
+                    await ServiceManager.Get<CommandService>().Queue(this.RankChangedCommand, new CommandParametersModel(userVM));
+                }, new CancellationToken());
+            }
+            else if (newRank.Amount < prevRank.Amount && this.RankDownCommand != null)
+            {
+                AsyncRunner.RunAsyncBackground(async (cancellationToken) =>
+                {
+                    UserV2ViewModel userVM = await ServiceManager.Get<UserService>().GetUserByID(user.ID);
+                    await ServiceManager.Get<CommandService>().Queue(this.RankDownCommand, new CommandParametersModel(userVM));
+                }, new CancellationToken());
+            }
+        }
+
+        public void AddAmount(UserV2ViewModel user, int amount)
+        {
+            if (!user.IsSpecialtyExcluded && amount > 0)
             {
                 this.SetAmount(user, this.GetAmount(user) + amount);
             }
         }
 
-        public void SubtractAmount(UserDataModel user, int amount)
+        public void AddAmount(UserV2Model user, int amount)
         {
-            if (!user.IsCurrencyRankExempt)
+            if (!user.IsSpecialtyExcluded && amount > 0)
+            {
+                this.SetAmount(user, this.GetAmount(user) + amount);
+            }
+        }
+
+        public void SubtractAmount(UserV2ViewModel user, int amount)
+        {
+            if (!user.IsSpecialtyExcluded)
             {
                 this.SetAmount(user, this.GetAmount(user) - amount);
             }
         }
 
-        public void ResetAmount(UserDataModel user) { this.SetAmount(user, 0); }
+        public void ResetAmount(UserV2ViewModel user) { this.SetAmount(user, 0); }
 
-        public RankModel GetRank(UserDataModel user)
+        public RankModel GetRank(UserV2ViewModel user)
         {
             if (this.Ranks.Count > 0)
             {
@@ -327,7 +366,21 @@ namespace MixItUp.Base.Model.Currency
             return CurrencyModel.NoRank;
         }
 
-        public RankModel GetNextRank(UserDataModel user)
+        public RankModel GetRank(UserV2Model user)
+        {
+            if (this.Ranks.Count > 0)
+            {
+                int amount = this.GetAmount(user);
+                RankModel rank = this.Ranks.Where(r => r.Amount <= amount).Max();
+                if (rank != null)
+                {
+                    return rank;
+                }
+            }
+            return CurrencyModel.NoRank;
+        }
+
+        public RankModel GetNextRank(UserV2ViewModel user)
         {
             if (this.Ranks.Count > 0)
             {
@@ -341,48 +394,43 @@ namespace MixItUp.Base.Model.Currency
             return CurrencyModel.NoRank;
         }
 
-        public void UpdateUserData()
+        public void UpdateUserData(Dictionary<StreamingPlatformTypeEnum, bool> liveStreams)
         {
             if (this.IsActive)
             {
                 if (this.SpecialTracking == CurrencySpecialTrackingEnum.None)
                 {
-                    int interval = ChannelSession.TwitchStreamIsLive ? this.AcquireInterval : this.OfflineAcquireInterval;
-                    if (interval > 0)
+                    DateTimeOffset minActiveTime = DateTimeOffset.Now.Subtract(TimeSpan.FromMinutes(this.MinimumActiveRate));
+                    foreach (UserV2ViewModel user in ServiceManager.Get<UserService>().GetActiveUsers())
                     {
-                        DateTimeOffset minActiveTime = DateTimeOffset.Now.Subtract(TimeSpan.FromMinutes(this.MinimumActiveRate));
-                        bool bonusesCanBeApplied = (ChannelSession.TwitchStreamIsLive || this.OfflineAcquireAmount > 0);
-                        foreach (UserViewModel user in ChannelSession.Services.User.GetAllWorkableUsers())
+                        if (liveStreams.TryGetValue(user.Platform, out bool active) && active)
                         {
-                            if (!user.Data.IsCurrencyRankExempt && (!this.HasMinimumActiveRate || user.LastActivity > minActiveTime))
+                            if (!user.IsSpecialtyExcluded && (!this.HasMinimumActiveRate || user.LastActivity > minActiveTime))
                             {
-                                int minutes = ChannelSession.TwitchStreamIsLive ? user.Data.ViewingMinutes : user.Data.OfflineViewingMinutes;
-                                if (minutes % interval == 0)
+                                if (user.OnlineViewingMinutes % this.AcquireInterval == 0)
                                 {
-                                    this.AddAmount(user.Data, ChannelSession.TwitchStreamIsLive ? this.AcquireAmount : this.OfflineAcquireAmount);
-                                    if (bonusesCanBeApplied)
+                                    this.AddAmount(user, this.AcquireAmount);
+
+                                    int bonus = 0;
+                                    if (this.RegularBonus > 0 && user.HasRole(UserRoleEnum.Regular))
                                     {
-                                        int bonus = 0;
-
-                                        if (this.RegularBonus > 0 && user.UserRoles.Contains(UserRoleEnum.Regular))
-                                        {
-                                            bonus = Math.Max(this.RegularBonus, bonus);
-                                        }
-                                        if (this.SubscriberBonus > 0 && user.IsSubscriber)
-                                        {
-                                            bonus = Math.Max(this.SubscriberBonus, bonus);
-                                        }
-                                        if (this.ModeratorBonus > 0 && user.HasPermissionsTo(UserRoleEnum.Mod))
-                                        {
-                                            bonus = Math.Max(this.ModeratorBonus, bonus);
-                                        }
-
-                                        if (bonus > 0)
-                                        {
-                                            this.AddAmount(user.Data, bonus);
-                                        }
+                                        bonus = Math.Max(this.RegularBonus, bonus);
                                     }
-                                    ChannelSession.Settings.UserData.ManualValueChanged(user.ID);
+                                    if (this.SubscriberBonus > 0 && user.IsSubscriber)
+                                    {
+                                        bonus = Math.Max(this.SubscriberBonus, bonus);
+                                    }
+                                    if (this.ModeratorBonus > 0 && user.MeetsRole(UserRoleEnum.Moderator))
+                                    {
+                                        bonus = Math.Max(this.ModeratorBonus, bonus);
+                                    }
+
+                                    if (bonus > 0)
+                                    {
+                                        this.AddAmount(user, bonus);
+                                    }
+
+                                    ChannelSession.Settings.Users.ManualValueChanged(user.ID);
                                 }
                             }
                         }
@@ -395,52 +443,46 @@ namespace MixItUp.Base.Model.Currency
         {
             if (this.ResetInterval != CurrencyResetRateEnum.Never)
             {
-                DateTimeOffset newResetDate = DateTimeOffset.MinValue;
-
-                if (this.ResetInterval == CurrencyResetRateEnum.Daily)
+                if (this.LastReset == DateTimeOffset.MinValue)
                 {
-                    newResetDate = this.LastReset.AddDays(1);
+                    return true;
                 }
-                else if (this.ResetStartCadence == DateTimeOffset.MinValue)
+
+                DateTimeOffset newResetDate = DateTimeOffset.MinValue;
+                if (this.ResetStartCadence != DateTimeOffset.MinValue)
                 {
-                    if (this.ResetInterval == CurrencyResetRateEnum.Weekly) { newResetDate = this.LastReset.AddDays(7); }
-                    else if (this.ResetInterval == CurrencyResetRateEnum.Monthly) { newResetDate = this.LastReset.AddMonths(1); }
-                    else if (this.ResetInterval == CurrencyResetRateEnum.Yearly) { newResetDate = this.LastReset.AddYears(1); }
-                    return (newResetDate < DateTimeOffset.Now);
+                    if (this.ResetInterval == CurrencyResetRateEnum.Weekly)
+                    {
+                        newResetDate = new DateTime(this.LastReset.Year, this.LastReset.Month, this.LastReset.Day);
+                        do
+                        {
+                            newResetDate = newResetDate.AddDays(1);
+                        } while (newResetDate.DayOfWeek != this.ResetStartCadence.DayOfWeek);
+                    }
+                    else if (this.ResetInterval == CurrencyResetRateEnum.Monthly)
+                    {
+                        int day = Math.Min(this.ResetStartCadence.Day, DateTime.DaysInMonth(this.LastReset.Year, this.LastReset.Month));
+                        newResetDate = new DateTime(this.LastReset.Year, this.LastReset.Month, day);
+                        newResetDate = newResetDate.AddMonths(1);
+                    }
+                    else if (this.ResetInterval == CurrencyResetRateEnum.Yearly)
+                    {
+                        int day = Math.Min(this.ResetStartCadence.Day, DateTime.DaysInMonth(this.LastReset.Year, this.ResetStartCadence.Month));
+                        newResetDate = new DateTime(this.LastReset.Year, this.ResetStartCadence.Month, day);
+                        newResetDate = newResetDate.AddYears(1);
+                    }
                 }
                 else
                 {
-                    if (this.LastReset.Date != DateTimeOffset.Now.Date)
-                    {
-                        if (this.ResetInterval == CurrencyResetRateEnum.Weekly)
-                        {
-                            DateTimeOffset walkbackDate = DateTimeOffset.Now;
-                            while (walkbackDate > this.LastReset)
-                            {
-                                if (walkbackDate.DayOfWeek == this.ResetStartCadence.DayOfWeek)
-                                {
-                                    return true;
-                                }
-                                walkbackDate = walkbackDate.Subtract(TimeSpan.FromDays(1));
-                            }
-                        }
-                        else if (this.ResetInterval == CurrencyResetRateEnum.Monthly)
-                        {
-                            int resetDay = DateTime.DaysInMonth(DateTimeOffset.Now.Year, DateTimeOffset.Now.Month);
-                            resetDay = Math.Min(resetDay, this.ResetStartCadence.Day);
+                    if (this.ResetInterval == CurrencyResetRateEnum.Daily) { newResetDate = this.LastReset.AddDays(1); }
+                    else if (this.ResetInterval == CurrencyResetRateEnum.Weekly){ newResetDate = this.LastReset.AddDays(7); }
+                    else if (this.ResetInterval == CurrencyResetRateEnum.Monthly) { newResetDate = this.LastReset.AddMonths(1); }
+                    else if (this.ResetInterval == CurrencyResetRateEnum.Yearly) { newResetDate = this.LastReset.AddYears(1); }
+                }
 
-                            DateTime newResetTime = new DateTime(DateTimeOffset.Now.Year, DateTimeOffset.Now.Month, resetDay);
-                            return (DateTimeOffset.Now.Date >= newResetTime && this.LastReset < newResetTime);
-                        }
-                        else if (this.ResetInterval == CurrencyResetRateEnum.Yearly)
-                        {
-                            int resetDay = DateTime.DaysInMonth(DateTimeOffset.Now.Year, this.ResetStartCadence.Month);
-                            resetDay = Math.Min(resetDay, this.ResetStartCadence.Day);
-
-                            DateTime newResetTime = new DateTime(DateTimeOffset.Now.Year, this.ResetStartCadence.Month, resetDay);
-                            return (DateTimeOffset.Now.Date >= newResetTime && this.LastReset < newResetTime);
-                        }
-                    }
+                if (newResetDate != DateTimeOffset.MinValue)
+                {
+                    return (newResetDate.Date <= DateTimeOffset.Now.Date);
                 }
             }
             return false;
@@ -448,12 +490,14 @@ namespace MixItUp.Base.Model.Currency
 
         public async Task Reset()
         {
-            foreach (UserDataModel user in ChannelSession.Settings.UserData.Values.ToList())
+            await ServiceManager.Get<UserService>().LoadAllUserData();
+
+            foreach (UserV2Model user in ChannelSession.Settings.Users.Values.ToList())
             {
-                if (this.GetAmount(user) > 0)
+                if (user.CurrencyAmounts.ContainsKey(this.ID) && user.CurrencyAmounts[this.ID] > 0)
                 {
-                    this.SetAmount(user, 0);
-                    ChannelSession.Settings.UserData.ManualValueChanged(user.ID);
+                    user.CurrencyAmounts[this.ID] = 0;
+                    ChannelSession.Settings.Users.ManualValueChanged(user.ID);
                 }
             }
             this.LastReset = new DateTimeOffset(DateTimeOffset.Now.Date);

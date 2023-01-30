@@ -1,4 +1,5 @@
-﻿using MixItUp.Base.Services.External;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
 using System.Windows.Input;
 
@@ -10,14 +11,16 @@ namespace MixItUp.Base.ViewModel.Services
         public ICommand DisconnectCommand { get; set; }
         public ICommand TestConnectionCommand { get; set; }
 
+        public override string WikiPageName { get { return "xsplit"; } }
+
         public XSplitServiceControlViewModel()
             : base(Resources.XSplit)
         {
-            this.ConnectCommand = this.CreateCommand(async (parameter) =>
+            this.ConnectCommand = this.CreateCommand(async () =>
             {
                 ChannelSession.Settings.EnableXSplitConnection = false;
 
-                Result result = await ChannelSession.Services.XSplit.Connect();
+                Result result = await ServiceManager.Get<XSplitService>().Connect();
                 if (result.Success)
                 {
                     this.IsConnected = true;
@@ -30,16 +33,16 @@ namespace MixItUp.Base.ViewModel.Services
                 }
             });
 
-            this.DisconnectCommand = this.CreateCommand(async (parameter) =>
+            this.DisconnectCommand = this.CreateCommand(async () =>
             {
-                await ChannelSession.Services.XSplit.Disconnect();
+                await ServiceManager.Get<XSplitService>().Disconnect();
                 ChannelSession.Settings.EnableXSplitConnection = false;
                 this.IsConnected = false;
             });
 
-            this.TestConnectionCommand = this.CreateCommand(async (parameter) =>
+            this.TestConnectionCommand = this.CreateCommand(async () =>
             {
-                if (await ChannelSession.Services.XSplit.TestConnection())
+                if (await ServiceManager.Get<XSplitService>().TestConnection())
                 {
                     await DialogHelper.ShowMessage(Resources.XSplitConnectionSuccess);
                 }
@@ -49,7 +52,7 @@ namespace MixItUp.Base.ViewModel.Services
                 }
             });
 
-            this.IsConnected = ChannelSession.Services.XSplit.IsConnected;
+            this.IsConnected = ServiceManager.Get<XSplitService>().IsConnected;
         }
     }
 }

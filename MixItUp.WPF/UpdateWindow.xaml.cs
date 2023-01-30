@@ -2,10 +2,10 @@
 using MixItUp.Base.Util;
 using MixItUp.WPF.Windows;
 using StreamingClient.Base.Util;
+using StreamingClient.Base.Web;
 using System;
 using System.IO;
 using System.Net;
-using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
@@ -42,7 +42,7 @@ namespace MixItUp.WPF
 
             try
             {
-                using (HttpClient client = new HttpClient())
+                using (AdvancedHttpClient client = new AdvancedHttpClient())
                 {
                     string changelogHTML = await client.GetStringAsync(this.update.ChangelogLink);
                     this.UpdateChangelogWebBrowser.NavigateToString(changelogHTML);

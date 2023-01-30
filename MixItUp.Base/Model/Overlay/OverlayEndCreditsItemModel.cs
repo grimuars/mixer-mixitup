@@ -1,5 +1,7 @@
 ﻿using MixItUp.Base.Model.Commands;
 using MixItUp.Base.Model.User;
+using MixItUp.Base.Services;
+using MixItUp.Base.Services.Twitch;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Chat;
 using MixItUp.Base.ViewModel.User;
@@ -122,6 +124,9 @@ namespace MixItUp.Base.Model.Overlay
         [JsonIgnore]
         private Dictionary<Guid, uint> bits = new Dictionary<Guid, uint>();
 
+        [JsonIgnore]
+        private HashSet<OverlayEndCreditsSectionTypeEnum> testDataFilled = new HashSet<OverlayEndCreditsSectionTypeEnum>();
+
         public OverlayEndCreditsItemModel() : base() { }
 
         public OverlayEndCreditsItemModel(string titleTemplate, Dictionary<OverlayEndCreditsSectionTypeEnum, OverlayEndCreditsSectionModel> sectionTemplates, string backgroundColor,
@@ -146,8 +151,54 @@ namespace MixItUp.Base.Model.Overlay
 
         public override Task LoadTestData()
         {
-            UserViewModel user = ChannelSession.GetCurrentUser();
-            List<Guid> userIDs = new List<Guid>(ChannelSession.Settings.UserData.Keys.Take(20));
+            this.testDataFilled.Clear();
+            if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Chatters) && this.viewers.Count == 0)
+            {
+                this.testDataFilled.Add(OverlayEndCreditsSectionTypeEnum.Chatters);
+            }
+            if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Subscribers) && this.subs.Count == 0)
+            {
+                this.testDataFilled.Add(OverlayEndCreditsSectionTypeEnum.Subscribers);
+            }
+            if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Moderators) && this.mods.Count == 0)
+            {
+                this.testDataFilled.Add(OverlayEndCreditsSectionTypeEnum.Moderators);
+            }
+            if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Followers) && this.follows.Count == 0)
+            {
+                this.testDataFilled.Add(OverlayEndCreditsSectionTypeEnum.Followers);
+            }
+            if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Hosts) && this.hosts.Count == 0)
+            {
+                this.testDataFilled.Add(OverlayEndCreditsSectionTypeEnum.Hosts);
+            }
+            if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Raids) && this.raids.Count == 0)
+            {
+                this.testDataFilled.Add(OverlayEndCreditsSectionTypeEnum.Raids);
+            }
+            if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.NewSubscribers) && this.newSubs.Count == 0)
+            {
+                this.testDataFilled.Add(OverlayEndCreditsSectionTypeEnum.NewSubscribers);
+            }
+            if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Resubscribers) && this.resubs.Count == 0)
+            {
+                this.testDataFilled.Add(OverlayEndCreditsSectionTypeEnum.Resubscribers);
+            }
+            if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.GiftedSubs) && this.giftedSubs.Count == 0)
+            {
+                this.testDataFilled.Add(OverlayEndCreditsSectionTypeEnum.GiftedSubs);
+            }
+            if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Donations) && this.donations.Count == 0)
+            {
+                this.testDataFilled.Add(OverlayEndCreditsSectionTypeEnum.Donations);
+            }
+            if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Bits) && this.bits.Count == 0)
+            {
+                this.testDataFilled.Add(OverlayEndCreditsSectionTypeEnum.Bits);
+            }
+
+            UserV2ViewModel user = ChannelSession.User;
+            List<Guid> userIDs = new List<Guid>(ChannelSession.Settings.Users.Keys.Take(20));
             for (int i = userIDs.Count; i < 20; i++)
             {
                 userIDs.Add(user.ID);
@@ -155,52 +206,52 @@ namespace MixItUp.Base.Model.Overlay
 
             foreach (Guid userID in userIDs)
             {
-                if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Chatters))
+                if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Chatters))
                 {
                     this.viewers.Add(userID);
                 }
-                if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Subscribers))
+                if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Subscribers))
                 {
                     this.subs.Add(userID);
                 }
-                if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Moderators))
+                if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Moderators))
                 {
                     this.mods.Add(userID);
                 }
-                if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Followers))
+                if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Followers))
                 {
                     this.follows.Add(userID);
                 }
-                if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Hosts))
+                if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Hosts))
                 {
                     this.hosts.Add(userID);
                 }
-                if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Raids))
+                if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Raids))
                 {
                     this.raids[userID] = 10;
                 }
-                if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.NewSubscribers))
+                if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.NewSubscribers))
                 {
                     this.newSubs.Add(userID);
                 }
-                if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Resubscribers))
+                if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Resubscribers))
                 {
                     this.resubs[userID] = 5;
                 }
-                if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.GiftedSubs))
+                if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.GiftedSubs))
                 {
                     this.giftedSubs[userID] = 5;
                 }
-                if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Donations))
+                if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Donations))
                 {
                     this.donations[userID] = 12.34;
                 }
-                if (this.SectionTemplates.ContainsKey(OverlayEndCreditsSectionTypeEnum.Bits))
+                if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Bits))
                 {
                     this.bits[userID] = 123;
                 }
             }
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
 
         public override Task Initialize()
@@ -256,23 +307,55 @@ namespace MixItUp.Base.Model.Overlay
             GlobalEvents.OnSubscriptionGiftedOccurred -= GlobalEvents_OnSubscriptionGiftedOccurred;
             GlobalEvents.OnDonationOccurred -= GlobalEvents_OnDonationOccurred;
             GlobalEvents.OnBitsOccurred -= GlobalEvents_OnBitsOccurred;
-            return Task.FromResult(0);
+            return Task.CompletedTask;
         }
 
         public override async Task Reset()
         {
-            this.viewers.Clear();
-            this.subs.Clear();
-            this.mods.Clear();
-            this.follows.Clear();
-            this.hosts.Clear();
-            this.raids.Clear();
-            this.newSubs.Clear();
-            this.resubs.Clear();
-            this.giftedSubs.Clear();
-            this.donations.Clear();
-            this.bits.Clear();
-
+            if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Chatters))
+            {
+                this.viewers.Clear();
+            }
+            if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Subscribers))
+            {
+                this.subs.Clear();
+            }
+            if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Moderators))
+            {
+                this.mods.Clear();
+            }
+            if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Followers))
+            {
+                this.follows.Clear();
+            }
+            if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Hosts))
+            {
+                this.hosts.Clear();
+            }
+            if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Raids))
+            {
+                this.raids.Clear();
+            }
+            if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.NewSubscribers))
+            {
+                this.newSubs.Clear();
+            }
+            if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Resubscribers))
+            {
+                this.resubs.Clear();
+            }
+            if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.GiftedSubs))
+            {
+                this.giftedSubs.Clear();
+            }
+            if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Donations))
+            {
+                this.donations.Clear();
+            }
+            if (this.testDataFilled.Contains(OverlayEndCreditsSectionTypeEnum.Bits))
+            {
+                this.bits.Clear();
+            }
             await base.Reset();
         }
 
@@ -281,7 +364,7 @@ namespace MixItUp.Base.Model.Overlay
             StringBuilder htmlBuilder = new StringBuilder();
 
             htmlBuilder.AppendLine(SectionSeparatorHTML);
-            htmlBuilder.AppendLine(await this.ReplaceStringWithSpecialModifiers(this.TitleTemplate, parameters));
+            htmlBuilder.AppendLine(await ReplaceStringWithSpecialModifiers(this.TitleTemplate, parameters));
 
             foreach (var kvp in this.SectionTemplates)
             {
@@ -291,10 +374,10 @@ namespace MixItUp.Base.Model.Overlay
                     OverlayEndCreditsSectionModel sectionTemplate = this.SectionTemplates[kvp.Key];
 
                     string sectionHTML = this.PerformTemplateReplacements(sectionTemplate.SectionHTML, new Dictionary<string, string>());
-                    sectionHTML = await this.ReplaceStringWithSpecialModifiers(sectionHTML, parameters);
+                    sectionHTML = await ReplaceStringWithSpecialModifiers(sectionHTML, parameters);
 
                     string userHTML = this.PerformTemplateReplacements(sectionTemplate.UserHTML, new Dictionary<string, string>());
-                    userHTML = await this.ReplaceStringWithSpecialModifiers(userHTML, parameters);
+                    userHTML = await ReplaceStringWithSpecialModifiers(userHTML, parameters);
 
                     htmlBuilder.AppendLine(SectionSeparatorHTML);
                     htmlBuilder.AppendLine(sectionHTML);
@@ -302,20 +385,20 @@ namespace MixItUp.Base.Model.Overlay
                 }
                 else
                 {
-                    Dictionary<UserViewModel, string> items = new Dictionary<UserViewModel, string>();
+                    Dictionary<UserV2ViewModel, string> items = new Dictionary<UserV2ViewModel, string>();
                     switch (kvp.Key)
                     {
-                        case OverlayEndCreditsSectionTypeEnum.Chatters: items = this.GetUsersDictionary(this.viewers); break;
-                        case OverlayEndCreditsSectionTypeEnum.Subscribers: items = this.GetUsersDictionary(this.subs); break;
-                        case OverlayEndCreditsSectionTypeEnum.Moderators: items = this.GetUsersDictionary(this.mods); break;
-                        case OverlayEndCreditsSectionTypeEnum.Followers: items = this.GetUsersDictionary(this.follows); break;
-                        case OverlayEndCreditsSectionTypeEnum.Hosts: items = this.GetUsersDictionary(this.hosts); break;
-                        case OverlayEndCreditsSectionTypeEnum.Raids: items = this.GetUsersDictionary(this.raids); break;
-                        case OverlayEndCreditsSectionTypeEnum.NewSubscribers: items = this.GetUsersDictionary(this.newSubs); break;
-                        case OverlayEndCreditsSectionTypeEnum.Resubscribers: items = this.GetUsersDictionary(this.resubs); break;
-                        case OverlayEndCreditsSectionTypeEnum.GiftedSubs: items = this.GetUsersDictionary(this.giftedSubs); break;
-                        case OverlayEndCreditsSectionTypeEnum.Donations: items = this.GetUsersDictionary(this.donations); break;
-                        case OverlayEndCreditsSectionTypeEnum.Bits: items = this.GetUsersDictionary(this.bits); break;
+                        case OverlayEndCreditsSectionTypeEnum.Chatters: items = await this.GetUsersDictionary(this.viewers); break;
+                        case OverlayEndCreditsSectionTypeEnum.Subscribers: items = await this.GetUsersDictionary(this.subs); break;
+                        case OverlayEndCreditsSectionTypeEnum.Moderators: items = await this.GetUsersDictionary(this.mods); break;
+                        case OverlayEndCreditsSectionTypeEnum.Followers: items = await this.GetUsersDictionary(this.follows); break;
+                        case OverlayEndCreditsSectionTypeEnum.Hosts: items = await this.GetUsersDictionary(this.hosts); break;
+                        case OverlayEndCreditsSectionTypeEnum.Raids: items = await this.GetUsersDictionary(this.raids); break;
+                        case OverlayEndCreditsSectionTypeEnum.NewSubscribers: items = await this.GetUsersDictionary(this.newSubs); break;
+                        case OverlayEndCreditsSectionTypeEnum.Resubscribers: items = await this.GetUsersDictionary(this.resubs); break;
+                        case OverlayEndCreditsSectionTypeEnum.GiftedSubs: items = await this.GetUsersDictionary(this.giftedSubs); break;
+                        case OverlayEndCreditsSectionTypeEnum.Donations: items = await this.GetUsersDictionary(this.donations); break;
+                        case OverlayEndCreditsSectionTypeEnum.Bits: items = await this.GetUsersDictionary(this.bits); break;
                     }
                     await this.PerformSectionTemplateReplacement(htmlBuilder, kvp.Key, items, parameters);
                 }
@@ -326,13 +409,13 @@ namespace MixItUp.Base.Model.Overlay
 
         private void GlobalEvents_OnChatMessageReceived(object sender, ChatMessageViewModel message)
         {
-            if (message.User != null && !message.User.IgnoreForQueries)
+            if (message.User != null && !message.User.IsSpecialtyExcluded)
             {
                 this.AddUserForRole(message.User);
             }
         }
 
-        private void GlobalEvents_OnFollowOccurred(object sender, UserViewModel user)
+        private void GlobalEvents_OnFollowOccurred(object sender, UserV2ViewModel user)
         {
             if (!this.follows.Contains(user.ID))
             {
@@ -341,7 +424,7 @@ namespace MixItUp.Base.Model.Overlay
             }
         }
 
-        private void GlobalEvents_OnHostOccurred(object sender, UserViewModel host)
+        private void GlobalEvents_OnHostOccurred(object sender, UserV2ViewModel host)
         {
             if (!this.hosts.Contains(host.ID))
             {
@@ -350,7 +433,7 @@ namespace MixItUp.Base.Model.Overlay
             }
         }
 
-        private void GlobalEvents_OnRaidOccurred(object sender, Tuple<UserViewModel, int> raid)
+        private void GlobalEvents_OnRaidOccurred(object sender, Tuple<UserV2ViewModel, int> raid)
         {
             if (!this.raids.ContainsKey(raid.Item1.ID))
             {
@@ -359,7 +442,7 @@ namespace MixItUp.Base.Model.Overlay
             }
         }
 
-        private void GlobalEvents_OnSubscribeOccurred(object sender, UserViewModel user)
+        private void GlobalEvents_OnSubscribeOccurred(object sender, UserV2ViewModel user)
         {
             if (!this.newSubs.Contains(user.ID))
             {
@@ -368,7 +451,7 @@ namespace MixItUp.Base.Model.Overlay
             }
         }
 
-        private void GlobalEvents_OnResubscribeOccurred(object sender, Tuple<UserViewModel, int> resub)
+        private void GlobalEvents_OnResubscribeOccurred(object sender, Tuple<UserV2ViewModel, int> resub)
         {
             if (!this.resubs.ContainsKey(resub.Item1.ID))
             {
@@ -377,7 +460,7 @@ namespace MixItUp.Base.Model.Overlay
             }
         }
 
-        private void GlobalEvents_OnSubscriptionGiftedOccurred(object sender, Tuple<UserViewModel, UserViewModel> subGift)
+        private void GlobalEvents_OnSubscriptionGiftedOccurred(object sender, Tuple<UserV2ViewModel, UserV2ViewModel> subGift)
         {
             if (!this.newSubs.Contains(subGift.Item2.ID))
             {
@@ -403,7 +486,7 @@ namespace MixItUp.Base.Model.Overlay
             this.donations[donation.User.ID] += donation.Amount;
         }
 
-        private void GlobalEvents_OnBitsOccurred(object sender, User.Twitch.TwitchUserBitsCheeredModel bits)
+        private void GlobalEvents_OnBitsOccurred(object sender, TwitchUserBitsCheeredModel bits)
         {
             if (!this.bits.ContainsKey(bits.User.ID))
             {
@@ -413,35 +496,35 @@ namespace MixItUp.Base.Model.Overlay
             this.bits[bits.User.ID] += (uint)bits.Amount;
         }
 
-        private void AddUserForRole(UserViewModel user)
+        private void AddUserForRole(UserV2ViewModel user)
         {
             if (this.ShouldIncludeUser(user))
             {
                 this.viewers.Add(user.ID);
-                if (user.UserRoles.Contains(UserRoleEnum.Subscriber) || user.IsEquivalentToSubscriber())
+                if (user.MeetsRole(UserRoleEnum.Subscriber))
                 {
                     this.subs.Add(user.ID);
                 }
-                if (user.UserRoles.Contains(UserRoleEnum.Mod) || user.UserRoles.Contains(UserRoleEnum.ChannelEditor))
+                if (user.MeetsRole(UserRoleEnum.Moderator) || user.MeetsRole(UserRoleEnum.TwitchChannelEditor))
                 {
                     this.mods.Add(user.ID);
                 }
             }
         }
 
-        private bool ShouldIncludeUser(UserViewModel user)
+        private bool ShouldIncludeUser(UserV2ViewModel user)
         {
             if (user == null)
             {
                 return false;
             }
 
-            if (user.ID.Equals(ChannelSession.GetCurrentUser()?.ID))
+            if (user.ID.Equals(ChannelSession.User.ID))
             {
                 return false;
             }
 
-            if (ChannelSession.TwitchBotConnection != null && string.Equals(user.TwitchID, ChannelSession.TwitchBotNewAPI?.id))
+            if (user.IsSpecialtyExcluded)
             {
                 return false;
             }
@@ -449,14 +532,14 @@ namespace MixItUp.Base.Model.Overlay
             return true;
         }
 
-        private Dictionary<UserViewModel, string> GetUsersDictionary(HashSet<Guid> data)
+        private async Task<Dictionary<UserV2ViewModel, string>> GetUsersDictionary(HashSet<Guid> data)
         {
-            Dictionary<UserViewModel, string> results = new Dictionary<UserViewModel, string>();
+            Dictionary<UserV2ViewModel, string> results = new Dictionary<UserV2ViewModel, string>();
             foreach (Guid userID in data)
             {
                 try
                 {
-                    UserViewModel user = this.GetUser(userID);
+                    UserV2ViewModel user = await ServiceManager.Get<UserService>().GetUserByID(userID);
                     if (user != null)
                     {
                         results[user] = string.Empty;
@@ -470,14 +553,14 @@ namespace MixItUp.Base.Model.Overlay
             return results;
         }
 
-        private Dictionary<UserViewModel, string> GetUsersDictionary(Dictionary<Guid, uint> data)
+        private async Task<Dictionary<UserV2ViewModel, string>> GetUsersDictionary(Dictionary<Guid, uint> data)
         {
-            Dictionary<UserViewModel, string> results = new Dictionary<UserViewModel, string>();
+            Dictionary<UserV2ViewModel, string> results = new Dictionary<UserV2ViewModel, string>();
             foreach (var kvp in data)
             {
                 try
                 {
-                    UserViewModel user = this.GetUser(kvp.Key);
+                    UserV2ViewModel user = await ServiceManager.Get<UserService>().GetUserByID(kvp.Key);
                     if (user != null)
                     {
                         results[user] = kvp.Value.ToString();
@@ -491,17 +574,17 @@ namespace MixItUp.Base.Model.Overlay
             return results;
         }
 
-        private Dictionary<UserViewModel, string> GetUsersDictionary(Dictionary<Guid, double> data)
+        private async Task<Dictionary<UserV2ViewModel, string>> GetUsersDictionary(Dictionary<Guid, double> data)
         {
-            Dictionary<UserViewModel, string> results = new Dictionary<UserViewModel, string>();
+            Dictionary<UserV2ViewModel, string> results = new Dictionary<UserV2ViewModel, string>();
             foreach (var kvp in data)
             {
                 try
                 {
-                    UserViewModel user = this.GetUser(kvp.Key);
+                    UserV2ViewModel user = await ServiceManager.Get<UserService>().GetUserByID(kvp.Key);
                     if (user != null)
                     {
-                        results[user] = string.Format("{0:C}", Math.Round(kvp.Value, 2));
+                        results[user] = kvp.Value.ToCurrencyString();
                     }
                 }
                 catch (Exception ex)
@@ -512,17 +595,7 @@ namespace MixItUp.Base.Model.Overlay
             return results;
         }
 
-        private UserViewModel GetUser(Guid userID)
-        {
-            UserDataModel data = ChannelSession.Settings.GetUserData(userID);
-            if (data != null)
-            {
-                return new UserViewModel(data);
-            }
-            return null;
-        }
-
-        private async Task PerformSectionTemplateReplacement(StringBuilder htmlBuilder, OverlayEndCreditsSectionTypeEnum itemType, Dictionary<UserViewModel, string> replacers, CommandParametersModel parameters)
+        private async Task PerformSectionTemplateReplacement(StringBuilder htmlBuilder, OverlayEndCreditsSectionTypeEnum itemType, Dictionary<UserV2ViewModel, string> replacers, CommandParametersModel parameters)
         {
             if (this.SectionTemplates.ContainsKey(itemType) && replacers.Count > 0)
             {
@@ -530,12 +603,12 @@ namespace MixItUp.Base.Model.Overlay
 
                 string sectionHTML = this.PerformTemplateReplacements(sectionTemplate.SectionHTML, new Dictionary<string, string>()
                 {
-                    { "NAME", EnumHelper.GetEnumName(itemType) },
+                    { "NAME", EnumLocalizationHelper.GetLocalizedName(itemType) },
                     { "TEXT_FONT", this.SectionTextFont },
                     { "TEXT_SIZE", this.SectionTextSize.ToString() },
                     { "TEXT_COLOR", this.SectionTextColor }
                 });
-                sectionHTML = await this.ReplaceStringWithSpecialModifiers(sectionHTML, parameters);
+                sectionHTML = await ReplaceStringWithSpecialModifiers(sectionHTML, parameters);
 
                 List<string> userHTMLs = new List<string>();
                 foreach (var kvp in replacers.OrderBy(kvp => kvp.Key.DisplayName))
@@ -550,7 +623,7 @@ namespace MixItUp.Base.Model.Overlay
                             { "TEXT_SIZE", this.ItemTextSize.ToString() },
                             { "TEXT_COLOR", this.ItemTextColor }
                         });
-                        userHTML = await this.ReplaceStringWithSpecialModifiers(userHTML, parameters);
+                        userHTML = await ReplaceStringWithSpecialModifiers(userHTML, parameters);
                         userHTMLs.Add(userHTML);
                     }
                 }

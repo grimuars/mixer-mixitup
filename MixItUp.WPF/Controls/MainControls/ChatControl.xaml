@@ -27,6 +27,10 @@
             <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <Util:ColorBrushConverter x:Key="ColorBrushConverter" />
 
+            <ContextMenu x:Key="UserListContextMenu">
+                <MenuItem x:Name="UserInformationMenuItem" Header="User Info" Click="UserInformationMenuItem_Click" />
+            </ContextMenu>
+
         </ResourceDictionary>
     </local:MainControlBase.Resources>
 
@@ -42,9 +46,11 @@
                     <Grid Height="20" Grid.Column="0" HorizontalAlignment="Center" Margin="5">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="30" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="30" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="30" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
@@ -52,7 +58,9 @@
 
                         <Button Command="{Binding ClearChatCommand}" Grid.Column="2" MinWidth="100" Margin="-6" Style="{StaticResource MaterialDesignRaisedLightButton}" Content="{x:Static resx:Resources.ClearChat}" />
 
-                        <Button Command="{Binding EnableDisableChatCommand}" Content="{Binding EnableDisableButtonText}" Grid.Column="4" MinWidth="115" Margin="-6" Style="{StaticResource MaterialDesignRaisedLightButton}" />
+                        <Button Command="{Binding EnableDisableChatCommand}" Content="{Binding EnableDisableChatButtonText}" Grid.Column="4" MinWidth="115" Margin="-6" Style="{StaticResource MaterialDesignRaisedLightButton}" />
+
+                        <Button Command="{Binding PauseUnpauseCommandsCommand}" Content="{Binding PauseUnpauseCommandsButtonText}" Grid.Column="6" MinWidth="165" Margin="-6" Style="{StaticResource MaterialDesignRaisedLightButton}" />
 
                     </Grid>
 
@@ -67,11 +75,11 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <MaterialDesign:PackIcon Kind="Eye" Grid.Column="0" Foreground="{StaticResource WhiteColor}" />
-                        <TextBlock Grid.Column="2" Foreground="{StaticResource WhiteColor}" Text="{Binding ViewersCount}" />
+                        <MaterialDesign:PackIcon Kind="Eye" Grid.Column="0" Style="{StaticResource ColoredBackgroundPackIcon}" />
+                        <TextBlock Grid.Column="2" Foreground="{StaticResource PrimaryHueMidForegroundBrush}" Text="{Binding ViewersCount}" />
 
-                        <MaterialDesign:PackIcon Kind="Message" Grid.Column="4" Foreground="{StaticResource WhiteColor}" />
-                        <TextBlock Grid.Column="6" Foreground="{StaticResource WhiteColor}" Text="{Binding ChattersCount}" />
+                        <MaterialDesign:PackIcon Kind="Message" Grid.Column="4" Style="{StaticResource ColoredBackgroundPackIcon}" />
+                        <TextBlock Grid.Column="6" Foreground="{StaticResource PrimaryHueMidForegroundBrush}" Text="{Binding ChattersCount}" />
                     </Grid>
                 </Grid>
             </GroupBox.Header>
@@ -87,7 +95,7 @@
 
                 <GridSplitter x:Name="ChatSplitter" Visibility="{Binding ShowChatUserList, Converter={StaticResource BoolToVisibilityConverter}}" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" Width="5" />
 
-                <ListView x:Name="UserList" ItemsSource="{Binding DisplayUsers}" Visibility="{Binding ShowChatUserList, Converter={StaticResource BoolToVisibilityConverter}}" Grid.Column="2" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.IsDeferredScrollingEnabled="True" ScrollViewer.VerticalScrollBarVisibility="Visible" HorizontalContentAlignment="Stretch" SelectionChanged="UserList_SelectionChanged" MinWidth="200">
+                <ListView x:Name="UserList" ItemsSource="{Binding DisplayUsers}" ContextMenu="{StaticResource UserListContextMenu}" Visibility="{Binding ShowChatUserList, Converter={StaticResource BoolToVisibilityConverter}}" Grid.Column="2" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.IsDeferredScrollingEnabled="True" ScrollViewer.VerticalScrollBarVisibility="Visible" HorizontalContentAlignment="Stretch" MinWidth="200">
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <ChatControls:ChatUserControl DataContext="{Binding}" Grid.Column="0" />

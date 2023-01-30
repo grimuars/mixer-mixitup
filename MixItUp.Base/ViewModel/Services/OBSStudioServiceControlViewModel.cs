@@ -1,4 +1,6 @@
-﻿using MixItUp.Base.Util;
+﻿using MixItUp.Base.Services;
+using MixItUp.Base.Services.External;
+using MixItUp.Base.Util;
 using System;
 using System.Windows.Input;
 
@@ -6,7 +8,7 @@ namespace MixItUp.Base.ViewModel.Services
 {
     public class OBSStudioServiceControlViewModel : StreamingServiceControlViewModelBase
     {
-        public const string DefaultOBSStudioConnection = "ws://127.0.0.1:4444";
+        public const string DefaultOBSStudio28Connection = "ws://127.0.0.1:4455";
 
         public string IPAddress
         {
@@ -25,17 +27,19 @@ namespace MixItUp.Base.ViewModel.Services
 
         public Func<string> Password { get; set; }
 
+        public override string WikiPageName { get { return "obs-studio"; } }
+
         public OBSStudioServiceControlViewModel()
             : base(Resources.OBSStudio)
         {
-            this.IPAddress = OBSStudioServiceControlViewModel.DefaultOBSStudioConnection;
+            this.IPAddress = OBSStudioServiceControlViewModel.DefaultOBSStudio28Connection;
 
-            this.ConnectCommand = this.CreateCommand(async (parameter) =>
+            this.ConnectCommand = this.CreateCommand(async () =>
             {
                 ChannelSession.Settings.OBSStudioServerIP = this.IPAddress;
                 ChannelSession.Settings.OBSStudioServerPassword = this.Password();
 
-                Result result = await ChannelSession.Services.OBSStudio.Connect();
+                Result result = await ServiceManager.Get<IOBSStudioService>().Connect();
                 if (result.Success)
                 {
                     this.IsConnected = true;
@@ -47,18 +51,18 @@ namespace MixItUp.Base.ViewModel.Services
                 }
             });
 
-            this.DisconnectCommand = this.CreateCommand(async (parameter) =>
+            this.DisconnectCommand = this.CreateCommand(async () =>
             {
                 ChannelSession.Settings.OBSStudioServerIP = null;
                 ChannelSession.Settings.OBSStudioServerPassword = null;
 
-                await ChannelSession.Services.OBSStudio.Disconnect();
+                await ServiceManager.Get<IOBSStudioService>().Disconnect();
                 this.IsConnected = false;
             });
 
-            this.TestConnectionCommand = this.CreateCommand(async (parameter) =>
+            this.TestConnectionCommand = this.CreateCommand(async () =>
             {
-                if (await ChannelSession.Services.OBSStudio.TestConnection())
+                if (await ServiceManager.Get<IOBSStudioService>().TestConnection())
                 {
                     await DialogHelper.ShowMessage(Resources.OBSStudioSuccess);
                 }
@@ -68,7 +72,7 @@ namespace MixItUp.Base.ViewModel.Services
                 }
             });
 
-            this.IsConnected = ChannelSession.Services.OBSStudio.IsConnected;
+            this.IsConnected = ServiceManager.Get<IOBSStudioService>().IsConnected;
         }
     }
 }

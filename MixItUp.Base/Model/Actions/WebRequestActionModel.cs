@@ -1,6 +1,12 @@
 ﻿using MixItUp.Base.Model.Commands;
+using MixItUp.Base.Services;
+using MixItUp.Base.Services.Glimesh;
+using MixItUp.Base.Services.Trovo;
+using MixItUp.Base.Services.Twitch;
+using MixItUp.Base.Services.YouTube;
 using Newtonsoft.Json.Linq;
 using StreamingClient.Base.Util;
+using StreamingClient.Base.Web;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -45,44 +51,48 @@ namespace MixItUp.Base.Model.Actions
             this.JSONToSpecialIdentifiers = jsonToSpecialIdentifiers;
         }
 
-#pragma warning disable CS0612 // Type or member is obsolete
-        internal WebRequestActionModel(MixItUp.Base.Actions.WebRequestAction action)
-            : base(ActionTypeEnum.WebRequest)
-        {
-            this.Url = action.Url;
-            if (action.ResponseAction == Base.Actions.WebRequestResponseActionTypeEnum.JSONToSpecialIdentifiers)
-            {
-                this.ResponseType = WebRequestResponseParseTypeEnum.JSONToSpecialIdentifiers;
-                this.JSONToSpecialIdentifiers = action.JSONToSpecialIdentifiers;
-            }
-            else
-            {
-                this.ResponseType = WebRequestResponseParseTypeEnum.PlainText;
-            }
-        }
-#pragma warning restore CS0612 // Type or member is obsolete
-
-        private WebRequestActionModel() { }
+        [Obsolete]
+        public WebRequestActionModel() { }
 
         protected override async Task PerformInternal(CommandParametersModel parameters)
         {
-            if (ChannelSession.Services.FileService.FileExists(this.Url))
+            string url = await ReplaceStringWithSpecialModifiers(this.Url, parameters);
+            if (ServiceManager.Get<IFileService>().FileExists(url))
             {
-                await this.ProcessContents(parameters, await ChannelSession.Services.FileService.ReadFile(this.Url));
+                await this.ProcessContents(parameters, await ServiceManager.Get<IFileService>().ReadFile(url));
             }
             else
             {
-                using (HttpClient httpClient = new HttpClient())
+                using (AdvancedHttpClient httpClient = new AdvancedHttpClient())
                 {
                     httpClient.DefaultRequestHeaders.Add("User-Agent", $"MixItUp/{Assembly.GetEntryAssembly().GetName().Version.ToString()} (Web call from Mix It Up; https://mixitupapp.com; support@mixitupapp.com)");
-                    httpClient.DefaultRequestHeaders.Add("Twitch-UserID", (ChannelSession.TwitchUserNewAPI != null) ? ChannelSession.TwitchUserNewAPI.id : string.Empty);
-                    httpClient.DefaultRequestHeaders.Add("Twitch-UserLogin", (ChannelSession.TwitchUserNewAPI != null) ? ChannelSession.TwitchUserNewAPI.login : string.Empty);
+                    httpClient.DefaultRequestHeaders.Add("Twitch-UserID", ServiceManager.Get<TwitchSessionService>()?.UserID ?? string.Empty);
+                    httpClient.DefaultRequestHeaders.Add("Twitch-UserLogin", ServiceManager.Get<TwitchSessionService>().Username ?? string.Empty);
+                    httpClient.DefaultRequestHeaders.Add("Glimesh-UserID", ServiceManager.Get<GlimeshSessionService>()?.UserID ?? string.Empty);
+                    httpClient.DefaultRequestHeaders.Add("Glimesh-UserLogin", ServiceManager.Get<GlimeshSessionService>().Username ?? string.Empty);
+                    httpClient.DefaultRequestHeaders.Add("YouTube-UserID", ServiceManager.Get<YouTubeSessionService>()?.UserID ?? string.Empty);
+                    httpClient.DefaultRequestHeaders.Add("YouTube-UserLogin", ServiceManager.Get<YouTubeSessionService>().Username ?? string.Empty);
+                    httpClient.DefaultRequestHeaders.Add("Trovo-UserID", ServiceManager.Get<TrovoSessionService>()?.UserID ?? string.Empty);
+                    httpClient.DefaultRequestHeaders.Add("Trovo-UserLogin", ServiceManager.Get<TrovoSessionService>().Username ?? string.Empty);
 
-                    using (HttpResponseMessage response = await httpClient.GetAsync(await this.ReplaceStringWithSpecialModifiers(this.Url, parameters, encode: true)))
+                    string targetUrl = await ReplaceStringWithSpecialModifiers(this.Url, parameters, encode: true);
+                    using (HttpResponseMessage response = await httpClient.GetAsync(targetUrl))
                     {
                         if (response.IsSuccessStatusCode)
                         {
                             await this.ProcessContents(parameters, await response.Content.ReadAsStringAsync());
+                        }
+                        else
+                        {
+                            string body = string.Empty;
+                            try
+                            {
+                                body = await response.Content.ReadAsStringAsync();
+                            }
+                            catch { }
+
+                            Logger.Log(LogLevel.Error, $"{nameof(WebRequestActionModel)}: Failed to call '{targetUrl}'. Status code: {response.StatusCode}");
+                            Logger.Log(LogLevel.Error, $"Response Body: {body}");
                         }
                     }
                 }
@@ -98,57 +108,9 @@ namespace MixItUp.Base.Model.Actions
                 {
                     try
                     {
-                        JToken jToken = JToken.Parse(webRequestResult);
                         if (this.JSONToSpecialIdentifiers != null)
                         {
-                            foreach (var kvp in this.JSONToSpecialIdentifiers)
-                            {
-                                string key = await this.ReplaceStringWithSpecialModifiers(kvp.Key, parameters);
-                                string[] splits = key.Split(new char[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
-                                if (splits.Count() > 0)
-                                {
-                                    JToken currentToken = jToken;
-                                    for (int i = 0; i < splits.Count(); i++)
-                                    {
-                                        if (currentToken is JObject)
-                                        {
-                                            JObject jobjToken = (JObject)currentToken;
-                                            if (jobjToken.ContainsKey(splits[i]))
-                                            {
-                                                currentToken = jobjToken[splits[i]];
-                                            }
-                                            else
-                                            {
-                                                currentToken = null;
-                                                break;
-                                            }
-                                        }
-                                        else if (currentToken is JArray)
-                                        {
-                                            JArray jarrayToken = (JArray)currentToken;
-                                            if (int.TryParse(splits[i], out int index) && index >= 0 && index < jarrayToken.Count)
-                                            {
-                                                currentToken = jarrayToken[index];
-                                            }
-                                            else
-                                            {
-                                                currentToken = null;
-                                                break;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            currentToken = null;
-                                            break;
-                                        }
-                                    }
-
-                                    if (currentToken != null)
-                                    {
-                                        parameters.SpecialIdentifiers[kvp.Value] = await this.ReplaceStringWithSpecialModifiers(HttpUtility.HtmlDecode(currentToken.ToString()), parameters);
-                                    }
-                                }
-                            }
+                            await ProcessJSONToSpecialIdentifiers(webRequestResult, this.JSONToSpecialIdentifiers, parameters);
                         }
                     }
                     catch (Exception ex)
@@ -160,6 +122,74 @@ namespace MixItUp.Base.Model.Actions
                 {
                     parameters.SpecialIdentifiers[ResponseSpecialIdentifier] = decodedWebRequestResult;
                 }
+            }
+        }
+
+        public static async Task ProcessJSONToSpecialIdentifiers(string body, Dictionary<string, string> jsonToSpecialIdentifiers, CommandParametersModel parameters)
+        {
+            try
+            {
+                JToken jToken = JToken.Parse(body);
+
+                foreach (var kvp in jsonToSpecialIdentifiers)
+                {
+                    try
+                    {
+                        string key = await ReplaceStringWithSpecialModifiers(kvp.Key, parameters);
+                        string[] splits = key.Split(new char[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (splits.Count() > 0)
+                        {
+                            JToken currentToken = jToken;
+                            for (int i = 0; i < splits.Count(); i++)
+                            {
+                                if (currentToken is JObject)
+                                {
+                                    JObject jobjToken = (JObject)currentToken;
+                                    if (jobjToken.ContainsKey(splits[i]))
+                                    {
+                                        currentToken = jobjToken[splits[i]];
+                                    }
+                                    else
+                                    {
+                                        currentToken = null;
+                                        break;
+                                    }
+                                }
+                                else if (currentToken is JArray)
+                                {
+                                    JArray jarrayToken = (JArray)currentToken;
+                                    if (int.TryParse(splits[i], out int index) && index >= 0 && index < jarrayToken.Count)
+                                    {
+                                        currentToken = jarrayToken[index];
+                                    }
+                                    else
+                                    {
+                                        currentToken = null;
+                                        break;
+                                    }
+                                }
+                                else
+                                {
+                                    currentToken = null;
+                                    break;
+                                }
+                            }
+
+                            if (currentToken != null)
+                            {
+                                parameters.SpecialIdentifiers[kvp.Value] = await ReplaceStringWithSpecialModifiers(HttpUtility.HtmlDecode(currentToken.ToString()), parameters);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log(ex);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(ex);
             }
         }
     }

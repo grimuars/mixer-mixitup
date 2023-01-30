@@ -3,20 +3,17 @@ using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Settings.Generic;
 using MixItUp.Base.ViewModels;
 using StreamingClient.Base.Util;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 
 namespace MixItUp.Base.ViewModel.Settings
 {
     public class ChatSettingsControlViewModel : UIViewModelBase
     {
-        private Dictionary<string, int> fontSizes = new Dictionary<string, int>() { { "Normal", 13 }, { "Large", 16 }, { "XLarge", 20 }, { "XXLarge", 24 }, };
-
         public GenericToggleSettingsOptionControlViewModel SaveChatEventLogs { get; set; }
-        public GenericComboBoxSettingsOptionControlViewModel<string> FontSize { get; set; }
+        public GenericSliderSettingsOptionControlViewModel FontSize { get; set; }
         public GenericToggleSettingsOptionControlViewModel AddSeparatorsBetweenMessages { get; set; }
         public GenericToggleSettingsOptionControlViewModel UseAlternatingBackgroundColors { get; set; }
+        public GenericToggleSettingsOptionControlViewModel DisableAnimatedEmotes { get; set; }
 
         public GenericToggleSettingsOptionControlViewModel ShowLatestChatMessagesAtTop { get; set; }
         public GenericToggleSettingsOptionControlViewModel ShowMessageTimestamp { get; set; }
@@ -41,14 +38,11 @@ namespace MixItUp.Base.ViewModel.Settings
         {
             this.SaveChatEventLogs = new GenericToggleSettingsOptionControlViewModel(MixItUp.Base.Resources.SaveChatEventLogs, ChannelSession.Settings.SaveChatEventLogs,
                 (value) => { ChannelSession.Settings.SaveChatEventLogs = value; });
-            this.FontSize = new GenericComboBoxSettingsOptionControlViewModel<string>(MixItUp.Base.Resources.FontSize, this.fontSizes.Keys, this.fontSizes.FirstOrDefault(f => f.Value == ChannelSession.Settings.ChatFontSize).Key,
+            this.FontSize = new GenericSliderSettingsOptionControlViewModel(MixItUp.Base.Resources.FontSize, ChannelSession.Settings.ChatFontSize, 6, 100,
                 (value) =>
                 {
-                    if (this.fontSizes.ContainsKey(value))
-                    {
-                        ChannelSession.Settings.ChatFontSize = this.fontSizes[value];
-                        GlobalEvents.ChatVisualSettingsChanged();
-                    }
+                    ChannelSession.Settings.ChatFontSize = value;
+                    GlobalEvents.ChatVisualSettingsChanged();
                 });
             this.AddSeparatorsBetweenMessages = new GenericToggleSettingsOptionControlViewModel(MixItUp.Base.Resources.AddSeparatorsBetweenMessages, ChannelSession.Settings.AddSeparatorsBetweenMessages,
                 (value) =>
@@ -60,6 +54,12 @@ namespace MixItUp.Base.ViewModel.Settings
                 (value) =>
                 {
                     ChannelSession.Settings.UseAlternatingBackgroundColors = value;
+                    GlobalEvents.ChatVisualSettingsChanged();
+                });
+            this.DisableAnimatedEmotes = new GenericToggleSettingsOptionControlViewModel(MixItUp.Base.Resources.DisableAnimatedEmotes, ChannelSession.Settings.DisableAnimatedEmotes,
+                (value) =>
+                {
+                    ChannelSession.Settings.DisableAnimatedEmotes = value;
                     GlobalEvents.ChatVisualSettingsChanged();
                 });
 
@@ -117,21 +117,21 @@ namespace MixItUp.Base.ViewModel.Settings
                     GlobalEvents.ChatVisualSettingsChanged();
                 });
 
-            foreach (UserRoleEnum role in UserDataModel.GetSelectableUserRoles().OrderBy(r => r))
+            foreach (UserRoleEnum role in UserRoles.All.OrderBy(r => r))
             {
                 string name = EnumHelper.GetEnumName(role);
-                name = MixItUp.Base.Resources.ResourceManager.GetString(name) ?? name;
+                name = MixItUp.Base.Resources.ResourceManager.GetSafeString(name);
                 this.CustomUsernameColorsList.Add(new GenericColorComboBoxSettingsOptionControlViewModel(name,
-                    ChannelSession.Settings.CustomUsernameColors.ContainsKey(role) ? ChannelSession.Settings.CustomUsernameColors[role] : null,
+                    ChannelSession.Settings.CustomUsernameRoleColors.ContainsKey(role) ? ChannelSession.Settings.CustomUsernameRoleColors[role] : null,
                     (value) =>
                     {
                         if (!string.IsNullOrEmpty(value) && !value.Equals(GenericColorComboBoxSettingsOptionControlViewModel.NoneOption))
                         {
-                            ChannelSession.Settings.CustomUsernameColors[role] = value;
+                            ChannelSession.Settings.CustomUsernameRoleColors[role] = value;
                         }
                         else
                         {
-                            ChannelSession.Settings.CustomUsernameColors.Remove(role);
+                            ChannelSession.Settings.CustomUsernameRoleColors.Remove(role);
                         }
                         GlobalEvents.ChatVisualSettingsChanged();
                     }));

@@ -3,6 +3,7 @@ using MixItUp.Base.Model.Settings;
 using MixItUp.Base.Util;
 using StreamingClient.Base.Util;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace MixItUp.Base.ViewModel.Actions
@@ -10,6 +11,8 @@ namespace MixItUp.Base.ViewModel.Actions
     public class CounterActionEditorControlViewModel : ActionEditorControlViewModelBase
     {
         public override ActionTypeEnum Type { get { return ActionTypeEnum.Counter; } }
+
+        public ThreadSafeObservableCollection<string> Counters { get; set; } = new ThreadSafeObservableCollection<string>();
 
         public bool SaveToFile
         {
@@ -74,7 +77,7 @@ namespace MixItUp.Base.ViewModel.Actions
         public CounterActionEditorControlViewModel(CounterActionModel action)
             : base(action)
         {
-            this.CounterName = action.CounterName;
+            this.CounterName = action.CounterName?.ToLower();
             this.SelectedActionType = action.ActionType;
             this.Amount = action.Amount;
 
@@ -95,6 +98,12 @@ namespace MixItUp.Base.ViewModel.Actions
                 return Task.FromResult(new Result(MixItUp.Base.Resources.CounterActionMissingName));
             }
 
+            this.CounterName = this.CounterName.Replace("$", "");
+            if (!SpecialIdentifierStringBuilder.IsValidSpecialIdentifier(this.CounterName))
+            {
+                return Task.FromResult(new Result(MixItUp.Base.Resources.CounterActionInvalidName));
+            }
+
             if (this.CanSetAmount && string.IsNullOrEmpty(this.Amount))
             {
                 return Task.FromResult(new Result(MixItUp.Base.Resources.CounterActionMissingAmount));
@@ -103,17 +112,22 @@ namespace MixItUp.Base.ViewModel.Actions
             return Task.FromResult(new Result());
         }
 
+        protected override async Task OnOpenInternal()
+        {
+            foreach (var kvp in ChannelSession.Settings.Counters.ToList())
+            {
+                this.Counters.Add(kvp.Key);
+            }
+            await base.OnOpenInternal();
+        }
+
         protected override Task<ActionModelBase> GetActionInternal()
         {
-            if (!ChannelSession.Settings.Counters.ContainsKey(this.CounterName))
-            {
-                ChannelSession.Settings.Counters[this.CounterName] = new CounterModel(this.CounterName);
-            }
-            CounterModel counter = ChannelSession.Settings.Counters[this.CounterName];
-            counter.SaveToFile = this.SaveToFile;
-            counter.ResetOnLoad = this.ResetOnLoad;
+            string counterName = this.CounterName.ToLower();
 
-            return Task.FromResult<ActionModelBase>(new CounterActionModel(this.CounterName, this.SelectedActionType, this.Amount));
+            CounterModel.CreateCounter(counterName, this.SaveToFile, this.ResetOnLoad);
+
+            return Task.FromResult<ActionModelBase>(new CounterActionModel(counterName, this.SelectedActionType, this.Amount));
         }
     }
 }

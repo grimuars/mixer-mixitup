@@ -1,4 +1,6 @@
 ﻿using MixItUp.Base.Model.Actions;
+using MixItUp.Base.Services;
+using MixItUp.Base.Services.External;
 using MixItUp.Base.Util;
 using StreamingClient.Base.Util;
 using System.Collections.Generic;
@@ -24,6 +26,7 @@ namespace MixItUp.Base.ViewModel.Actions
                 this.NotifyPropertyChanged("OBSStudioNotEnabled");
                 this.NotifyPropertyChanged("XSplitNotEnabled");
                 this.NotifyPropertyChanged("StreamlabsOBSNotEnabled");
+                this.NotifyPropertyChanged("CanSpecifySceneName");
             }
         }
         private StreamingSoftwareTypeEnum selectedStreamingSoftwareType;
@@ -41,7 +44,10 @@ namespace MixItUp.Base.ViewModel.Actions
                 this.NotifyPropertyChanged("ShowSceneCollectionGrid");
                 this.NotifyPropertyChanged("ShowSceneGrid");
                 this.NotifyPropertyChanged("ShowSourceGrid");
+                this.NotifyPropertyChanged("CanSpecifySceneName");
                 this.NotifyPropertyChanged("ShowTextSourceGrid");
+                this.NotifyPropertyChanged("ShowImageSourceGrid");
+                this.NotifyPropertyChanged("ShowMediaSourceGrid");
                 this.NotifyPropertyChanged("ShowWebBrowserSourceGrid");
                 this.NotifyPropertyChanged("ShowSourceDimensionsGrid");
                 this.NotifyPropertyChanged("ShowSourceFilterGrid");
@@ -49,11 +55,11 @@ namespace MixItUp.Base.ViewModel.Actions
         }
         private StreamingSoftwareActionTypeEnum selectedActionType;
 
-        public bool OBSStudioNotEnabled { get { return this.GetCurrentlySelectedStreamingSoftwareType() == StreamingSoftwareTypeEnum.OBSStudio && !ChannelSession.Services.OBSStudio.IsConnected; } }
+        public bool OBSStudioNotEnabled { get { return this.GetCurrentlySelectedStreamingSoftwareType() == StreamingSoftwareTypeEnum.OBSStudio && !ServiceManager.Get<IOBSStudioService>().IsConnected; } }
 
-        public bool XSplitNotEnabled { get { return this.GetCurrentlySelectedStreamingSoftwareType() == StreamingSoftwareTypeEnum.XSplit && !ChannelSession.Services.XSplit.IsConnected; } }
+        public bool XSplitNotEnabled { get { return this.GetCurrentlySelectedStreamingSoftwareType() == StreamingSoftwareTypeEnum.XSplit && !ServiceManager.Get<XSplitService>().IsConnected; } }
 
-        public bool StreamlabsOBSNotEnabled { get { return this.GetCurrentlySelectedStreamingSoftwareType() == StreamingSoftwareTypeEnum.StreamlabsOBS && !ChannelSession.Services.StreamlabsOBS.IsConnected; } }
+        public bool StreamlabsOBSNotEnabled { get { return this.GetCurrentlySelectedStreamingSoftwareType() == StreamingSoftwareTypeEnum.StreamlabsDesktop && !ServiceManager.Get<StreamlabsDesktopService>().IsConnected; } }
 
         public bool ShowNotSupported
         {
@@ -83,7 +89,7 @@ namespace MixItUp.Base.ViewModel.Actions
                 }
                 else if (this.SelectedActionType == StreamingSoftwareActionTypeEnum.SceneCollection)
                 {
-                    if (streamingSoftware == StreamingSoftwareTypeEnum.XSplit || streamingSoftware == StreamingSoftwareTypeEnum.StreamlabsOBS)
+                    if (streamingSoftware == StreamingSoftwareTypeEnum.XSplit || streamingSoftware == StreamingSoftwareTypeEnum.StreamlabsDesktop)
                     {
                         return true;
                     }
@@ -97,7 +103,21 @@ namespace MixItUp.Base.ViewModel.Actions
                 }
                 else if (this.SelectedActionType == StreamingSoftwareActionTypeEnum.SourceFilterVisibility)
                 {
-                    if (streamingSoftware == StreamingSoftwareTypeEnum.XSplit || streamingSoftware == StreamingSoftwareTypeEnum.StreamlabsOBS)
+                    if (streamingSoftware == StreamingSoftwareTypeEnum.XSplit || streamingSoftware == StreamingSoftwareTypeEnum.StreamlabsDesktop)
+                    {
+                        return true;
+                    }
+                }
+                else if (this.SelectedActionType == StreamingSoftwareActionTypeEnum.ImageSource)
+                {
+                    if (streamingSoftware == StreamingSoftwareTypeEnum.XSplit)
+                    {
+                        return true;
+                    }
+                }
+                else if (this.SelectedActionType == StreamingSoftwareActionTypeEnum.MediaSource)
+                {
+                    if (streamingSoftware == StreamingSoftwareTypeEnum.XSplit)
                     {
                         return true;
                     }
@@ -132,7 +152,28 @@ namespace MixItUp.Base.ViewModel.Actions
         }
         private string sceneName;
 
-        public bool ShowSourceGrid { get { return this.SelectedActionType == StreamingSoftwareActionTypeEnum.SourceVisibility || this.ShowTextSourceGrid || this.ShowWebBrowserSourceGrid || this.ShowSourceDimensionsGrid; } }
+        public bool ShowSourceGrid
+        {
+            get
+            {
+                return this.SelectedActionType == StreamingSoftwareActionTypeEnum.SourceVisibility || this.ShowTextSourceGrid || this.ShowImageSourceGrid ||
+                    this.ShowMediaSourceGrid || this.ShowWebBrowserSourceGrid || this.ShowSourceDimensionsGrid;
+            }
+        }
+
+        public bool CanSpecifySceneName
+        {
+            get
+            {
+                StreamingSoftwareTypeEnum streamingSoftware = this.GetCurrentlySelectedStreamingSoftwareType();
+                if (streamingSoftware == StreamingSoftwareTypeEnum.OBSStudio && this.ShowWebBrowserSourceGrid)
+                {
+                    this.SceneName = null;
+                    return false;
+                }
+                return true;
+            }
+        }
 
         public string SourceName
         {
@@ -179,6 +220,32 @@ namespace MixItUp.Base.ViewModel.Actions
             }
         }
         private string sourceTextFilePath;
+
+        public bool ShowImageSourceGrid { get { return this.SelectedActionType == StreamingSoftwareActionTypeEnum.ImageSource; } }
+
+        public string SourceImageFilePath
+        {
+            get { return this.sourceImageFilePath; }
+            set
+            {
+                this.sourceImageFilePath = value;
+                this.NotifyPropertyChanged();
+            }
+        }
+        private string sourceImageFilePath;
+
+        public bool ShowMediaSourceGrid { get { return this.SelectedActionType == StreamingSoftwareActionTypeEnum.MediaSource; } }
+
+        public string SourceMediaFilePath
+        {
+            get { return this.sourceMediaFilePath; }
+            set
+            {
+                this.sourceMediaFilePath = value;
+                this.NotifyPropertyChanged();
+            }
+        }
+        private string sourceMediaFilePath;
 
         public bool ShowWebBrowserSourceGrid { get { return this.SelectedActionType == StreamingSoftwareActionTypeEnum.WebBrowserSource; } }
 
@@ -299,6 +366,14 @@ namespace MixItUp.Base.ViewModel.Actions
                     this.SourceText = action.SourceText;
                     this.SourceTextFilePath = action.SourceTextFilePath;
                 }
+                else if (this.ShowImageSourceGrid)
+                {
+                    this.SourceImageFilePath = action.SourceURL;
+                }
+                else if (this.ShowMediaSourceGrid)
+                {
+                    this.SourceMediaFilePath = action.SourceURL;
+                }
                 else if (this.ShowWebBrowserSourceGrid)
                 {
                     this.SourceWebPageFilePath = action.SourceURL;
@@ -322,11 +397,11 @@ namespace MixItUp.Base.ViewModel.Actions
 
         public StreamingSoftwareActionEditorControlViewModel() : base() { }
 
-        protected override async Task OnLoadedInternal()
+        protected override async Task OnOpenInternal()
         {
-            this.SourceGetCurrentDimensionsCommand = this.CreateCommand(async (parameter) =>
+            this.SourceGetCurrentDimensionsCommand = this.CreateCommand(async () =>
             {
-                if (string.IsNullOrEmpty(this.SourceName))
+                if (!string.IsNullOrEmpty(this.SourceName))
                 {
                     StreamingSoftwareSourceDimensionsModel dimensions = await StreamingSoftwareActionModel.GetSourceDimensions(this.SelectedStreamingSoftwareType, this.SceneName, this.SourceName);
                     if (dimensions != null)
@@ -339,7 +414,7 @@ namespace MixItUp.Base.ViewModel.Actions
                     }
                 }
             });
-            await base.OnLoadedInternal();
+            await base.OnOpenInternal();
         }
 
         public override Task<Result> Validate()
@@ -370,6 +445,20 @@ namespace MixItUp.Base.ViewModel.Actions
                     if (string.IsNullOrEmpty(this.SourceTextFilePath))
                     {
                         return Task.FromResult(new Result(MixItUp.Base.Resources.StreamingSoftwareActionMissingTextSourceFilePath));
+                    }
+                }
+                else if (this.ShowImageSourceGrid)
+                {
+                    if (string.IsNullOrEmpty(this.SourceImageFilePath))
+                    {
+                        return Task.FromResult(new Result(MixItUp.Base.Resources.StreamingSoftwareActionMissingImageSourceFilePath));
+                    }
+                }
+                else if (this.ShowMediaSourceGrid)
+                {
+                    if (string.IsNullOrEmpty(this.SourceMediaFilePath))
+                    {
+                        return Task.FromResult(new Result(MixItUp.Base.Resources.StreamingSoftwareActionMissingMediaSourceFilePath));
                     }
                 }
                 else if (this.ShowWebBrowserSourceGrid)
@@ -414,6 +503,14 @@ namespace MixItUp.Base.ViewModel.Actions
                 if (this.ShowTextSourceGrid)
                 {
                     return Task.FromResult<ActionModelBase>(StreamingSoftwareActionModel.CreateTextSourceAction(this.SelectedStreamingSoftwareType, this.SceneName, this.SourceName, this.SourceVisible, this.SourceText, this.SourceTextFilePath));
+                }
+                else if (this.ShowImageSourceGrid)
+                {
+                    return Task.FromResult<ActionModelBase>(StreamingSoftwareActionModel.CreateImageSourceAction(this.SelectedStreamingSoftwareType, this.SceneName, this.SourceName, this.SourceVisible, this.SourceImageFilePath));
+                }
+                else if (this.ShowMediaSourceGrid)
+                {
+                    return Task.FromResult<ActionModelBase>(StreamingSoftwareActionModel.CreateMediaSourceAction(this.SelectedStreamingSoftwareType, this.SceneName, this.SourceName, this.SourceVisible, this.SourceMediaFilePath));
                 }
                 else if (this.ShowWebBrowserSourceGrid)
                 {

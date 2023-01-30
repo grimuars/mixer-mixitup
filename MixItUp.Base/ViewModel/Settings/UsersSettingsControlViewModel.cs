@@ -1,13 +1,10 @@
 ﻿using MixItUp.Base.Model.User;
+using MixItUp.Base.Services;
 using MixItUp.Base.Util;
 using MixItUp.Base.ViewModel.Settings.Generic;
-using MixItUp.Base.ViewModel.Requirements;
-using MixItUp.Base.ViewModel.User;
 using MixItUp.Base.ViewModels;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Windows.Input;
 
 namespace MixItUp.Base.ViewModel.Settings
@@ -16,7 +13,7 @@ namespace MixItUp.Base.ViewModel.Settings
     {
         public string Name { get { return this.Title.Name; } }
 
-        public UserRoleEnum Role { get { return this.Title.Role; } }
+        public UserRoleEnum Role { get { return this.Title.UserRole; } }
 
         public string RoleString { get { return this.Title.RoleString; } }
 
@@ -35,10 +32,9 @@ namespace MixItUp.Base.ViewModel.Settings
             this.viewModel = viewModel;
             this.Title = title;
 
-            this.DeleteCommand = this.CreateCommand((parameter) =>
+            this.DeleteCommand = this.CreateCommand(() =>
             {
                 this.viewModel.DeleteTitle(this);
-                return Task.FromResult(0);
             });
         }
     }
@@ -73,7 +69,7 @@ namespace MixItUp.Base.ViewModel.Settings
         }
         private string titleName;
 
-        public IEnumerable<UserRoleEnum> Roles { get; private set; } = UserDataModel.GetSelectableUserRoles();
+        public IEnumerable<UserRoleEnum> Roles { get; private set; } = UserRoles.All;
         public UserRoleEnum SelectedRole
         {
             get { return this.selectedRole; }
@@ -110,30 +106,25 @@ namespace MixItUp.Base.ViewModel.Settings
 
         public ICommand AddCommand { get; set; }
 
-        public GenericButtonSettingsOptionControlViewModel ClearMixerUserData { get; set; }
-
         public GenericButtonSettingsOptionControlViewModel ClearUserData { get; set; }
 
         public UsersSettingsControlViewModel()
         {
-            this.ExplicitUserRoleRequirements = new GenericToggleSettingsOptionControlViewModel(MixItUp.Base.Resources.ExplicitUserRoleRequirements,
-                ChannelSession.Settings.ExplicitUserRoleRequirements, (value) => { ChannelSession.Settings.ExplicitUserRoleRequirements = value; }, MixItUp.Base.Resources.ExplicitUserRoleRequirementsTooltip);
-
-            this.ClearMixerUserData = new GenericButtonSettingsOptionControlViewModel(MixItUp.Base.Resources.ClearMixerUserDataHeader, MixItUp.Base.Resources.ClearMixerUserData, this.CreateCommand(async (parameter) =>
-            {
-                if (await DialogHelper.ShowConfirmation(MixItUp.Base.Resources.ClearAllMixerUserDataWarning))
+            this.ExplicitUserRoleRequirements = new GenericToggleSettingsOptionControlViewModel(
+                MixItUp.Base.Resources.ExplicitUserRoleRequirements,
+                ChannelSession.Settings.ExplicitUserRoleRequirements,
+                async (value) =>
                 {
-                    ChannelSession.Settings.ClearMixerUserData();
-                    await ChannelSession.SaveSettings();
-                    GlobalEvents.RestartRequested();
-                }
-            }));
+                    await DialogHelper.ShowMessage(MixItUp.Base.Resources.ExplicitUserRoleRequirementsTooltip);
+                    ChannelSession.Settings.ExplicitUserRoleRequirements = value;
+                },
+                MixItUp.Base.Resources.ExplicitUserRoleRequirementsTooltip);
 
-            this.ClearUserData = new GenericButtonSettingsOptionControlViewModel(MixItUp.Base.Resources.ClearAllUserDataHeader, MixItUp.Base.Resources.ClearUserData, this.CreateCommand(async (parameter) =>
+            this.ClearUserData = new GenericButtonSettingsOptionControlViewModel(MixItUp.Base.Resources.ClearAllUserDataHeader, MixItUp.Base.Resources.ClearUserData, this.CreateCommand(async () =>
             {
                 if (await DialogHelper.ShowConfirmation(MixItUp.Base.Resources.ClearAllUserDataWarning))
                 {
-                    await ChannelSession.Settings.ClearAllUserData();
+                    await ServiceManager.Get<UserService>().ClearAllUserData();
                     await ChannelSession.SaveSettings();
                     GlobalEvents.RestartRequested();
                 }
@@ -141,7 +132,7 @@ namespace MixItUp.Base.ViewModel.Settings
 
             this.RefreshTitleList();
 
-            this.AddCommand = this.CreateCommand(async (parameter) =>
+            this.AddCommand = this.CreateCommand(async () =>
             {
                 if (string.IsNullOrEmpty(this.TitleName))
                 {
@@ -164,7 +155,7 @@ namespace MixItUp.Base.ViewModel.Settings
                 UserTitleViewModel existingTitle = this.Titles.FirstOrDefault(t => t.Role.Equals(this.SelectedRole));
                 if (existingTitle != null)
                 {
-                    if (existingTitle.Role == UserRoleEnum.Follower || existingTitle.Role == UserRoleEnum.Subscriber)
+                    if (existingTitle.Role == UserRoleEnum.Follower || existingTitle.Role == UserRoleEnum.YouTubeSubscriber || existingTitle.Role == UserRoleEnum.Subscriber)
                     {
                         if (existingTitle.Months == this.MinimumMonths)
                         {
@@ -193,7 +184,7 @@ namespace MixItUp.Base.ViewModel.Settings
 
         private void RefreshTitleList()
         {
-            this.Titles.ClearAndAddRange(ChannelSession.Settings.UserTitles.OrderBy(t => t.Role).ThenBy(t => t.Months).Select(t => new UserTitleViewModel(this, t)));
+            this.Titles.ClearAndAddRange(ChannelSession.Settings.UserTitles.OrderBy(t => t.UserRole).ThenBy(t => t.Months).Select(t => new UserTitleViewModel(this, t)));
         }
     }
 }
